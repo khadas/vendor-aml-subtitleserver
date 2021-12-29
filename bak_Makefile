@@ -1,0 +1,221 @@
+################################################################################
+#
+# aml_subtitleserver
+#
+################################################################################
+LOCAL_PATH = $(shell pwd)
+LDFLAGS += -Wl,--no-as-needed -lstdc++ -lpthread -ldl -lrt -L$(STAGING_DIR)/usr/lib
+CFLAGS += -Wall -Wno-multichar -Wno-unknown-pragmas -Wno-format -Wno-format-security -Wno-error=unused-result -g\
+          -O0 -fexceptions -fnon-call-exceptions\
+          -std=c++11 -D_GNU_SOURCE -I$(STAGING_DIR)/usr/include
+
+LIBBINDER_LDFLAGS = -lbinder -llog -lzvbi
+
+LDFLAGS += $(LIBBINDER_LDFLAGS)
+
+################################################################################
+# libsubtitle.so - src files
+################################################################################
+subtitle_SRCS = \
+	$(LOCAL_PATH)/libsubtitle/SubtitleService.cpp \
+	$(LOCAL_PATH)/libsubtitle/SubtitleServer.cpp \
+	$(LOCAL_PATH)/libsubtitle/ipc/SocketServer.cpp \
+	$(LOCAL_PATH)/libsubtitle/ipc/IpcBuffer.cpp \
+	$(LOCAL_PATH)/libsubtitle/utils/ringbuffer.c \
+	$(LOCAL_PATH)/libsubtitle/utils/AndroidCallbackMessageQueue.cpp \
+	$(LOCAL_PATH)/libsubtitle/utils/Segment.cpp \
+	$(LOCAL_PATH)/libsubtitle/utils/MemoryLeakTrackUtil.cpp \
+	$(LOCAL_PATH)/libsubtitle/utils/VideoInfo.cpp \
+	$(LOCAL_PATH)/libsubtitle/io/FileSource.cpp \
+	$(LOCAL_PATH)/libsubtitle/io/SocketSource.cpp \
+	$(LOCAL_PATH)/libsubtitle/io/DeviceSource.cpp \
+	$(LOCAL_PATH)/libsubtitle/io/DataSourceFactory.cpp \
+	$(LOCAL_PATH)/libsubtitle/io/ExternalDataSource.cpp \
+	$(LOCAL_PATH)/libsubtitle/io/DemuxSource.cpp \
+	$(LOCAL_PATH)/libsubtitle/io/VbiSource.cpp \
+	$(LOCAL_PATH)/libsubtitle/display/AndroidDisplay.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/Subtitle.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/Presentation.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/bprint.c \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ParserFactory.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/AssParser.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/PgsParser.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/DvbParser.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/DvdParser.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/TeletextParser.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ClosedCaptionParser.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/Scte27Parser.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/UserDataAfd.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser/ExtParser.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser/StreamReader.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser/ExtSubFactory.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser/TextSubtitle.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser/Aqtitle.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser/SubStationAlpha.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser/Subrip.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser/Jacosub.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser/Mircodvd.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser/Mplayer1.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser/Mplayer2.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser/Mpsub.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser/Pjs.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser/RealText.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser/Sami.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser/SubViewer.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser/Lyrics.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser/Vplayer.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser/Subrip09.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser/SubViewer2.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser/SubViewer3.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser/WebVtt.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/render/AndroidHidlRemoteRender.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/render/waylandrender/WLRender.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/render/waylandrender/WLGLDevice.cpp \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/dvb/am_mw/am_cc/am_cc.c \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/dvb/am_mw/am_cc/cc_json.c \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/dvb/am_mw/am_scte27/am_scte27.c \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/dvb/am_adp/am_time/am_time.c \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/dvb/am_adp/am_userdata/am_userdata.c \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/dvb/am_adp/am_userdata/aml/aml.c \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/dvb/am_adp/am_evt/am_evt.c \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/dvb/am_adp/am_misc/am_misc.c \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/dvb/am_adp/am_misc/am_adplock.c \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/dvb/am_adp/am_misc/am_sig_handler.c \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/dvb/am_adp/am_dmx/am_dmx.c \
+	$(LOCAL_PATH)/libsubtitle/subtitle/parser/dvb/am_adp/am_dmx/linux_dvb/linux_dvb.c \
+	$(NULL)
+
+subtitle_HEADERS = \
+	-I$(LOCAL_PATH)/libsubtitle/subtitle \
+	-I$(LOCAL_PATH)/libsubtitle/subtitle/parser \
+	-I$(LOCAL_PATH)/libsubtitle/subtitle/render \
+	-I$(LOCAL_PATH)/libsubtitle/ipc \
+	-I$(LOCAL_PATH)/libsubtitle/io \
+	-I$(LOCAL_PATH)/libsubtitle/utils \
+	-I$(LOCAL_PATH)/libsubtitle/include \
+	-I$(LOCAL_PATH)/libsubtitle/display \
+	-I$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser \
+	-I$(LOCAL_PATH)/libsubtitle/subtitle/parser/dvb/include/am_adp \
+	-I$(LOCAL_PATH)/libsubtitle/subtitle/parser/dvb/include/am_mw \
+	-I$(LOCAL_PATH)/libsubtitle/subtitle/parser/dvb/android/ndk/include \
+	-I${LOCAL_PATH}/libsubtitle/port \
+        -I$(LOCAL_PATH)/libsubtitle \
+        -I$(LOCAL_PATH)/libsubtitle/subtitle \
+    -I$(LOCAL_PATH)/../zvbi/src \
+    -I$(LOCAL_PATH)/libsubtitle/subtitle/render/waylandrender \
+    -I$(LOCAL_PATH)/libsubtitle/subtitle/render/waylandrender/wayland_inc \
+        $(NULL)
+#	-I$(LOCAL_PATH)/../aml_commonlib/libbinder/include \
+#	-I$(LOCAL_PATH)/../aml_commonlib/logcat/include \
+#	-I$(LOCAL_PATH)/../aml_commonlib/liblog/include \
+#	$(NULL)
+
+subtitle_server_HEADER = \
+	    -I$(LOCAL_PATH)/libsubtitle/subtitle \
+        -I$(LOCAL_PATH)/libsubtitle/subtitle/parser \
+        -I$(LOCAL_PATH)/libsubtitle/subtitle/render \
+        -I$(LOCAL_PATH)/libsubtitle/ipc \
+        -I$(LOCAL_PATH)/libsubtitle/io \
+        -I$(LOCAL_PATH)/libsubtitle/utils \
+        -I$(LOCAL_PATH)/libsubtitle/include \
+        -I$(LOCAL_PATH)/libsubtitle/display \
+        -I$(LOCAL_PATH)/libsubtitle/subtitle/parser/ExtParser \
+        -I$(LOCAL_PATH)/libsubtitle/subtitle/parser/dvb/include/am_adp \
+        -I$(LOCAL_PATH)/libsubtitle/subtitle/parser/dvb/include/am_mw \
+        -I$(LOCAL_PATH)/libsubtitle/subtitle/parser/dvb/android/ndk/include \
+        -I${LOCAL_PATH}/libsubtitle/port \
+        -I$(LOCAL_PATH)/libsubtitle \
+        -I$(LOCAL_PATH)/libsubtitle/subtitle \
+        $(NULL)
+################################################################################
+# libsubtitleclient.so - src files
+################################################################################
+subtitleclient_SRCS  = \
+	$(LOCAL_PATH)/client/SubtitleClientLinux.cpp \
+        $(LOCAL_PATH)/client/SubtitleNativeAPI.cpp \
+        $(LOCAL_PATH)/libsubtitle/ISubtitleCallback.cpp \
+	$(LOCAL_PATH)/client/SubtitleReportAPI.cpp \
+        $(LOCAL_PATH)/client/AmSocketClient.cpp \
+	$(NULL)
+
+subtitleclient_HEADERS = \
+	-I$(LOCAL_PATH)/client/include \
+        -I$(LOCAL_PATH)/client  \
+        -I$(LOCAL_PATH)/libsubtitle \
+        -I$(LOCAL_PATH)/libsubtitle/include \
+        -I$(LOCAL_PATH)/libsubtitle/ipc/ \
+        -I$(LOCAL_PATH)/libsubtitle/io \
+        -I$(LOCAL_PATH)/libsubtitle/subtitle \
+        -I$(LOCAL_PATH)/libsubtitle/utils \
+	-I$(LOCAL_PATH)/libsubtitle/subtitle/parser \
+        -I$(LOCAL_PATH)/libsubtitle/subtitle/parser/dvb/include/am_adp \
+        -I$(LOCAL_PATH)/libsubtitle/subtitle/parser/dvb/include/am_mw \
+        -I$(LOCAL_PATH)/libsubtitle/subtitle/render \
+        -I$(LOCAL_PATH)/libsubtitle/display \
+        $(NULL)
+################################################################################
+# subtitleservice - src files
+################################################################################
+subtitleservice_SRCS  = \
+	$(LOCAL_PATH)/service/main_subtitleservice.cpp \
+	$(LOCAL_PATH)/service/SubtitleServiceLinux.cpp \
+	$(NULL)
+
+################################################################################
+# subtitletest - src files
+################################################################################
+subtitletest_SRCS  = \
+	$(LOCAL_PATH)/test/main_subtitletest.cpp \
+	$(NULL)
+
+
+# wayland lib path
+WAYLAND_LIB_DIR = ../../../../build-s4/tmp/work/armv7at2hf-neon-pokymllib32-linux-gnueabi/lib32-weston/8.0.0-r0/lib32-recipe-sysroot/usr/lib
+LDFLAGS += -L$(WAYLAND_LIB_DIR)
+
+# ---------------------------------------------------------------------
+#  Build rules
+BUILD_TARGETS = libsubtitle.so libsubtitleclient.so subtitleservice subtitletest
+
+.PHONY: all install uninstall clean
+
+libsubtitle.so: $(subtitle_SRCS)
+	$(CXX) \
+	$(CFLAGS) \
+	$(LDFLAGS) \
+	-shared -fPIC  \
+	$(subtitle_HEADERS) \
+	-lwayland-client \
+	-lwayland-egl \
+	-lEGL \
+	-lGLESv1_CM \
+	-o $@ $^ $(LDLIBS)
+
+libsubtitleclient.so: $(subtitleclient_SRCS) -lsubtitle
+	$(CXX) $(CFLAGS) $(LDFLAGS) -shared -fPIC $(subtitleclient_HEADERS) \
+	-o $@ $^ $(LDLIBS)
+
+subtitleservice: $(subtitleservice_SRCS) 
+	$(CXX) $(CFLAGS) $(LDFLAGS)  $(subtitle_server_HEADER) \
+	-lsubtitle -lsubtitleclient -L$(LOCAL_PATH) -o $@ $^ $(LDLIBS)
+
+subtitletest: $(subtitletest_SRCS) libsubtitleclient.so
+	$(CXX) $(CFLAGS) $(subtitleclient_HEADERS) $(subtitle_HEADERS) -L$(LOCAL_PATH) \
+	-lsubtitleclient $(LDFLAGS) -o $@ $^ $(LDLIBS)
+
+all: $(BUILD_TARGETS)
+
+clean:
+	rm -f *.o $(BUILD_TARGETS)
+
+install:
+	install -m 0644 libsubtitle.so $(TARGET_DIR)/usr/lib/
+	install -m 0644 libsubtitleclient.so $(TARGET_DIR)/usr/lib
+	install -m 755 subtitleservice $(TARGET_DIR)/usr/bin/
+	install -m 755 subtitletest $(TARGET_DIR)/usr/bin/
+
+uninstall:
+	rm -f $(TARGET_DIR)/usr/lib/libsubtitleclient.so
+	rm -f $(TARGET_DIR)/usr/lib/libsubtitle.so
+	rm -f $(TARGET_DIR)/usr/bin/subtitletest
+	rm -f $(TARGET_DIR)/usr/bin/subtitleservice

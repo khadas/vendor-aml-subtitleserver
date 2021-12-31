@@ -245,31 +245,30 @@ void AndroidCallbackMessageQueue::onSubtitleInfo(int what, int extra) {
     mLooper->sendMessage(this, Message(MSG_CHECK_SUBDATA));
 }
 
- int  AndroidCallbackMessageQueue::copyShareMemory(const char* data, int size){
-    int shmid ;
-    char *shmaddr ;
-    if ((0 == size ) || (data == nullptr)) {
+int AndroidCallbackMessageQueue::copyShareMemory(const char *data, int size) {
+    int shmid;
+    char *shmaddr = nullptr;
+    if ((0 == size) || (data == nullptr)) {
         return -1;
     }
-//  key_t key = ftok("/tmp/subtitle",0x03);
-//  shmid = shmget(IPC_PRIVATE, size, IPC_CREAT|IPC_EXCL|0666 ) ;
-    shmid = shmget(6549, size, IPC_CREAT |IPC_EXCL |0666) ;
-    if ( shmid < 0 )
-    {
-            ALOGE("get shm  ipc_id error size=%d,shmid=%d, error=%s",size,shmid,strerror(errno)) ;
-            return -1 ;
+    //  key_t key = ftok("/tmp/subtitle",0x03);
+    //  shmid = shmget(IPC_PRIVATE, size, IPC_CREAT|IPC_EXCL|0666 ) ;
+    shmid = shmget(6549, size, IPC_CREAT | IPC_EXCL | 0666);
+    if (shmid < 0) {
+        ALOGE("get shm  ipc_id error size=%d,shmid=%d, error=%s", size, shmid, strerror(errno));
+        return -1;
     }
-    shmaddr = (char *)shmat( shmid, NULL, 0 ) ;
-    if ( (int)shmaddr == -1 )
-    {
-        perror("shmat addr error") ;
-        return -1 ;
+    shmaddr = (char *) shmat(shmid, NULL, 0);
+    if (shmaddr == nullptr) {
+        perror("shmat addr error");
+        return -1;
     }
-    ALOGE(" AndroidCallbackMessageQueue:: %s,line %d\n",__FUNCTION__,__LINE__);
+    ALOGE(" AndroidCallbackMessageQueue:: %s,line %d\n", __FUNCTION__, __LINE__);
     memcpy(shmaddr, data, size);
-     shmdt( shmaddr );
-   return 0;
+    shmdt(shmaddr);
+    return 0;
 }
+
 
 bool AndroidCallbackMessageQueue::postDisplayData(const char *data,  int type,
         int x, int y, int width, int height,

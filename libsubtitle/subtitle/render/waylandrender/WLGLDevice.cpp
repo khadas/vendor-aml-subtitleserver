@@ -16,6 +16,15 @@ using namespace Cairo;
 #define ENV_XDG_RUNTIME_DIR "XDG_RUNTIME_DIR"
 #define ENV_WAYLAND_DISPLAY "WAYLAND_DISPLAY"
 
+static struct DisplayEnv {
+    const char* xdg_runtime_dir;
+    const char* wayland_display;
+} sCandidateEnvs[] = {
+        {"/run/user/0", "wayland-0"},
+        {"/run", "wst-launcher"},
+        {"/run", "wst-ResidentApp"},
+};
+
 WLGLDevice::WLGLDevice() {
     ALOGD("WLGLDevice +++");
     mInited = init();
@@ -32,8 +41,24 @@ bool WLGLDevice::init() {
 }
 
 bool WLGLDevice::initDisplay() {
-    if (!createDisplay()) {
-        ALOGE("createDisplay failed.");
+    int n = sizeof(sCandidateEnvs) / sizeof(sCandidateEnvs[0]);
+
+    bool displayInited = false;
+    for (int i = 0; i < n; ++i) {
+        struct DisplayEnv& env = sCandidateEnvs[i];
+        setupEnv(env.xdg_runtime_dir, env.wayland_display);
+
+        if (createDisplay()) {
+            ALOGD("createDisplay success for {%s, %s}", env.xdg_runtime_dir, env.wayland_display);
+            displayInited = true;
+            break;
+        } else {
+            ALOGE("createDisplay failed for {%s, %s}", env.xdg_runtime_dir, env.wayland_display);
+        }
+    }
+
+    if (!displayInited) {
+        ALOGE("Display init failed");
         return false;
     }
 
@@ -44,42 +69,48 @@ bool WLGLDevice::initDisplay() {
     return true;
 }
 
-void WLGLDevice::setupEnv() {
-    ALOGD("setupEnv");
-    setenv(ENV_XDG_RUNTIME_DIR, "/run/user/0", 1);
-    setenv(ENV_WAYLAND_DISPLAY, "wayland-0", 1);
+void WLGLDevice::setupEnv(const char* runtimeDir, const char* waylandDisplay) {
+    ALOGD("setupEnv, ENV_XDG_RUNTIME_DIR= %s, ENV_WAYLAND_DISPLAY= %s",
+            runtimeDir, waylandDisplay);
+
+    setenv(ENV_XDG_RUNTIME_DIR, runtimeDir, 1);
+    setenv(ENV_WAYLAND_DISPLAY, waylandDisplay, 1);
 }
 
 bool WLGLDevice::createDisplay() {
-    setupEnv();
-
-    display = wl_display_connect(NULL);
-    if (display == NULL) {
+    display = wl_display_connect(nullptr);
+    if (!display) {
         ALOGE("%s: display connect failed", __FUNCTION__ );
         return false;
     }
 
     static const struct wl_registry_listener registry_listener = {
             OnRegistry,
-            NULL,
+            nullptr,
     };
 
     struct wl_registry *registry = wl_display_get_registry(display);
+    if (!registry) {
+        ALOGE("%s: wl_display_get_registry failed", __FUNCTION__ );
+        return false;
+    }
     wl_registry_add_listener(registry, &registry_listener, this);
 
+    ALOGD("wl_display_roundtrip 111");
     wl_display_roundtrip(display);
     wl_registry_destroy(registry);
+    ALOGD("wl_display_roundtrip 222");
     return true;
 }
 
 void WLGLDevice::OnRegistry(void *data, struct wl_registry *registry, uint32_t name,
-                          const char *interface, uint32_t version) {
-    WLGLDevice* wl = static_cast<WLGLDevice *>(data);
-    if (strcmp(interface, wl_compositor_interface.name) == 0) {
+                          const char *interface, uint32_t /*version*/) {
+    auto* wl = static_cast<WLGLDevice *>(data);
+    int len= strlen(interface);
+    if (len == 13 && !strncmp(interface, "wl_compositor", len)) {
         wl->compositor =
-                (struct wl_compositor*)wl_registry_bind(registry, name,
-                                                        &wl_compositor_interface, 1);
-    } else if (strcmp(interface, wl_shell_interface.name) == 0) {
+                (struct wl_compositor*)wl_registry_bind(registry, name, &wl_compositor_interface, 1);
+    } else if ((len==8) && !strncmp(interface, "wl_shell", len)) {
         wl->shell = (struct wl_shell*)wl_registry_bind(registry, name, &wl_shell_interface, 1);
     }
 }
@@ -90,14 +121,14 @@ static void shellSurfacePing(void *data, struct wl_shell_surface *shell_surface,
 
 static void shellSurfaceConfigure(void *data, struct wl_shell_surface *shell_surface,
                                     uint32_t edges, int32_t width, int32_t height) {
-    WLGLDevice* device = static_cast<WLGLDevice*>(data);
+    auto* device = static_cast<WLGLDevice*>(data);
     wl_egl_window_resize(device->wlEglWindow, width, height, 0, 0);
 }
 
 static struct wl_shell_surface_listener shell_surface_listener = {
         &shellSurfacePing,
         &shellSurfaceConfigure,
-        NULL,
+        nullptr,
 };
 
 bool WLGLDevice::initEGL() {

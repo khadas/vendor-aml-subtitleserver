@@ -36,7 +36,7 @@ private:
 
     void onThreadExit();
 
-    void sendMessage(const AMLMessage &message);
+    void sendMessage(const AMLMessage &message, nsecs_t nsecs = 0);
 
     void wlInit();
 

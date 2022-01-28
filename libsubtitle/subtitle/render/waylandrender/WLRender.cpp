@@ -94,7 +94,7 @@ void WLRender::wlInit() {
     }
 
     sendMessage(AMLMessage(kWhat_clear));
-    ALOGD("Wayland init OK.");
+    ALOGD("RenderDevice init OK.");
 }
 
 bool WLRender::showSubtitleItem(std::shared_ptr<AML_SPUVAR> spu, int type) {
@@ -164,6 +164,10 @@ void WLRender::clearScreen() {
     mWLDevice->drawColor(0, 0, 0, 0);
 }
 
-void WLRender::sendMessage(const AMLMessage &message) {
-    mLooper->sendMessage(mHandler, message);
+void WLRender::sendMessage(const AMLMessage &message, nsecs_t nsecs) {
+    if (nsecs <= 0) {
+        mLooper->sendMessage(mHandler, message);
+    } else {
+        mLooper->sendMessageDelayed(nsecs, mHandler, message);
+    }
 }

@@ -57,7 +57,7 @@ public:
 private:
     bool initDisplay();
     bool initEGL();
-    void setupEnv();
+    void setupEnv(const char* runtimeDir, const char* waylandDisplay);
     bool createDisplay();
     static void OnRegistry(void *data, struct wl_registry *registry, uint32_t name,
                                 const char *interface, uint32_t version);

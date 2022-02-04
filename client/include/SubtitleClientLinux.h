@@ -20,6 +20,10 @@
 #include <vector>
 #include "ISubtitleCallback.h"
 
+#ifdef RDK_AML_SUBTITLE_SOCKET
+    #include "AmSubtitle.h"
+#endif //RDK_AML_SUBTITLE_SOCKET
+
 using namespace android;
 using android::IMemory;
 using std::vector;
@@ -168,7 +172,14 @@ class SubtitleCallback : public BnSubtitleCallback{
     void applyRenderType();
 
 private:
+
+    #ifdef RDK_AML_SUBTITLE_SOCKET
+    void SendMethodCall(char *CmdString, size_t cmdSize, native_handle_t* handle = nullptr);
+    AmSubtitle *mAmSubtitle;
+    #else
     int SendMethodCall(char *CmdString, native_handle_t* handle = nullptr);
+    #endif
+
     int SplitRetBuf(const char *commandData);
     char mRetBuf[128] = {0};
     std::string  mRet[10];

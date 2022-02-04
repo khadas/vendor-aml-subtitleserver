@@ -25,6 +25,11 @@ int main(int argc, char **argv) {
    serviceManager->addService(String16("subtitleservice"), mpSubtitleService);
 
    proc->startThreadPool();
+
+   #ifdef RDK_AML_SUBTITLE_SOCKET
+   mpSubtitleService->SubtitleServiceHandleMessage();
+   #endif
+
    IPCThreadState::self()->joinThreadPool();
 }
 

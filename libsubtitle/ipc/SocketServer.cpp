@@ -66,8 +66,14 @@ static inline void dump(const char *buf, int size) {
 
 static std::mutex _g_inst_mutex;
 
+// SubSocketServer::SubSocketServer() : mExitRequested(false), mIsServing(false) {
 SubSocketServer::SubSocketServer() : mExitRequested(false) {
     ALOGD("%s ?", __func__);
+
+    #ifdef RDK_AML_SUBTITLE_SOCKET
+    mIsServing = false;
+    #endif
+
     mEventsTracker = std::make_shared<EventsTracker>(SubSocketServer::handleEvent);
 }
 

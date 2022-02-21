@@ -64,7 +64,7 @@ void WLRender::AMLHandler::handleMessage(const AMLMessage &message) {
         case kWhat_thread_init:
             render->wlInit();
             break;
-        case kWhat_show_subtitle_item:
+        case kWhat_subtitle_refresh_item:
             render->drawItems();
             break;
         case kWhat_clear:
@@ -98,15 +98,20 @@ void WLRender::wlInit() {
 }
 
 bool WLRender::showSubtitleItem(std::shared_ptr<AML_SPUVAR> spu, int type) {
+    if (!spu) return false;
+
     mShowingSubs.push_back(spu);
     mParseType = type;
-    sendMessage(AMLMessage(kWhat_show_subtitle_item));
+    sendMessage(AMLMessage(kWhat_subtitle_refresh_item));
+
     return true;
 }
 
 bool WLRender::hideSubtitleItem(std::shared_ptr<AML_SPUVAR> spu) {
-    mShowingSubs.remove(spu);
-    sendMessage(AMLMessage(kWhat_show_subtitle_item));
+    if (!spu) return false;
+
+    mRemovedSubs.push_back(spu);
+    sendMessage(AMLMessage(kWhat_subtitle_refresh_item));
     return true;
 }
 
@@ -116,10 +121,15 @@ void WLRender::resetSubtitleItem() {
 }
 
 void WLRender::removeSubtitleItem(std::shared_ptr<AML_SPUVAR> spu) {
-    mShowingSubs.remove(spu);
+    if (!spu) return;
+
+    mRemovedSubs.push_back(spu);
+    sendMessage(AMLMessage(kWhat_subtitle_refresh_item));
 }
 
 void WLRender::drawItems() {
+    clearRemovedItems();
+
     if (mShowingSubs.empty()) {
         ALOGW("No any item can be draw.");
         clearScreen();
@@ -152,6 +162,16 @@ void WLRender::drawItems() {
     }
 
     ALOGD("After draw items: %d", mShowingSubs.size());
+}
+
+void WLRender::clearRemovedItems() {
+    if (mRemovedSubs.empty()) return;
+
+    for (auto& removedSub : mRemovedSubs) {
+        mShowingSubs.remove(removedSub);
+    }
+
+    mRemovedSubs.clear();
 }
 
 void WLRender::onThreadExit() {

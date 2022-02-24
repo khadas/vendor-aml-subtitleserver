@@ -6,6 +6,7 @@
 #include <list>
 #include <utils/Looper.h>
 #include <utils/StrongPointer.h>
+#include <utils/Mutex.h>
 
 using AMLooper = android::sp<android::Looper>;
 using AMLMessage = android::Message;
@@ -70,6 +71,8 @@ private:
 private:
     int mParseType;
     bool mRequestExit = false;
+
+    android::Mutex mRenderMutex;
 
     AMLooper mLooper;
     android::sp<AMLHandler> mHandler;

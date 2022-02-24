@@ -98,28 +98,41 @@ void WLRender::wlInit() {
 }
 
 bool WLRender::showSubtitleItem(std::shared_ptr<AML_SPUVAR> spu, int type) {
+    mRenderMutex.lock();
     mShowingSubs.push_back(spu);
+    mRenderMutex.unlock();
+
     mParseType = type;
     sendMessage(AMLMessage(kWhat_show_subtitle_item));
     return true;
 }
 
 bool WLRender::hideSubtitleItem(std::shared_ptr<AML_SPUVAR> spu) {
+    mRenderMutex.lock();
     mShowingSubs.remove(spu);
+    mRenderMutex.unlock();
+
     sendMessage(AMLMessage(kWhat_show_subtitle_item));
     return true;
 }
 
 void WLRender::resetSubtitleItem() {
+    mRenderMutex.lock();
     mShowingSubs.clear();
+    mRenderMutex.unlock();
+
     sendMessage(AMLMessage(kWhat_clear));
 }
 
 void WLRender::removeSubtitleItem(std::shared_ptr<AML_SPUVAR> spu) {
+    mRenderMutex.lock();
     mShowingSubs.remove(spu);
+    mRenderMutex.unlock();
 }
 
 void WLRender::drawItems() {
+    android::AutoMutex _l(mRenderMutex);
+
     if (mShowingSubs.empty()) {
         ALOGW("No any item can be draw.");
         clearScreen();

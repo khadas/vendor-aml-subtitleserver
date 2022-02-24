@@ -42,13 +42,11 @@ private:
 
     void drawItems();
 
-    void clearRemovedItems();
-
     void clearScreen();
 
     enum {
         kWhat_thread_init,
-        kWhat_subtitle_refresh_item,
+        kWhat_show_subtitle_item,
         kWhat_clear,
     };
 
@@ -77,7 +75,6 @@ private:
     android::sp<AMLHandler> mHandler;
     std::shared_ptr<WLGLDevice> mWLDevice;
     std::list<std::shared_ptr<AML_SPUVAR>> mShowingSubs;
-    std::list<std::shared_ptr<AML_SPUVAR>> mRemovedSubs;
 
     static WLRender* sInstance;
 };

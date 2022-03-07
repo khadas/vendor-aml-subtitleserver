@@ -363,6 +363,7 @@ bool SubtitleService::stopSubtitle() {
 
     if (mSubtiles != nullptr) {
         mSubtiles->dettachDataSource(mSubtiles);
+        mSubtiles = nullptr;
     }
 /*
     if (mFmqReceiver != nullptr && mDataSource != nullptr) {

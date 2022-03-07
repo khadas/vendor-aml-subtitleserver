@@ -198,7 +198,7 @@ void Subtitle::scheduleStart() {
 // Run in a new thread. any access to this object's member field need protected by lock
 void Subtitle::run() {
     // check exit
-    ALOGD("run mExitRequested:%d, mSubPrams->subType:%d", mExitRequested, mSubPrams->subType);
+    ALOGD("Enter: run mExitRequested:%d, mSubPrams->subType:%d", mExitRequested, mSubPrams->subType);
 
     while (!mExitRequested) {
         //std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -276,6 +276,8 @@ void Subtitle::run() {
         }
 
     }
+
+    ALOGD("Exit: run mExitRequested:%d, mSubPrams->subType:%d", mExitRequested, mSubPrams->subType);
 }
 
 void Subtitle::dump(int fd) {

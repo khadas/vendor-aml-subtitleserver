@@ -393,6 +393,8 @@ void WLGLDevice::drawText(const char *content, WLRect &videoOriginRect,
     uint8_t * data = textSurface.data();
     if (data) {
         drawImage(data, videoOriginRect, src, dst, flush);
+    } else {
+        ALOGE("%s, No data will to be drew", __FUNCTION__);
     }
 }
 

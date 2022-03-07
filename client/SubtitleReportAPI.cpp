@@ -340,13 +340,12 @@ SubSourceStatus SubSource_ReportLauguageString(SubSourceHandle handle, const cha
     return SUB_STAT_OK;
 }
 
-SubSourceStatus SubSource_SendData(SubSourceHandle handle, const char *mbuf, int length, int64_t pts) {
+SubSourceStatus SubSource_SendData(SubSourceHandle handle, const char *mbuf, int length, int64_t pts, enum CodecID sub_type) {
     SubtitleReportContext *ctx = (SubtitleReportContext *) handle;
     if (ctx == nullptr) return SUB_STAT_INV;
     if (LOGIT) ALOGD("SubSource SubSource_SendData %d %d", ctx->sId, length);
 
     std::lock_guard<std::mutex> guard(ctx->mLock);
-    unsigned int sub_type;
     float duration = 0;
     int64_t sub_pts = 0;
     int64_t start_time = 0;
@@ -355,7 +354,7 @@ SubSourceStatus SubSource_SendData(SubSourceHandle handle, const char *mbuf, int
             ALOGE("[sendToSubtitleService]not enough data.data_size:%d\n", length);
         return SUB_STAT_INV;
     }
-    sub_type = CODEC_ID_DVB_SUBTITLE;//streamCodecID;
+//    sub_type = CODEC_ID_DVB_SUBTITLE;//streamCodecID;
     if (sub_type == CODEC_ID_DVD_SUBTITLE) {
         mSubType = 0;
     } else if (sub_type == CODEC_ID_HDMV_PGS_SUBTITLE) {
@@ -368,7 +367,7 @@ SubSourceStatus SubSource_SendData(SubSourceHandle handle, const char *mbuf, int
         mSubType = 3;
     } else if (sub_type == CODEC_ID_DVB_SUBTITLE) {
         mSubType = 5;
-    } else if (sub_type == 0x17005) {
+    } else if (sub_type == CODEC_ID_MOV_TEXT) {
         mSubType = 7;
     }  else if (sub_type == CODEC_ID_DVB_TELETEXT) {
         mSubType = 9; //SUBTITLE_DVB_TELETEXT
@@ -379,17 +378,17 @@ SubSourceStatus SubSource_SendData(SubSourceHandle handle, const char *mbuf, int
    //    ALOGE("[sendToSubtitleService]sub_type:0x%x, data_size:%d, sub_pts:%" PRId64 "\n", sub_type, data_size, pts);
    // }
 
-    if (sub_type == 0x17000) {
-        sub_type = 0x1700a;
+    if (sub_type == CODEC_ID_DVD_SUBTITLE) {
+        sub_type = static_cast<CodecID>(0x1700a); // Invalid
     }
-    else if (sub_type == 0x17002) {
+    else if (sub_type == CODEC_ID_TEXT) {
         mLastDuration = 0;//(unsigned)pktConvergenceDuration * 90;
     }
     //0x1780d:mkv internel  ass  0x17808:internal UTF-8
-    else if (sub_type == 0x1780d || sub_type == 0x17808) {
+    else if (sub_type == CODEC_ID_ASS || sub_type == CODEC_ID_SUBRIP) {
         mLastDuration = 0;//(unsigned)pktDuration * 90;     //time(ms) convert to pts, need   *90
     }
-    else if (sub_type == 0x17003) {
+    else if (sub_type == CODEC_ID_XSUB) {
         return SUB_STAT_INV;                                   //not need to support xsub
     }
     unsigned char sub_header[24] = {0x41, 0x4d, 0x4c, 0x55, 0x77, 0};

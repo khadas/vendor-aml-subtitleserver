@@ -68,7 +68,8 @@ SubSourceStatus SubSource_ReportLauguageString(SubSourceHandle handle, const cha
 
 
 //SubSourceStatus SubSource_SendData(SubSourceHandle handle, const char *data, int size);
-SubSourceStatus SubSource_SendData(SubSourceHandle handle, const char *mbuf, int length, int64_t pts) ;
+SubSourceStatus SubSource_SendData(SubSourceHandle handle, const char *mbuf, int length, int64_t pts,
+        enum CodecID sub_type = CODEC_ID_DVB_SUBTITLE) ;
 
 
 #ifdef __cplusplus

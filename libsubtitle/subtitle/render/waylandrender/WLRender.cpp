@@ -155,8 +155,8 @@ void WLRender::drawItems() {
 
         WLRect screenRect = mWLDevice->screenRect();
         if ((*it)->isSimpleText) {
-            ALOGD("Text type");
             auto text = reinterpret_cast<const char *>((*it)->spu_data);
+            ALOGD("Text type: '%s'", text);
             mWLDevice->drawText(text, originDisplayRect, rect, screenRect);
         } else {
             ALOGD("Image type");

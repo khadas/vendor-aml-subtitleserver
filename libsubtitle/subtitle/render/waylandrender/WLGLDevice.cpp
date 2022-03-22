@@ -131,6 +131,40 @@ static struct wl_shell_surface_listener shell_surface_listener = {
         nullptr,
 };
 
+void WLGLDevice::getScreenSize(size_t *width, size_t *height) {
+    // From env WESTEROS_GL_GRAPHICS_MAX_SIZE
+    const char *env = getenv("WESTEROS_GL_GRAPHICS_MAX_SIZE");
+    if (env) {
+        int w = 0, h = 0;
+        if (sscanf(env, "%dx%d", &w, &h) == 2) {
+            ALOGV("getScreenSize, from env WESTEROS_GL_GRAPHICS_MAX_SIZE: [%dx%d]", w, h);
+            if ((w > 0) && (h > 0)) {
+                *width = w;
+                *height = h;
+                return;
+            }
+        }
+    }
+
+    {// From EGL
+        EGLint w, h;
+        eglQuerySurface(display, surface, EGL_WIDTH, &w);
+        eglQuerySurface(display, surface, EGL_HEIGHT, &h);
+
+        ALOGV("getScreenSize, from eglQuerySurface: [%dx%d]", w, h);
+
+        if (w > 0 || h > 0) {
+            *width = w;
+            *height = h;
+            return;
+        }
+    }
+
+    ALOGV("getScreenSize, from defult: [%dx%d]", WIDTH, HEIGHT);
+    *width = WIDTH;
+    *height = HEIGHT;
+}
+
 bool WLGLDevice::initEGL() {
     EGLConfig config;
     EGLBoolean ret;
@@ -169,15 +203,8 @@ bool WLGLDevice::initEGL() {
         return false;
     }
 
-    EGLint width, height;
-    eglQuerySurface(display, surface, EGL_WIDTH, &width);
-    eglQuerySurface(display, surface, EGL_HEIGHT, &height);
-
-    if (width <= 0 || height<= 0) {
-        width = WIDTH;
-        height = HEIGHT;
-    }
-
+    size_t width, height;
+    getScreenSize(&width, &height);
     mScreenRect.set(0, 0, width, height);
     mScreenGLRect.set(0, height, width, 0);
 

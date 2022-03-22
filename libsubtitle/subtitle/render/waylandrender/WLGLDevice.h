@@ -65,6 +65,7 @@ private:
     void releaseEGL();
     void releaseWL();
     void glAssert(const char* where = nullptr);
+    void getScreenSize(size_t *width, size_t *height);
 
     struct Texture {
         GLuint texture;

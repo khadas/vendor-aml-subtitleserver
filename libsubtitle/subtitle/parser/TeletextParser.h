@@ -27,6 +27,10 @@
 #define MAX_SLICES 64
 #define ATV_TELETEXT_DATA_LEN 42
 
+#define TELETEXT_SUBTITLE_MAX_NUMBER 800
+#define TELETEXT_SUBTITLE_PAGE_SHOW_TIME 3 //Unit is second
+
+
 
 struct TeletextPage {
     AVSubtitleRect *subRect;
@@ -134,16 +138,22 @@ struct TeletextContext {
     int             dispUpdate;
     int             dispMode;  //1:whole gfx, 0:only page
     char            time[8];
-
+    std::chrono::time_point<std::chrono::system_clock> lasttime;
     int             removewHeights;  //for double height and double sroll
     int             heightIndex;  //for double height and double sroll
 
     int             gotoPage;
-    int             atvSubtitlePage;
+    int             gotoGraphicsSubtitlePage;
+    int             subtitlePageNumber;
+    bool            subtitlePageNumberShowTimeOutFlag;
+    bool            resetShowSubtitlePageNumberTimeFlag;
+    bool            gotoAtvSubtitleFlg;
+    bool            gotoDtvSubtitleFlg;
 
     bool            isSubtitle;
 
     bool            atvTeletext;
+    bool            dtvTeletext;
     bool            reveal;
     bool            flash;
     vbi_search      *search;
@@ -174,7 +184,10 @@ public:
     int nextPageLocked(int dir, bool fetch=true);
     int nextSubPageLocked(int dir);
     int gotoPageLocked(int pageNum, int subPageNum);
-    int gotoDefaultSubtitleLocked();
+    int gotoDefaultAtvSubtitleLocked(int atvSubtitlePageId);
+    int gotoDefaultDtvSubtitleLocked(int dtvSubtitlePageId);
+    bool isRedundantSubtitlePage(int array[], int pageNumber, int n);
+    void selectSortSubtitlePage(int array[], int n);
     int getSubPageInfoLocked();
     int fetchVbiPageLocked(int pageNum, int subPageNum);
     void notifyTeletextLoadState(int val);
@@ -188,16 +201,19 @@ public:
 
 
 private:
-    int getSpu(std::shared_ptr<AML_SPUVAR> spu);
+    int getSpu();
     int getInterSpu();
 
     void checkDebug();
 
-    int getDvbTeletextSpu(std::shared_ptr<AML_SPUVAR> spu);
+    int getDvbTeletextSpu();
     int softDemuxParse(std::shared_ptr<AML_SPUVAR> spu);
     int hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu);
     int atvHwDemuxParse(std::shared_ptr<AML_SPUVAR> spu);
     int teletextDecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char *psrc, const int size);
+
+
+    bool handleControl();
 
     // event handler, need calling when hold the lock
     int fetchCountPageLocked(int dir, int count);
@@ -227,9 +243,11 @@ private:
     int mDumpSub;
     int mIndex;
     int mGotoPageNum;
+    int mUpdateParamCount;
     static TeletextParser *sInstance;
 
     std::mutex mMutex;
+    std::list<std::shared_ptr<TeletextParam>> mControlCmds;
 
     std::stack<TeletextCachedPageT> mBackPageStk;
     std::stack<TeletextCachedPageT> mForwardPageStk;

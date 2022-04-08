@@ -23,6 +23,7 @@ typedef struct alm_spuvar
     bool     isImmediatePresent;
     bool     isExtSub;
     bool     isKeepShowing; //no auto fading out, until close
+    bool     isTtxSubtitle;
 
     int64_t m_delay;
     unsigned char *spu_data;
@@ -49,11 +50,13 @@ typedef struct alm_spuvar
     unsigned char subtitle_type;
     unsigned char reser[2];
 
+/*
     unsigned rgba_enable;
     unsigned rgba_background;
     unsigned rgba_pattern1;
     unsigned rgba_pattern2;
     unsigned rgba_pattern3;
+    */
 
     //for vob
     int resize_height;
@@ -63,6 +66,8 @@ typedef struct alm_spuvar
     int resize_size;
 
     int disPlayBackground;
+    //for qtone data inserted in cc data.
+    bool isQtoneData;
 
     alm_spuvar() : sync_bytes(0), buffer_size(0), useMalloc(true), isSimpleText(false),
             pid(0), pts(0), isImmediatePresent(false), isExtSub(false), isKeepShowing(false),

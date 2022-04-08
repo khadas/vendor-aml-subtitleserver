@@ -7,7 +7,7 @@
  * Description:
  */
 #define LOG_MOUDLE_TAG "SUBTITLE"
-#define LOG_CLASS_TAG "SubtitleServiceLinux"
+#define LOG_TAG "SubtitleServiceLinux"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -248,7 +248,7 @@ int SubtitleServiceLinux::ParserSubtitleCommand(const char *commandData, native_
             ret = SetCmd(subtitleParam, handle);
         } else if (strcmp(mSubtitleCommand[1].c_str(), "get") == 0) {
             ret = GetCmd(subtitleParam);
-        } else if (strcmp(mSubtitleCommand[1].c_str(), "ttctrl") == 0) {
+        } else if (strcmp(mSubtitleCommand[1].c_str(), "ttcontrol") == 0) {
             ret = SetTeleCmd(subtitleParam);
         } else if (strcmp(mSubtitleCommand[1].c_str(), "afdctrl") == 0) {
             ret = GetCmd(subtitleParam);

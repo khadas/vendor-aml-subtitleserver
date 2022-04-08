@@ -23,7 +23,7 @@
 #include <sys/shm.h>
 
 #define format_string(format, ...) \
-    ({char fmt_buf[32] = {0}; sprintf(fmt_buf, format, ##__VA_ARGS__); fmt_buf;})
+    ({char fmt_buf[256] = {0}; sprintf(fmt_buf, format, ##__VA_ARGS__); fmt_buf;})
 
 const int RET_SUCCESS = 0;
 const int RET_FAILED = -1;
@@ -258,7 +258,7 @@ int SubtitleClientLinux::setClosedCaptionVfmt(int32_t vfmt) {
 
 int SubtitleClientLinux::ttControl(int cmd, int magazine, int page, int regionId, int param) {
     int ret = SendMethodCall(
-            format_string("subtitle.ttcontrol.%d",
+            format_string("subtitle.ttcontrol.%d.%d.%d.%d.%d.%d.%d",
                           SUBTITLE_TTCONTROL, mSessionId, cmd, magazine, page, regionId, param));
     ALOGE("SubtitleClientLinux: ret %d.\n", ret);
     return ret;

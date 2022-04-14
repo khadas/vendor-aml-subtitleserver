@@ -12,7 +12,12 @@
 
 #include "SocketSource.h"
 #include "SocketServer.h"
+#ifndef RDK_AML_SUBTITLE_SOCKET
 static const std::string SYSFS_VIDEO_PTS = "/sys/class/tsync/pts_video";
+#else
+// RDK workaround solution: use pts_pcrscr_u64 instead of pts_video, as pts_video is always 0x0
+static const std::string SYSFS_VIDEO_PTS = "/sys/class/tsync/pts_pcrscr_u64";
+#endif //RDK_AML_SUBTITLE_SOCKET
 
 static inline unsigned int make32bitValue(const char *buffer) {
     return buffer[0] | (buffer[1]<<8) | (buffer[2]<<16) | (buffer[3]<<24);

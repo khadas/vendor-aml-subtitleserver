@@ -23,6 +23,7 @@ static struct DisplayEnv {
         {"/run/user/0", "wayland-0"},
         {"/run", "wst-launcher"},
         {"/run", "wst-ResidentApp"},
+        {"/run", "sub_overlay"},
 };
 
 WLGLDevice::WLGLDevice() {
@@ -40,24 +41,44 @@ bool WLGLDevice::init() {
     return initDisplay();
 }
 
-bool WLGLDevice::initDisplay() {
-    int n = sizeof(sCandidateEnvs) / sizeof(sCandidateEnvs[0]);
+bool WLGLDevice::connectDisplay() {
+    bool displayConnected = false;
 
-    bool displayInited = false;
-    for (int i = 0; i < n; ++i) {
-        struct DisplayEnv& env = sCandidateEnvs[i];
-        setupEnv(env.xdg_runtime_dir, env.wayland_display);
-
+    const char *runtimeDir = getenv(ENV_XDG_RUNTIME_DIR);
+    const char *waylandDisplay = getenv(ENV_WAYLAND_DISPLAY);
+    if (runtimeDir != nullptr && strlen(runtimeDir) > 0
+        && waylandDisplay != nullptr && strlen(waylandDisplay) > 0) {
+        ALOGD("createDisplay with preset env");
         if (createDisplay()) {
-            ALOGD("createDisplay success for {%s, %s}", env.xdg_runtime_dir, env.wayland_display);
-            displayInited = true;
-            break;
+            ALOGD("createDisplay success for {%s, %s}", runtimeDir, waylandDisplay);
+            displayConnected = true;
         } else {
-            ALOGE("createDisplay failed for {%s, %s}", env.xdg_runtime_dir, env.wayland_display);
+            ALOGE("createDisplay failed for {%s, %s}", runtimeDir, waylandDisplay);
         }
     }
 
-    if (!displayInited) {
+    if (!displayConnected) {
+        ALOGD("createDisplay with candidate envs");
+        int n = sizeof(sCandidateEnvs) / sizeof(sCandidateEnvs[0]);
+        for (int i = 0; i < n; ++i) {
+            struct DisplayEnv& env = sCandidateEnvs[i];
+            setupEnv(env.xdg_runtime_dir, env.wayland_display);
+
+            if (createDisplay()) {
+                ALOGD("createDisplay success for {%s, %s}", env.xdg_runtime_dir, env.wayland_display);
+                displayConnected = true;
+                break;
+            } else {
+                ALOGE("createDisplay failed for {%s, %s}", env.xdg_runtime_dir, env.wayland_display);
+            }
+        }
+    }
+
+    return displayConnected;
+}
+
+bool WLGLDevice::initDisplay() {
+    if (!connectDisplay()) {
         ALOGE("Display init failed");
         return false;
     }

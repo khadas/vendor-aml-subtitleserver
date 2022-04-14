@@ -168,6 +168,13 @@ bool Presentation::syncCurrentPresentTime(int64_t pts) {
             pts, ns2ms(mCurrentPresentRelativeTime), ns2ms(systemTime(SYSTEM_TIME_MONOTONIC)));
     }
 
+    //source stream is broken
+    if (pts == 0) {
+        if (mRender != nullptr && mRender->getType() == Render::DIRECT_RENDER) {
+            mRender->resetSubtitleItem();
+        }
+    }
+
     // external subtitle, just polling and showing the subtitle.
     if (mParser != nullptr && mParser->isExternalSub()) {
         std::unique_lock<std::mutex> autolock(mMutex);

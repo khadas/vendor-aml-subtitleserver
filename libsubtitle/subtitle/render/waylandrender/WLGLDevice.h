@@ -56,6 +56,7 @@ public:
     struct wl_egl_window* wlEglWindow = nullptr;
 private:
     bool initDisplay();
+    bool connectDisplay();
     bool initEGL();
     void setupEnv(const char* runtimeDir, const char* waylandDisplay);
     bool createDisplay();

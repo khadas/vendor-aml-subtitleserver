@@ -17,6 +17,8 @@ include_directories(
         ../libsubtitle/subtitle/parser/dvb/include/am_mw
         ../libsubtitle/subtitle/render
         ../libsubtitle/display
+        ../client
+
 )
 
 set(subtitleclient_srcs
@@ -25,6 +27,7 @@ set(subtitleclient_srcs
         ../libsubtitle/ISubtitleCallback.cpp
         SubtitleReportAPI.cpp
         AmSocketClient.cpp
+        AmSubtitle.cpp
         )
 
 set(TARGET subtitleclient)

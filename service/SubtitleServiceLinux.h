@@ -14,7 +14,19 @@
 #include <binder/Parcel.h>
 #include "SubtitleServer.h"
 
+#ifdef RDK_AML_SUBTITLE_SOCKET
+#include <utils/Thread.h>
+#include <mutex>
+#include <thread>
+
+using android::Thread;
+using android::Mutex;
+static const int LISTEN_PORT_CMD = 10200;
+#endif //RDK_AML_SUBTITLE_SOCKET
+
 using namespace android;
+
+
 
 typedef struct subtitle_moudle_param_s {
     int moudleId;        //moudleId according to subtitlecmd.h
@@ -24,8 +36,14 @@ typedef struct subtitle_moudle_param_s {
 
 class SubtitleServiceLinux: public BBinder{
 public:
+
     SubtitleServiceLinux();
     ~SubtitleServiceLinux();
+
+    #ifdef RDK_AML_SUBTITLE_SOCKET
+    static const int  QUEUE_SIZE = 10;
+    int SubtitleServiceHandleMessage();
+    #endif //RDK_AML_SUBTITLE_SOCKET
     static SubtitleServiceLinux *GetInstance();
 
     enum command {
@@ -34,11 +52,29 @@ public:
     };
 
 private:
+    #ifdef RDK_AML_SUBTITLE_SOCKET
+    void ParserSubtitleCommand(const char *commandData, native_handle_t* handle = nullptr);
+
+    bool threadLoopCmd();
+    void __threadLoopCmd();
+    int clientConnectedCmd(int sockfd);
+
+    char mRetBuf[128] = {0};
+
+    std::thread mThread;
+    bool mExitRequested;
+    std::list<std::shared_ptr<std::thread>> mClientThreads;
+    std::mutex mLock;
+    char* GetCmd(subtitle_moudle_param_t param);
+
+    #else
     int ParserSubtitleCommand(const char *commandData, native_handle_t* handle = nullptr);
+    int GetCmd(subtitle_moudle_param_t param);
+    #endif //RDK_AML_SUBTITLE_SOCKET
+
     int SplitCommand(const char *commandData);
     int SetCmd(subtitle_moudle_param_t param, native_handle_t* handle);
     int SetTeleCmd(subtitle_moudle_param_t param);
-    int GetCmd(subtitle_moudle_param_t param);
 
     sp<IBinder> evtCallBack;
 
@@ -47,5 +83,6 @@ private:
                                 const Parcel& data, Parcel* reply,
                                 uint32_t flags = 0);
     std::string mSubtitleCommand[10];
+
 };
 #endif

@@ -14,6 +14,15 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <cutils/native_handle.h>
+
+#ifdef RDK_AML_SUBTITLE_SOCKET
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/poll.h>
+#endif //RDK_AML_SUBTITLE_SOCKET
+
 #include "SubtitleServiceLinux.h"
 #include "subtitlecmd.h"
 #include "SubtitleServer.h"
@@ -33,6 +42,9 @@ SubtitleServiceLinux *SubtitleServiceLinux::GetInstance() {
 }
 
 SubtitleServiceLinux::SubtitleServiceLinux() {
+    #ifdef RDK_AML_SUBTITLE_SOCKET
+    mExitRequested = false;
+    #endif //RDK_AML_SUBTITLE_SOCKET
     mpSubtitlecontrol = SubtitleServer::Instance();
 }
 
@@ -42,7 +54,26 @@ SubtitleServiceLinux::~SubtitleServiceLinux() {
         delete mpSubtitlecontrol;
         mpSubtitlecontrol = NULL;
     }
+    #ifdef RDK_AML_SUBTITLE_SOCKET
+    mExitRequested = true;
+    mThread.join();
+    #endif //RDK_AML_SUBTITLE_SOCKET
 }
+
+
+//TODO proof-of-concept solution for subtitles via socket
+#ifdef RDK_AML_SUBTITLE_SOCKET
+int SubtitleServiceLinux::SubtitleServiceHandleMessage()
+{
+    // Open cmd socket communication
+    mThread = std::thread(&SubtitleServiceLinux::__threadLoopCmd, this);
+
+    //while (1) {
+    //    usleep(500*1000);
+    //}
+    return 0;
+}
+#endif //#ifdef RDK_AML_SUBTITLE_SOCKET
 
 int SubtitleServiceLinux::SplitCommand(const char *commandData) {
     char cmdbuff[1024];
@@ -184,8 +215,12 @@ int SubtitleServiceLinux::SetCmd(subtitle_moudle_param_t param, native_handle_t 
 
     return ret;
 }
-
+#ifdef RDK_AML_SUBTITLE_SOCKET
+char* SubtitleServiceLinux::GetCmd(subtitle_moudle_param_t param) {
+#else
 int SubtitleServiceLinux::GetCmd(subtitle_moudle_param_t param) {
+#endif
+
     int ret = 0;
     int moudleId = param.moudleId;
 
@@ -221,15 +256,29 @@ int SubtitleServiceLinux::GetCmd(subtitle_moudle_param_t param) {
         ret = -1;
     }
 
+    #ifdef RDK_AML_SUBTITLE_SOCKET
+    sprintf(mRetBuf, "%d", ret);
+    return mRetBuf;
+    #else
     return ret;
+    #endif
+
 }
 
+#ifdef RDK_AML_SUBTITLE_SOCKET
+void SubtitleServiceLinux::ParserSubtitleCommand(const char *commandData, native_handle_t *handle) {
+#else
 int SubtitleServiceLinux::ParserSubtitleCommand(const char *commandData, native_handle_t *handle) {
+#endif //RDK_AML_SUBTITLE_SOCKET
+
     ALOGD(" SubtitleServiceLinux %s: cmd data is %s\n", __FUNCTION__, commandData);
 
     int cmd_size = 0;
     int ret = 0;
     int i = 0;
+    #ifdef RDK_AML_SUBTITLE_SOCKET
+    char* ret_char;
+    #endif //RDK_AML_SUBTITLE_SOCKET
     //split command
     cmd_size = SplitCommand(commandData);
     //parse command
@@ -242,6 +291,27 @@ int SubtitleServiceLinux::ParserSubtitleCommand(const char *commandData, native_
     }
     ALOGD(" SubtitleServiceLinux %s: cmd cmmand0 is %s, command1 is %s\n", __FUNCTION__,
           mSubtitleCommand[0].c_str(), mSubtitleCommand[1].c_str());
+
+    #ifdef RDK_AML_SUBTITLE_SOCKET
+    if (strcmp(mSubtitleCommand[0].c_str(), "subtitle") == 0) {
+        if ((strcmp(mSubtitleCommand[1].c_str(), "ctrl") == 0) ||
+            (strcmp(mSubtitleCommand[1].c_str(), "set") == 0)) {
+            ret = SetCmd(subtitleParam, handle);
+            sprintf(mRetBuf, "%d", ret);
+        } else if (strcmp(mSubtitleCommand[1].c_str(), "get") == 0) {
+            ret_char = GetCmd(subtitleParam);
+            sprintf(mRetBuf, "%d", ret_char);
+        } else if (strcmp(mSubtitleCommand[1].c_str(), "ttctrl") == 0) {
+            ret = SetTeleCmd(subtitleParam);
+            sprintf(mRetBuf, "%d", ret);
+        } else if (strcmp(mSubtitleCommand[1].c_str(), "afdctrl") == 0) {
+            ret_char = GetCmd(subtitleParam);
+            sprintf(mRetBuf, "%d", ret_char);
+        } else {
+            ALOGD("%s: invalid cmd\n", __FUNCTION__);
+            ret = 0;
+        }
+    #else
     if (strcmp(mSubtitleCommand[0].c_str(), "subtitle") == 0) {
         if ((strcmp(mSubtitleCommand[1].c_str(), "ctrl") == 0) ||
             (strcmp(mSubtitleCommand[1].c_str(), "set") == 0)) {
@@ -256,17 +326,21 @@ int SubtitleServiceLinux::ParserSubtitleCommand(const char *commandData, native_
             ALOGD("%s: invalid cmd\n", __FUNCTION__);
             ret = 0;
         }
+    #endif // RDK_AML_SUBTITLE_SOCKET
     } else {
         ALOGD("%s: invalie cmdType\n", __FUNCTION__);
     }
 
+    #ifndef RDK_AML_SUBTITLE_SOCKET
     return ret;
+    #endif // RDK_AML_SUBTITLE_SOCKET
 }
 
 status_t SubtitleServiceLinux::onTransact(uint32_t code,
                                           const Parcel &data, Parcel *reply,
                                           uint32_t flags) {
 
+#ifndef RDK_AML_SUBTITLE_SOCKET
     switch (code) {
         case CMD_SUBTITLE_ACTION: {
             const char *command = data.readCString();
@@ -283,9 +357,105 @@ status_t SubtitleServiceLinux::onTransact(uint32_t code,
         default:
             return BBinder::onTransact(code, data, reply, flags);
     }
-
+#endif // RDK_AML_SUBTITLE_SOCKET
     return (0);
 }
+
+#ifdef RDK_AML_SUBTITLE_SOCKET
+void SubtitleServiceLinux::__threadLoopCmd() {
+    while (!mExitRequested && threadLoopCmd());
+}
+
+bool SubtitleServiceLinux::threadLoopCmd() {
+
+    struct sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(LISTEN_PORT_CMD);
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    int flag = 1;
+
+    int sockFd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockFd < 0) return true;
+
+    if ((setsockopt(sockFd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag))) < 0) {
+        LOGE("setsockopt failed.\n");
+        close(sockFd);
+        return true;
+    }
+
+    if (bind(sockFd, (struct sockaddr *)&addr,sizeof(addr)) == -1) {
+        LOGE("bind fail. error=%d, err:%s\n", errno, strerror(errno));
+        close(sockFd);
+        return true;
+    }
+
+    if (listen(sockFd, QUEUE_SIZE) == -1) {
+        LOGE("listen fail.error=%d, err:%s\n", errno, strerror(errno));
+        close(sockFd);
+        return true;
+    }
+
+    while (!mExitRequested) {
+        struct sockaddr_in client_addr;
+        socklen_t length = sizeof(client_addr);
+        int connFd = accept(sockFd, (struct sockaddr*)&client_addr, &length);
+        if (connFd < 0) {
+            printf("client connect fail.error=%d, err:%s\n", errno, strerror(errno));
+            close(sockFd);
+            return true;
+        }
+
+        if (mClientThreads.size() >= QUEUE_SIZE) {
+            mClientThreads.pop_front();
+        }
+
+        std::shared_ptr<std::thread> pthread = std::shared_ptr<std::thread>(
+                new std::thread(&SubtitleServiceLinux::clientConnectedCmd, this, connFd));
+
+        pthread->detach();
+        mClientThreads.push_back(pthread);
+    }
+
+    printf("closed.\n");
+    close(sockFd);
+    return true;
+}
+
+
+int SubtitleServiceLinux::clientConnectedCmd(int sockfd)
+{
+    char recvBuf[1024] = {0};
+    bool pendingByData = false;
+    bool childConnected = false;
+    IpcPackageHeader curHeader;
+
+    while (!mExitRequested) {
+
+        int retLen = recv(sockfd, recvBuf, sizeof(recvBuf), 0);
+        if (errno != 0 && errno != EACCES) {
+            LOGD("error no:%d %s", errno, strerror(errno));
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        if (errno == EPIPE)
+        {
+            //exit thread in case of broken pipe
+            break;
+        }
+
+        ParserSubtitleCommand(recvBuf);
+        retLen = send(sockfd, mRetBuf, sizeof(mRetBuf), 0);
+        if (retLen < 0) {
+            if (errno == EINTR) {
+                retLen = 0;
+            }
+        }
+    }
+    close(sockfd);
+    return 0;
+}
+#endif // RDK_AML_SUBTITLE_SOCKET
+
 #ifdef __cplusplus
 }
 #endif

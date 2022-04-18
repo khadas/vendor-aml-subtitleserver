@@ -115,6 +115,7 @@ target_link_libraries(${TARGET} PUBLIC wayland-client)
 target_link_libraries(${TARGET} PUBLIC wayland-egl)
 target_link_libraries(${TARGET} PUBLIC EGL)
 target_link_libraries(${TARGET} PUBLIC GLESv1_CM)
+target_link_libraries(${TARGET} PUBLIC mediahal_mediasync)
 
 install(
         TARGETS ${TARGET}

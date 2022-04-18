@@ -19,7 +19,7 @@
 #include "ParserFactory.h"
 
 #include <pthread.h>
-/*
+
 extern "C"  {
 #include "MediaSyncInterface.h"
 mediasync_result MediaSync_bindInstance(void* handle, uint32_t SyncInsId,
@@ -27,7 +27,7 @@ mediasync_result MediaSync_bindInstance(void* handle, uint32_t SyncInsId,
 mediasync_result MediaSync_getTrackMediaTime(void* handle, int64_t *outMediaUs);
 
 }
-*/
+
 static const std::string SYSFS_VIDEO_PTS = "/sys/class/tsync/pts_video";
 static const std::string SYSFS_VIDEO_FIRSTPTS = "/sys/class/tsync/firstvpts";
 static const std::string SYSFS_VIDEO_FIRSTRRAME = "/sys/module/amvideo/parameters/first_frame_toggled";
@@ -94,7 +94,7 @@ DemuxSource::DemuxSource() : mRdFd(-1), mState(E_SOURCE_INV),
     sInstance = this;
     mPlayerId = -1;
     mMediaSyncId = -1;
-    //mMediaSync = MediaSync_create();
+    mMediaSync = MediaSync_create();
     ALOGD("DeviceSource");
 }
 
@@ -110,9 +110,9 @@ DemuxSource::~DemuxSource() {
         mReadThread->join();
         mReadThread = nullptr;
     }
-   //if (mMediaSync != nullptr) {
-    //    MediaSync_destroy(mMediaSync);
-   // }
+   if (mMediaSync != nullptr) {
+        MediaSync_destroy(mMediaSync);
+    }
     mPlayerId = -1;
     mMediaSyncId = -1;
     close_dvb_dmx(mDemuxContext, mDemuxId );
@@ -154,8 +154,8 @@ void DemuxSource::loopRenderTime() {
                 value = sysfsReadInt(SYSFS_VIDEO_PTS.c_str(), 16);
                 mSyncPts = value;
             } else {
-               //MediaSync_getTrackMediaTime(mMediaSync, &value);
-              // value = 0x1FFFFFFFF & ((9*value)/100);
+               MediaSync_getTrackMediaTime(mMediaSync, &value);
+               value = 0x1FFFFFFFF & ((9*value)/100);
             }
             static int i = 0;
             if (i++%300 == 0) {
@@ -332,16 +332,16 @@ void DemuxSource::updateParameter(int type, void *data) {
 
 void DemuxSource::setPipId (int mode, int id) {
    ALOGE("setPipId  mode:%d, id = %d", mode, id);
-   if (1 == mode) {
+   if (PIP_PLAYER_ID == mode) {
        mPlayerId = id;
-   } else if (2 == mode) {
+   } else if (PIP_MEDIASYNC_ID == mode) {
        if ((-1 != mMediaSyncId) || (mMediaSyncId != id)) {
            mMediaSyncId = id;
-          /* if (mMediaSync != nullptr) {
+           if (mMediaSync != nullptr) {
                MediaSync_destroy(mMediaSync);
                mMediaSync = MediaSync_create();
            }
-           MediaSync_bindInstance(mMediaSync, mMediaSyncId, MEDIA_VIDEO);*/
+           MediaSync_bindInstance(mMediaSync, mMediaSyncId, MEDIA_VIDEO);
        }
    }
 }

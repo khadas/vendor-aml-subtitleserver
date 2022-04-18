@@ -43,6 +43,7 @@ typedef enum subtitlecmd_e {
     SUBTITLE_SETFALLCALLBACK=427,
     SUBTITLE_SETSUBTYPE = 428,
     SUBTITLE_SETRENDERTYPE = 429,
+    SUBTITLE_SETPIPID = 430,
 
     SUBTITLE_CMD_MAX                        = 499,
 }subtitlecmd_t;

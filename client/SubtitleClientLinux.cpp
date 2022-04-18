@@ -311,7 +311,10 @@ int SubtitleClientLinux::userDataClose() {
 #endif //RDK_AML_SUBTITLE_SOCKET
 
 int SubtitleClientLinux::setPipId(int32_t mode, int32_t id) {
-    return 0;
+    int ret = SendMethodCall(format_string("subtitle.set.%d.%d.%d.%d",
+                                           SUBTITLE_SETPIPID, mSessionId, mode, id));
+    ALOGE("SubtitleClientLinux: setPipId, ret %d.\n", ret);
+    return ret;
 }
 
 // ui related.

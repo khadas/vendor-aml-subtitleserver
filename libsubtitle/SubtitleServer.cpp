@@ -426,7 +426,7 @@ Result SubtitleServer::setPipId(int32_t sId, int32_t mode, int32_t id) {
     if (ss == nullptr) {
         return Result::FAIL;
     }
-    if ((1 != mode) && (2 != mode)) {
+    if ((PIP_PLAYER_ID != mode) && (PIP_MEDIASYNC_ID != mode)) {
         return Result::FAIL;
     }
     ALOGE(" setPipId mode=%d, id=%d", mode, id);

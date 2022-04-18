@@ -202,6 +202,9 @@ int SubtitleServiceLinux::SetCmd(subtitle_moudle_param_t param, native_handle_t 
             case SUBTITLE_SETRENDERTYPE:
                 ret = mpSubtitlecontrol->setRenderType(paramData[0], paramData[1]);
                 break;
+            case SUBTITLE_SETPIPID:
+                ret = mpSubtitlecontrol->setPipId(paramData[0], paramData[1], paramData[2]);
+                break;
             case SUBTITLE_GETSUBPID:
                 ret = mpSubtitlecontrol->setSubPid(paramData[0], paramData[1]);
                 break;

@@ -2098,6 +2098,7 @@ bool TeletextParser::handleControl() {
                     }
                 }
             }
+            if (ttParam->regionId > 0) mContext->regionId = ttParam->regionId;
             page = convertPageDecimal2Hex(ttParam->pageNo, ttParam->subPageNo);
             return gotoPageLocked(page, AM_TT2_ANY_SUBNO);
          case TT_EVENT_0:

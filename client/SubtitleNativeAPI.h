@@ -164,6 +164,8 @@ typedef struct {
     int magazine;
     int page;
     AmlTeletextEvent event;
+    int regionid;
+    int subpagedir;
 } AmlTeletextCtrlParam;
 /*
 class SubtitleListener : public android::RefBase {

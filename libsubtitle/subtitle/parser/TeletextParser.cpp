@@ -1999,8 +1999,8 @@ bool TeletextParser::handleControl() {
     std::shared_ptr<TeletextParam> ttParam = mControlCmds.front();
     mControlCmds.pop_front();
     int page;
-    LOGI("%s, pageNo:%d, subPageNo:%d, regionId:%d, subPageDir:%d, event:%d\n",
-        __FUNCTION__, ttParam->pageNo, ttParam->subPageNo, ttParam->regionId, ttParam->subPageDir, ttParam->event);
+    LOGI("%s, magazine:%d, subPageNo:%d, regionId:%d, subPageDir:%d, event:%d\n",
+        __FUNCTION__, ttParam->magazine, ttParam->subPageNo, ttParam->regionId, ttParam->subPageDir, ttParam->event);
 
     switch (ttParam->event) {
         case TT_EVENT_QUICK_NAVIGATE_1:

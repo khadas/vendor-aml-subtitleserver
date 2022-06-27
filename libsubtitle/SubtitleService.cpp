@@ -309,7 +309,7 @@ int SubtitleService::ttGoHome() {
 int SubtitleService::ttGotoPage(int pageNo, int subPageNo) {
     ALOGD("debug##%s ", __func__);
     mSubParam.ttParam.ctrlCmd = CMD_GO_TO_PAGE;
-    mSubParam.ttParam.pageNo = pageNo;
+    mSubParam.ttParam.magazine = pageNo;
     mSubParam.ttParam.subPageNo = subPageNo;
     mSubParam.subType = TYPE_SUBTITLE_DVB_TELETEXT;
     return mSubtiles->setParameter(&mSubParam);

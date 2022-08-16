@@ -10,7 +10,6 @@
 #include <algorithm>
 #include <functional>
 
-//#include "trace_support.h"
 #include <utils/Log.h>
 #include <utils/CallStack.h>
 
@@ -40,15 +39,15 @@ static inline std::string stringConvert2Stream(std::string s1, std::string s2) {
  *
 */
 static inline std::string getSecondTextForDoubleLanguage(std::string source) {
-    std::size_t indexOflineBreak;
+    std::size_t indexOfLineBreak;
     std::stringstream secondStream;
-    indexOflineBreak = source.find("\n");
-    if (indexOflineBreak == std::string::npos) {
+    indexOfLineBreak = source.find("\n");
+    if (indexOfLineBreak == std::string::npos) {
         ALOGE("NO double language, return");
         return "";
     }
     std::string secondStr;
-    secondStr = source.substr(indexOflineBreak + 1, source.length());
+    secondStr = source.substr(indexOfLineBreak + 1, source.length());
 
     const int ASS_EVENT_SECTIONS = 9;
     const int BUILTIN_ASS_EVENT_SECTIONS = 8;
@@ -176,7 +175,7 @@ static inline int __getAssSpu(uint8_t*spuBuf, uint32_t length, std::shared_ptr<A
             break;
         }
     }
-    // replacer "\n"
+    // replace "\n"
     while ((start = str.find("\\n")) != std::string::npos
             || (start = str.find("\\N")) != std::string::npos) {
         std::string newline = "\n";
@@ -210,7 +209,7 @@ int AssParser::getSpu(std::shared_ptr<AML_SPUVAR> spu) {
         return 0;
     }
 
-    uint32_t dataSize = mDataSource->availableDataSize();
+    int dataSize = mDataSource->availableDataSize();
     if (dataSize <= 0) {
         return -1;
     } else {
@@ -230,14 +229,10 @@ int AssParser::getSpu(std::shared_ptr<AML_SPUVAR> spu) {
             memcpy(spuBufPiece, mRestbuf, mRestLen);
         }
 
-        if ((currentType == AV_CODEC_ID_DVD_SUBTITLE || currentType == AV_CODEC_ID_VOB_SUBTITLE)
-                && mRestLen > 0) {
-            LOGI("decode rest data!\n");
-        } else {
-            mDataSource->read(spuBufPiece + mRestLen, 20);
-            dataSize -= 20;
-            tmpSpuBuffer += 20;
-        }
+        //for coverity dead error condition
+        mDataSource->read(spuBufPiece + mRestLen, 20);
+        dataSize -= 20;
+        tmpSpuBuffer += 20;
 
         int rdOffset = 0;
         int syncWord = subPeekAsInt32(spuBufPiece + rdOffset);
@@ -248,7 +243,7 @@ int AssParser::getSpu(std::shared_ptr<AML_SPUVAR> spu) {
                     spuBufPiece[4], spuBufPiece[5], spuBufPiece[6], spuBufPiece[7],
                     spuBufPiece[8], spuBufPiece[9], spuBufPiece[10], spuBufPiece[11]);
             mDataSource->read(spuBufPiece, dataSize);
-            dataSize = 0;
+            //dataSize = 0;
             LOGE("\n\n ******* find wrong subtitle header!! ******\n\n");
             delete[] spuBuf;
             return -1;
@@ -268,7 +263,7 @@ int AssParser::getSpu(std::shared_ptr<AML_SPUVAR> spu) {
         if (currentLen > dataSize) {
             LOGI("currentLen > size");
             mDataSource->read(spuBufPiece, dataSize);
-            dataSize = 0;
+            //dataSize = 0;
             delete[] spuBuf;
             return -1;
         }
@@ -300,6 +295,7 @@ int AssParser::getSpu(std::shared_ptr<AML_SPUVAR> spu) {
             case AV_CODEC_ID_SSA:   //mkv internel ssa
             case AV_CODEC_ID_SUBRIP:   //mkv internel SUBRIP
             case AV_CODEC_ID_ASS:   //mkv internel ass
+            case AV_CODEC_ID_WEBVTT:
                 durationPts = subPeekAsInt32(spuBufPiece + rdOffset);
                 rdOffset += 4;
                 spu->subtitle_type = TYPE_SUBTITLE_SSA;
@@ -357,12 +353,15 @@ int AssParser::getSpu(std::shared_ptr<AML_SPUVAR> spu) {
         // TODO: add protect? only list operation may no need.
         // TODO: sort
          addDecodedItem(std::shared_ptr<AML_SPUVAR>(spu));
+         //every time only parse one package, otherwise will cover
+         //last frame data.
+         break;
     }
 
     //LOGI("[%s::%d] error! spuBuf=%x, \n", __FUNCTION__, __LINE__, spuBuf);
     if (spuBuf) {
         delete[] spuBuf;
-        spuBuf = NULL;
+        //spuBuf = NULL;
     }
     return ret;
 }
@@ -371,10 +370,10 @@ int AssParser::getSpu(std::shared_ptr<AML_SPUVAR> spu) {
 int AssParser::getInterSpu() {
     std::shared_ptr<AML_SPUVAR> spu(new AML_SPUVAR());
 
-    //TODO: commom place
+    //TODO: common place
     spu->sync_bytes = AML_PARSER_SYNC_WORD;//0x414d4c55;
     // simply, use new instead of malloc, can automatically initialize the buffer
-    spu->useMalloc = true;
+    spu->useMalloc = false;
     spu->isSimpleText = true;
     int ret = getSpu(spu);
 

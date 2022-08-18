@@ -15,6 +15,7 @@ using namespace Cairo;
 
 #define ENV_XDG_RUNTIME_DIR "XDG_RUNTIME_DIR"
 #define ENV_WAYLAND_DISPLAY "WAYLAND_DISPLAY"
+#define SUBTITLE_OVERLAY_NAME "subtitle-overlay"
 
 static struct DisplayEnv {
     const char* xdg_runtime_dir;
@@ -24,6 +25,7 @@ static struct DisplayEnv {
         {"/run", "wst-launcher"},
         {"/run", "wst-ResidentApp"},
         {"/run", "sub_overlay"},
+        {"/run/HtmlApp", "wst-HtmlApp"},
 };
 
 WLGLDevice::WLGLDevice() {
@@ -42,39 +44,84 @@ bool WLGLDevice::init() {
 }
 
 bool WLGLDevice::connectDisplay() {
-    bool displayConnected = false;
-
-    const char *runtimeDir = getenv(ENV_XDG_RUNTIME_DIR);
-    const char *waylandDisplay = getenv(ENV_WAYLAND_DISPLAY);
-    if (runtimeDir != nullptr && strlen(runtimeDir) > 0
-        && waylandDisplay != nullptr && strlen(waylandDisplay) > 0) {
-        ALOGD("createDisplay with preset env");
-        if (createDisplay()) {
-            ALOGD("createDisplay success for {%s, %s}", runtimeDir, waylandDisplay);
-            displayConnected = true;
-        } else {
-            ALOGE("createDisplay failed for {%s, %s}", runtimeDir, waylandDisplay);
+    auto funcConnectFromSubOverlay = [&]()->bool {
+        if (createSubtitleOverlay()) {
+            setupEnv("/run", SUBTITLE_OVERLAY_NAME);
+            ALOGD("createDisplay from shell cmd");
+            if (createDisplay()) {
+                ALOGV("createDisplay success for {%s, %s}", "/run", SUBTITLE_OVERLAY_NAME);
+                return true;
+            } else {
+                ALOGE("createDisplay failed for {%s, %s}", "/run", SUBTITLE_OVERLAY_NAME);
+            }
         }
-    }
 
-    if (!displayConnected) {
-        ALOGD("createDisplay with candidate envs");
+        return false;
+    };
+
+    auto funcConnectFromPresetEnv = [&]()->bool {
+        const char *runtimeDir = getenv(ENV_XDG_RUNTIME_DIR);
+        const char *waylandDisplay = getenv(ENV_WAYLAND_DISPLAY);
+        ALOGD("connectDisplay, current env= {%s, %s}", runtimeDir, waylandDisplay);
+        if (runtimeDir != nullptr && strlen(runtimeDir) > 0
+            && waylandDisplay != nullptr && strlen(waylandDisplay) > 0) {
+            ALOGV("createDisplay with preset env");
+            if (createDisplay()) {
+                ALOGV("createDisplay success for {%s, %s}", runtimeDir, waylandDisplay);
+                return true;
+            } else {
+                ALOGE("createDisplay failed for {%s, %s}", runtimeDir, waylandDisplay);
+            }
+        }
+
+        return false;
+    };
+
+    auto funcConnectFromCandidatesEnvs = [&]()->bool {
+        ALOGV("createDisplay with candidate envs");
         int n = sizeof(sCandidateEnvs) / sizeof(sCandidateEnvs[0]);
         for (int i = 0; i < n; ++i) {
             struct DisplayEnv& env = sCandidateEnvs[i];
             setupEnv(env.xdg_runtime_dir, env.wayland_display);
 
             if (createDisplay()) {
-                ALOGD("createDisplay success for {%s, %s}", env.xdg_runtime_dir, env.wayland_display);
-                displayConnected = true;
-                break;
+                ALOGV("createDisplay success for {%s, %s}", env.xdg_runtime_dir, env.wayland_display);
+                return true;
             } else {
                 ALOGE("createDisplay failed for {%s, %s}", env.xdg_runtime_dir, env.wayland_display);
             }
         }
+
+        return false;
+    };
+
+    return funcConnectFromSubOverlay() || funcConnectFromPresetEnv() || funcConnectFromCandidatesEnvs();
+}
+
+bool WLGLDevice::createSubtitleOverlay() {
+    if (access("/run/" SUBTITLE_OVERLAY_NAME, F_OK | R_OK) == 0) {
+        ALOGD("createSubtitleOverlay, %s has already exist", "/run/" SUBTITLE_OVERLAY_NAME);
+        return true;
     }
 
-    return displayConnected;
+    std::string cmd = R"(curl 'http://127.0.0.1:9998/jsonrpc' -d '{"jsonrpc": "2.0","id": 4,"method":
+    "org.rdk.RDKShell.1.createDisplay","params": { "client": "%s", "displayName": "%s" }}';)";
+
+    char cmdStr[256];
+    sprintf(cmdStr, cmd.c_str(), SUBTITLE_OVERLAY_NAME, SUBTITLE_OVERLAY_NAME);
+
+    FILE* pFile = popen(cmdStr, "r");
+    char buf[128];
+    char* retStr = fgets(buf, sizeof(buf), pFile);
+    ALOGD("createSubtitleOverlay, ret= %s", retStr);
+    pclose(pFile);
+
+    if (access("/run/" SUBTITLE_OVERLAY_NAME, F_OK | R_OK) == 0) {
+        ALOGD("createSubtitleOverlay OK");
+        return true;
+    }
+
+    return false;
 }
 
 bool WLGLDevice::initDisplay() {

@@ -149,13 +149,16 @@ void DemuxSource::loopRenderTime() {
                 ALOGV("[threadLoop] lstn null.\n");
                 continue;
             }
+
+            ALOGD("mMediaSyncId= %d", mMediaSyncId);
             int64_t value;
             if (-1 == mMediaSyncId) {
                 value = sysfsReadInt(SYSFS_VIDEO_PTS.c_str(), 16);
                 mSyncPts = value;
             } else {
-               MediaSync_getTrackMediaTime(mMediaSync, &value);
-               value = 0x1FFFFFFFF & ((9*value)/100);
+                MediaSync_getTrackMediaTime(mMediaSync, &value);
+                value = 0x1FFFFFFFF & ((9*value)/100);
+                mSyncPts = value;
             }
             static int i = 0;
             if (i++%300 == 0) {

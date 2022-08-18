@@ -12,12 +12,16 @@
 
 #include "SocketSource.h"
 #include "SocketServer.h"
-#ifndef RDK_AML_SUBTITLE_SOCKET
+#include "sub_types2.h"
 static const std::string SYSFS_VIDEO_PTS = "/sys/class/tsync/pts_video";
-#else
-// RDK workaround solution: use pts_pcrscr_u64 instead of pts_video, as pts_video is always 0x0
-static const std::string SYSFS_VIDEO_PTS = "/sys/class/tsync/pts_pcrscr_u64";
-#endif //RDK_AML_SUBTITLE_SOCKET
+
+extern "C"  {
+#include "MediaSyncInterface.h"
+mediasync_result MediaSync_bindInstance(void* handle, uint32_t SyncInsId,
+                                        sync_stream_type streamtype);
+mediasync_result MediaSync_getTrackMediaTime(void* handle, int64_t *outMediaUs);
+
+}
 
 static inline unsigned int make32bitValue(const char *buffer) {
     return buffer[0] | (buffer[1]<<8) | (buffer[2]<<16) | (buffer[3]<<24);
@@ -51,17 +55,18 @@ makeNewSpBuffer(const char *buffer, int size) {
 SocketSource::SocketSource() : mTotalSubtitle(-1),
                 mSubtitleType(-1), mRenderTimeUs(0), mStartPts(0) {
     mNeedDumpSource = false;
-       mExitRequested = false;
-	 mDumpFd = -1;
-	 mMediaSyncId = -1;
-	ALOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n",__FUNCTION__,__LINE__);
+    mExitRequested = false;
+    mDumpFd = -1;
+    mMediaSyncId = -1;
+    mMediaSync = MediaSync_create();
+    ALOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n", __FUNCTION__, __LINE__);
     mSegment = std::shared_ptr<BufferSegment>(new BufferSegment());
-	ALOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n",__FUNCTION__,__LINE__);
+    ALOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n", __FUNCTION__, __LINE__);
     // register listener: mSegment.
     // mSgement register onData, SocketSource::onData.
     SubSocketServer::registClient(this);
     mState = E_SOURCE_INV;
-	ALOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n",__FUNCTION__,__LINE__);
+    ALOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n", __FUNCTION__, __LINE__);
 
     std::thread t = std::thread(&SocketSource::loopRenderTime, this);
     t.detach();
@@ -74,22 +79,44 @@ SubtitleIOType SocketSource::type() {
 SocketSource::SocketSource(const std::string url) : mTotalSubtitle(-1),
                 mSubtitleType(-1), mRenderTimeUs(0), mStartPts(0) {
     mNeedDumpSource = false;
-      mExitRequested = false;
-	  mDumpFd = -1;
-		 mMediaSyncId = -1;
-ALOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n",__FUNCTION__,__LINE__);
+    mExitRequested = false;
+    mDumpFd = -1;
+    mMediaSyncId = -1;
+    mMediaSync = MediaSync_create();
+    ALOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n",__FUNCTION__,__LINE__);
     mSegment = std::shared_ptr<BufferSegment>(new BufferSegment());
-	ALOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n",__FUNCTION__,__LINE__);
+    ALOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n",__FUNCTION__,__LINE__);
     // register listener: mSegment.
     // mSgement register onData, SocketSource::onData.
     SubSocketServer::registClient(this);
     mState = E_SOURCE_INV;
-	ALOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n",__FUNCTION__,__LINE__);
+    ALOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n",__FUNCTION__,__LINE__);
+}
+
+void SocketSource::setPipId(int mode, int id) {
+    ALOGE("setPipId mode:%d, id = %d", mode, id);
+    if (PIP_PLAYER_ID == mode) {
+        mPlayerId = id;
+    } else if (PIP_MEDIASYNC_ID == mode) {
+        if ((-1 != mMediaSyncId) || (mMediaSyncId != id)) {
+            mMediaSyncId = id;
+            if (mMediaSync != nullptr) {
+                MediaSync_destroy(mMediaSync);
+                mMediaSync = MediaSync_create();
+            }
+            MediaSync_bindInstance(mMediaSync, mMediaSyncId, MEDIA_VIDEO);
+        }
+    }
 }
 
 SocketSource::~SocketSource() {
     ALOGD("%s", __func__);
     mExitRequested = true;
+
+    if (mMediaSync != nullptr) {
+        MediaSync_destroy(mMediaSync);
+    }
+
     // TODO: no ring ref?
     SubSocketServer::unregistClient(this);
 }
@@ -104,13 +131,15 @@ void SocketSource::loopRenderTime() {
                 ALOGV("[threadLoop] lstn null.\n");
                 continue;
             }
+            ALOGD("mMediaSyncId= %d", mMediaSyncId);
             int64_t value;
             if (-1 == mMediaSyncId) {
                 value = sysfsReadInt(SYSFS_VIDEO_PTS.c_str(), 16);
                 mSyncPts = value;
             } else {
-               //MediaSync_getTrackMediaTime(mMediaSync, &value);
-              // value = 0x1FFFFFFFF & ((9*value)/100);
+                MediaSync_getTrackMediaTime(mMediaSync, &value);
+                value = 0x1FFFFFFFF & ((9*value)/100);
+                mSyncPts = value;
             }
             static int i = 0;
             if (i++%300 == 0) {

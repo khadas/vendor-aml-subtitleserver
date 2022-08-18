@@ -35,6 +35,7 @@ public:
     virtual size_t lseek(int offSet, int whence) {return 0;}
     virtual size_t read(void *buffer, size_t size);
     virtual int onData(const char*buffer, int len);
+    virtual void setPipId (int mode, int id);
     virtual void dump(int fd, const char *prefix);
 
 private:
@@ -52,6 +53,7 @@ private:
     // for poping and parsing
     std::shared_ptr<BufferItem> mCurrentItem;
     SubtitleIOState mState;
+    void* mMediaSync;
 };
 
 

@@ -14,24 +14,25 @@ public:
     DvbParser(std::shared_ptr<DataSource> source);
     virtual ~DvbParser();
     virtual int parse();
+    virtual bool updateParameter(int type, void *data);
     virtual void dump(int fd, const char *prefix);
     void notifyCallerAvail(int avail);
 
 private:
-    int getSpu(std::shared_ptr<AML_SPUVAR> spu);
+    int getSpu();
     int getInterSpu();
-    int getDvbSpu(std::shared_ptr<AML_SPUVAR> spu);
+    int getDvbSpu();
     int decodeSubtitle(std::shared_ptr<AML_SPUVAR> spu, char *pSrc, const int size);
 
-    int softDemuxParse(std::shared_ptr<AML_SPUVAR> spu);
-    int hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu);
+    int softDemuxParse();
+    int hwDemuxParse();
 
     void parsePageSegment(const uint8_t *buf, int bufSize);
     void parseRegionSegment(const uint8_t *buf, int bufSize);
     void parseClutSegment(const uint8_t *buf, int bufSize);
-    int parseObjectSegment(const uint8_t *buf, int bufSize);
+    int parseObjectSegment(const uint8_t *buf, int bufSize, int cntObject, int totalObject);
     void parseDisplayDefinitionSegment(const uint8_t *buf, int bufSize);
-    int parsePixelDatablock(DVBSubObjectDisplay *display,
+    int parsePixelDataBlock(DVBSubObjectDisplay *display,
             const uint8_t *buf, int bufSize, int top_bottom, int non_mod);
 
 

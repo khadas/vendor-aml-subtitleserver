@@ -17,6 +17,46 @@ using namespace Cairo;
 #define ENV_WAYLAND_DISPLAY "WAYLAND_DISPLAY"
 #define SUBTITLE_OVERLAY_NAME "subtitle-overlay"
 
+class RdkShellCmd {
+public:
+    const int CMD_SIZE = 256;
+
+    bool createDisplay(const char* client, const char* displayName) {
+        char cmdStr[CMD_SIZE];
+        sprintf(cmdStr, mCmdCreateDisplay.c_str(), client, displayName);
+        executeCmd(__FUNCTION__, cmdStr);
+        return isDisplayExists("/run/", displayName);
+    }
+
+    bool isDisplayExists(const char* displayDir, const char* displayName) {
+        std::string path(displayDir);
+        path += displayName;
+        return access(path.c_str(), F_OK | R_OK) == 0;
+    }
+
+    void moveToBack(const char* displayName) {
+        char cmdStr[CMD_SIZE];
+        sprintf(cmdStr, mCmdMoveToBack.c_str(), displayName);
+        executeCmd(__FUNCTION__, cmdStr);
+    }
+
+private:
+    void executeCmd(const char* method, const char *cmd) {
+        FILE* pFile = popen(cmd, "r");
+        char buf[128];
+        char* retStr = fgets(buf, sizeof(buf), pFile);
+        ALOGD("[%s] ret= %s", method, retStr);
+        pclose(pFile);
+    }
+
+private:
+    std::string mCmdCreateDisplay = R"(curl 'http://127.0.0.1:9998/jsonrpc' -d '{"jsonrpc": "2.0","id": 4,"method":
+    "org.rdk.RDKShell.1.createDisplay","params": { "client": "%s", "displayName": "%s" }}';)";
+
+    std::string mCmdMoveToBack = R"(curl 'http://127.0.0.1:9998/jsonrpc' -d '{"jsonrpc": "2.0","id": 4,"method":
+    "org.rdk.RDKShell.1.moveToBack", "params": { "client": "%s" }}';)";
+};
+
 static struct DisplayEnv {
     const char* xdg_runtime_dir;
     const char* wayland_display;
@@ -99,25 +139,16 @@ bool WLGLDevice::connectDisplay() {
 }
 
 bool WLGLDevice::createSubtitleOverlay() {
-    if (access("/run/" SUBTITLE_OVERLAY_NAME, F_OK | R_OK) == 0) {
+    RdkShellCmd rdkShellCmd;
+
+    if (rdkShellCmd.isDisplayExists("/run/", SUBTITLE_OVERLAY_NAME)) {
         ALOGD("createSubtitleOverlay, %s has already exist", "/run/" SUBTITLE_OVERLAY_NAME);
         return true;
     }
 
-    std::string cmd = R"(curl 'http://127.0.0.1:9998/jsonrpc' -d '{"jsonrpc": "2.0","id": 4,"method":
-    "org.rdk.RDKShell.1.createDisplay","params": { "client": "%s", "displayName": "%s" }}';)";
-
-    char cmdStr[256];
-    sprintf(cmdStr, cmd.c_str(), SUBTITLE_OVERLAY_NAME, SUBTITLE_OVERLAY_NAME);
-
-    FILE* pFile = popen(cmdStr, "r");
-    char buf[128];
-    char* retStr = fgets(buf, sizeof(buf), pFile);
-    ALOGD("createSubtitleOverlay, ret= %s", retStr);
-    pclose(pFile);
-
-    if (access("/run/" SUBTITLE_OVERLAY_NAME, F_OK | R_OK) == 0) {
+    if (rdkShellCmd.createDisplay(SUBTITLE_OVERLAY_NAME, SUBTITLE_OVERLAY_NAME)) {
         ALOGD("createSubtitleOverlay OK");
+        rdkShellCmd.moveToBack(SUBTITLE_OVERLAY_NAME);
         return true;
     }
 
@@ -296,6 +327,9 @@ bool WLGLDevice::initEGL() {
     glViewport(0, 0, width, height);
     glTexEnvx(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
     glEnable(GL_TEXTURE_2D);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     return true;
 }
 
@@ -343,6 +377,8 @@ bool WLGLDevice::initTexture(void* data, WLRect &videoOriginRect, WLRect &cropRe
 }
 
 void WLGLDevice::releaseEGL() {
+    glDisable(GL_BLEND);
+
     if (mTexture.texture >= 0) {
         glDeleteTextures(1, &(mTexture.texture));
     }
@@ -432,19 +468,18 @@ void WLGLDevice::drawImage(void *img, WLRect &videoOriginRect, WLRect &src, WLRe
     }
 
     WLGLRect targetRect(dst, mScreenGLRect);
+    ALOGV("drawImage, targetRect= [%d, %d, %d, %d]", targetRect.x(), targetRect.y(),
+          targetRect.width(), targetRect.height());
 
     clear();
 
-//    glEnable(GL_SCISSOR_TEST);
-//    glScissor(glRect.x(), glRect.y(), glRect.width(), glRect.height());
-//    glEnable(GL_BLEND);
-//    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(targetRect.x(), targetRect.y(), targetRect.width(), targetRect.height());
 
     glDrawTexiOES(targetRect.x(), targetRect.y(), 0, targetRect.width(), targetRect.height());
     glAssert("drawImage_glDrawTexiOES");
 
-//    glDisable(GL_BLEND);
-//    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_SCISSOR_TEST);
 
     if (flush) {
         eglSwapBuffers(eglDisplay, eglSurface);

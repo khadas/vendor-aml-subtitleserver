@@ -56,6 +56,7 @@ public:
     struct wl_egl_window* wlEglWindow = nullptr;
 private:
     bool createSubtitleOverlay();
+    bool moveToBack();
     bool initDisplay();
     bool connectDisplay();
     bool initEGL();

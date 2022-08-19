@@ -6,6 +6,7 @@
 #include <utils/Log.h>
 
 #include "WLGLDevice.h"
+#include <Parser.h>
 
 WLRender* WLRender::sInstance = nullptr;
 
@@ -160,7 +161,13 @@ void WLRender::drawItems() {
             mWLDevice->drawText(text, originDisplayRect, rect, screenRect);
         } else {
             ALOGD("Image type");
-            mWLDevice->drawImage((*it)->spu_data, originDisplayRect, rect, screenRect);
+
+            // Show full screen for Teletext
+            bool showFullScreen =
+                    (*it)->subtitle_type == SubtitleType::TYPE_SUBTITLE_DTVKIT_TELETEXT
+                    || (*it)->subtitle_type == SubtitleType::TYPE_SUBTITLE_DVB_TELETEXT;
+
+            mWLDevice->drawImage((*it)->spu_data, showFullScreen ? rect : originDisplayRect, rect, screenRect);
         }
     }
 

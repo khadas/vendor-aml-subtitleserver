@@ -1975,7 +1975,7 @@ bool TeletextParser::updateParameter(int type, void *data) {
     LOGD(" %s start, ttParam->event:%d magazine:%d subPageNo:0x%x\n", __FUNCTION__,ttParam->event, ttParam->magazine, ttParam->subPageNo);
 #ifdef NEED_CACHE_ZVBI_STATUS
     // teletext not started. this is the first time we check. when not started, vbi is null.
-    if ((mContext->vbi == nullptr || mUpdateParamCount == 0) && ttParam->event != TT_EVENT_SET_REGION_ID ) {
+    if ((mContext->vbi == nullptr || mUpdateParamCount == 0) && ttParam->event != TT_EVENT_SET_REGION_ID && (ttParam->event != TT_EVENT_GO_TO_SUBTITLE || (ttParam->event == TT_EVENT_GO_TO_SUBTITLE && mContext->subtitleMode == TT2_GRAPHICS_MODE))) {
         ALOGD("This is the first? pid:%d onid:%d tsid:%d  %d", ttParam->pid, ttParam->onid, ttParam->tsid, ttParam->event);
         // tricky for check need keep using vbi or not
         gVBIStatus.updateProgramInfo(ttParam->pid, ttParam->onid, ttParam->tsid);
@@ -1989,7 +1989,7 @@ bool TeletextParser::updateParameter(int type, void *data) {
                 int pageNum = 0;
                 if ( gVBIStatus.lastMagazine == ttParam->magazine && gVBIStatus.lastSubPageNo == ttParam->subPageNo) {
                     pageNum =vbi_dec2bcd(gVBIStatus.lastShowingPage);
-                    if ( pageNum < TELETEXT_MAX_PAGE_NUMBER && pageNum >= TELETEXT_PAGE_NUMBER_800) {
+                    if (gVBIStatus.lastShowingPage < TELETEXT_MAX_PAGE_NUMBER && gVBIStatus.lastShowingPage >= TELETEXT_PAGE_NUMBER_800) {
                         ttParam->magazine = TELETEXT_MIN_MAGAZINE_NUMBER;
                         gVBIStatus.lastMagazine = TELETEXT_MIN_MAGAZINE_NUMBER;
                     } else {

@@ -167,7 +167,7 @@ void WLRender::drawItems() {
             textParams.bgPadding = 10;
             textParams.bgColor = Cairo::Colors::Black;
 
-            mWLDevice->drawText(textParams, originDisplayRect, rect, screenRect);
+            mWLDevice->drawMultiText(textParams, originDisplayRect, rect, screenRect);
         } else {
             ALOGD("Image type");
 

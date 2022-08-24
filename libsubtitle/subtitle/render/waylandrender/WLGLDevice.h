@@ -37,8 +37,9 @@ static const uint32_t kBlue8    = 0x000000ff;
 
 class WLGLDevice {
 public:
-    const int WIDTH = 1920;
-    const int HEIGHT = 1080;
+    const static int WIDTH = 1920;
+    const static int HEIGHT = 1080;
+    const static int MIN_TEXT_MARGIN_BOTTOM = 50;
 
     typedef struct TextParams_ {
         const char* content;
@@ -64,7 +65,9 @@ public:
     void drawColor(float r, float g, float b, float a, bool flush = true);
     void drawColor(float r, float g, float b, float a, WLRect& rect, bool flush = true);
     void drawImage(void *img, WLRect &videoOriginRect, WLRect &src, WLRect &dst, bool flush = true);
-    void drawText(TextParams& textParams, WLRect &videoOriginRect, WLRect &src, WLRect &dst, bool flush = true);
+    WLRect drawText(TextParams& textParams, WLRect &videoOriginRect, WLRect &src, WLRect &dst,
+            int marginBottom = MIN_TEXT_MARGIN_BOTTOM, bool flush = true);
+    void drawMultiText(TextParams& textParams, WLRect &videoOriginRect, WLRect &src, WLRect &dst);
 
     WLRect screenRect() { return mScreenRect;}
 
@@ -105,6 +108,7 @@ private:
     WLRect mScreenRect = WLRect();
     WLGLRect mScreenGLRect = WLGLRect();
 
+    bool isTextMultiPart = false;
     bool mInited = false;
 };
 

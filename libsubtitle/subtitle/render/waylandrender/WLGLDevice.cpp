@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <utils/Log.h>
 #include <cstring>
+#include <vector>
 
 #include "textrender/text.h"
 #include "textrender/round_rectangle.h"
@@ -339,12 +340,14 @@ bool WLGLDevice::initTexture(void* data, WLRect &videoOriginRect, WLRect &cropRe
     if (data == nullptr || cropRect.isEmpty())
         return false;
 
-    if (mTexture.texture >= 0) {
-        glDeleteTextures(1, &(mTexture.texture));
-        glAssert("initTexture_glDeleteTextures");
+    if (!isTextMultiPart) {
+        if (mTexture.texture >= 0) {
+            glDeleteTextures(1, &(mTexture.texture));
+            glAssert("initTexture_glDeleteTextures");
+        }
+        glGenTextures(1, &(mTexture.texture));
+        glAssert("initTexture_glGenTextures");
     }
-    glGenTextures(1, &(mTexture.texture));
-    glAssert("initTexture_glGenTextures");
     //mTexture.crop.set(videoOriginRect);
 
     WLGLRect glRect(videoOriginRect, mScreenGLRect);
@@ -509,15 +512,78 @@ static BoundingBox getFontBox(const char *content, WLRect &surfaceRect, Font& fo
     return fontBox;
 }
 
+void WLGLDevice::drawMultiText(TextParams &textParams, WLRect &videoOriginRect,
+                               WLRect &src, WLRect &dst) {
+    const char* content = textParams.content;
+    auto funcSplitStr = [](std::string str, std::string pattern)->std::vector<std::string> {
+        std::string::size_type pos;
+        std::vector<std::string> result;
+        str += pattern;
+        size_t size = str.size();
+        for (size_t i = 0; i < size; i++)
+        {
+            pos = str.find(pattern, i);
+            if (pos < size)
+            {
+                std::string s = str.substr(i, pos - i);
+                result.push_back(s);
+                i = pos + pattern.size() - 1;
+            }
+        }
+        return result;
+    };
 
-void WLGLDevice::drawText(TextParams& textParams, WLRect &videoOriginRect,
-                          WLRect &/*src*/, WLRect &dst, bool flush) {
+    std::vector<std::string> contents;
+
+    if (strstr(content, "\n") != nullptr) {
+        contents = funcSplitStr(content, "\n");
+    } else if (strstr(content, "|") != nullptr) {
+        contents = funcSplitStr(content, "|");
+    } else {
+        contents.emplace_back(content);
+    }
+
+    isTextMultiPart = false;
+    int textPart = contents.size();
+    ALOGD("[%s], contents, size= %d", __FUNCTION__, textPart);
+
+    if (!contents.empty()) {
+        int marginBottom = MIN_TEXT_MARGIN_BOTTOM;
+        for (auto it = contents.rbegin(); it != contents.rend(); it++) {
+            ALOGD("[%s], content= %s", __FUNCTION__, it->c_str());
+            bool flush = (it + 1) == contents.rend();
+            textParams.content = it->c_str();
+
+            bool isNextEnd = (it + 2) == contents.rend();
+            bool endIsEmpty = isNextEnd && ((strlen((it + 1)->c_str()) <= 0));
+            if (endIsEmpty) {
+                // For avoid first '\n' tag
+                // We need flush on this part when end(next part) is empty
+                flush = true;
+            }
+
+            WLRect textRect = drawText(textParams, videoOriginRect, src, dst,
+                    marginBottom, flush);
+
+            if (endIsEmpty) {
+                // We need finish when end is empty
+                break;
+            }
+
+            isTextMultiPart =  textPart > 1;
+            marginBottom += textRect.height();
+        }
+    }
+}
+
+WLRect WLGLDevice::drawText(TextParams& textParams, WLRect &videoOriginRect,
+                          WLRect &/*src*/, WLRect &dst, int marginBottom, bool flush) {
 
     const char* content = textParams.content;
     if (content == nullptr || strlen(content) <= 0) {
         ALOGE("Empty text, do not render");
         if (flush) clear();
-        return;
+        return WLRect();
     }
 
     Font font;
@@ -529,7 +595,7 @@ void WLGLDevice::drawText(TextParams& textParams, WLRect &videoOriginRect,
     if (fontBox.isEmpty()) {
         if (flush) clear();
         ALOGE_IF(strlen(content) > 0, "No support text type rendering");
-        return;
+        return WLRect();
     }
 
     int padding = textParams.bgPadding;
@@ -560,7 +626,7 @@ void WLGLDevice::drawText(TextParams& textParams, WLRect &videoOriginRect,
 
     //Move to center-bottom
     fontBox.move((videoOriginRect.width() - fontBox.getWidth()) / 2,
-            videoOriginRect.height() - fontBox.getHeight() - 50);
+            videoOriginRect.height() - fontBox.getHeight() - marginBottom);
     WLRect srcRect{(int)fontBox.x, (int)fontBox.y, (int)fontBox.x2, (int)fontBox.y2};
 
     uint8_t * data = textSurface.data();
@@ -569,6 +635,8 @@ void WLGLDevice::drawText(TextParams& textParams, WLRect &videoOriginRect,
     } else {
         ALOGE("%s, No data will to be drew", __FUNCTION__);
     }
+
+    return srcRect;
 }
 
 void WLGLDevice::glAssert(const char* where) {

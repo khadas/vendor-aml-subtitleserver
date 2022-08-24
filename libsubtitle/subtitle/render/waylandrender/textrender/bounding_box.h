@@ -7,6 +7,10 @@ namespace Cairo {
         double x2;
         double y2;
 
+        bool isEmpty() {
+            return getHeight() <= 0 || getWidth() <= 0;
+        }
+
         double getWidth() const {
             return x2 - x;
         }

@@ -50,6 +50,7 @@ namespace Cairo {
         box.y = y_ - te.y_bearing;
         box.x2 = x_ - te.x_bearing + te.width;
         box.y2 = y_ - te.y_bearing + te.height;
+        box.additiveMove(0, -box.getHeight());
 
         return box;
     }

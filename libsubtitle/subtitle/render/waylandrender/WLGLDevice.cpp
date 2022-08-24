@@ -10,7 +10,7 @@
 #include <cstring>
 
 #include "textrender/text.h"
-#include "textrender/rectangle.h"
+#include "textrender/round_rectangle.h"
 using namespace Cairo;
 
 #define ENV_XDG_RUNTIME_DIR "XDG_RUNTIME_DIR"
@@ -501,28 +501,71 @@ void WLGLDevice::clear(WLGLRect * rect) {
     }
 }
 
-void WLGLDevice::drawText(const char *content, WLRect &videoOriginRect,
-                          WLRect &src, WLRect &dst, bool flush) {
-    Surface textSurface(src.width(), src.height());
+static BoundingBox getFontBox(const char *content, WLRect &surfaceRect, Font& font) {
+    Surface textSurface(surfaceRect.width(), surfaceRect.height());
     DrawContext drawContext(&textSurface);
-    Font font;
-    font.family = "Liberation Sans"; //TODO: Support more family
-    font.size = 20;//TODO: Use flexible font size
+    Text tmp(&drawContext, 0, 0, content, font);
+    BoundingBox fontBox = tmp.calculateBounds(Pen(Colors::White));
+    return fontBox;
+}
 
-    Rectangle rectangle(&drawContext, 0, 0, textSurface.getWidth(), textSurface.getHeight());
-    rectangle.draw(Pen(Colors::Black), Pen(Colors::Black));
+
+void WLGLDevice::drawText(TextParams& textParams, WLRect &videoOriginRect,
+                          WLRect &/*src*/, WLRect &dst, bool flush) {
+
+    const char* content = textParams.content;
+    if (content == nullptr || strlen(content) <= 0) {
+        ALOGE("Empty text, do not render");
+        if (flush) clear();
+        return;
+    }
+
+    Font font;
+    font.family = textParams.fontFamily;
+    font.size = textParams.fontSize;
+
+    BoundingBox fontBox = getFontBox(content, videoOriginRect, font);
+    ALOGD("fontBox= [%f, %f, %f, %f]", fontBox.x, fontBox.y, fontBox.x2, fontBox.y2);
+    if (fontBox.isEmpty()) {
+        if (flush) clear();
+        ALOGE_IF(strlen(content) > 0, "No support text type rendering");
+        return;
+    }
+
+    int padding = textParams.bgPadding;
+    fontBox.move(padding, padding);
+    fontBox.x -= padding;
+    fontBox.y -= padding;
+    fontBox.x2 += padding;
+    fontBox.y2 += padding;
+
+    Surface textSurface((int)fontBox.getWidth(), (int)fontBox.getHeight());
+    DrawContext drawContext(&textSurface);
 
     Text text(&drawContext, 0, 0, content, font);
-    BoundingBox box = {};
-    box.x = 0;
-    box.y = 0;
-    box.setWidth(textSurface.getWidth());
-    box.setHeight(textSurface.getHeight());
-    text.drawCenter(box, Pen(Colors::White));
+
+    if (textParams.usingBg) {
+        // Background
+        if (textParams.bgRoundRadius > 0) {
+            RoundRectangle roundRect(&drawContext, fontBox.x, fontBox.y, fontBox.getWidth(),
+                                     fontBox.getHeight(), textParams.bgRoundRadius);
+            roundRect.draw(textParams.bgColor, textParams.bgColor);
+        } else {
+            Rectangle rectangle(&drawContext, fontBox.x, fontBox.y, fontBox.getWidth(), fontBox.getHeight());
+            rectangle.draw(textParams.bgColor, textParams.bgColor);
+        }
+    }
+
+    text.drawCenter(fontBox, textParams.textLineColor, textParams.textFillColor);
+
+    //Move to center-bottom
+    fontBox.move((videoOriginRect.width() - fontBox.getWidth()) / 2,
+            videoOriginRect.height() - fontBox.getHeight() - 50);
+    WLRect srcRect{(int)fontBox.x, (int)fontBox.y, (int)fontBox.x2, (int)fontBox.y2};
 
     uint8_t * data = textSurface.data();
     if (data) {
-        drawImage(data, videoOriginRect, src, dst, flush);
+        drawImage(data, videoOriginRect, srcRect, dst, flush);
     } else {
         ALOGE("%s, No data will to be drew", __FUNCTION__);
     }

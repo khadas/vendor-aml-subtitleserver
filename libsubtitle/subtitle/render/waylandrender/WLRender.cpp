@@ -158,7 +158,16 @@ void WLRender::drawItems() {
         if ((*it)->isSimpleText) {
             auto text = reinterpret_cast<const char *>((*it)->spu_data);
             ALOGD("Text type: '%s'", text);
-            mWLDevice->drawText(text, originDisplayRect, rect, screenRect);
+            WLGLDevice::TextParams textParams;
+            textParams.content = text;
+            textParams.fontFamily = "Liberation Sans";
+            textParams.fontSize = 30;
+            textParams.textFillColor = Cairo::Colors::White;
+            textParams.textLineColor = Cairo::Colors::White;
+            textParams.bgPadding = 10;
+            textParams.bgColor = Cairo::Colors::Black;
+
+            mWLDevice->drawText(textParams, originDisplayRect, rect, screenRect);
         } else {
             ALOGD("Image type");
 

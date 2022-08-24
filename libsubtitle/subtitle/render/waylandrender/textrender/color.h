@@ -56,5 +56,6 @@ namespace Cairo {
         constexpr auto White = RGB{colorMax, colorMax, colorMax};
         constexpr auto Black = RGB{colorMin, colorMin, colorMin};
         constexpr auto Gray = RGB{colorMax / 2, colorMax / 2, colorMax / 2};
+        constexpr auto GrayTransparent = RGBA{0, 0, 0, 200};
     }
 }

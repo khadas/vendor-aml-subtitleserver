@@ -12,6 +12,7 @@
 #include <EGL/eglext.h>
 
 #include "WLRect.h"
+#include "textrender/color.h"
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 static const uint32_t kRed8     = 0x000000ff;
@@ -39,6 +40,20 @@ public:
     const int WIDTH = 1920;
     const int HEIGHT = 1080;
 
+    typedef struct TextParams_ {
+        const char* content;
+        const char* fontFamily;
+        int fontSize;
+
+        bool usingBg = true;
+        double bgRoundRadius;
+        int bgPadding;
+
+        Cairo::RGBA bgColor;
+        Cairo::RGB textLineColor;
+        Cairo::RGB textFillColor;
+    } TextParams;
+
     WLGLDevice();
     ~WLGLDevice();
 
@@ -49,7 +64,7 @@ public:
     void drawColor(float r, float g, float b, float a, bool flush = true);
     void drawColor(float r, float g, float b, float a, WLRect& rect, bool flush = true);
     void drawImage(void *img, WLRect &videoOriginRect, WLRect &src, WLRect &dst, bool flush = true);
-    void drawText(const char* content, WLRect &videoOriginRect, WLRect &src, WLRect &dst, bool flush = true);
+    void drawText(TextParams& textParams, WLRect &videoOriginRect, WLRect &src, WLRect &dst, bool flush = true);
 
     WLRect screenRect() { return mScreenRect;}
 

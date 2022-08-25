@@ -158,10 +158,14 @@ void WLRender::drawItems() {
         if ((*it)->isSimpleText) {
             auto text = reinterpret_cast<const char *>((*it)->spu_data);
             ALOGD("Text type: '%s'", text);
+
+            // Using 720p to show subtitle for reduce mem.
+            originDisplayRect.set(0, 0, 1280, 720);
+
             WLGLDevice::TextParams textParams;
             textParams.content = text;
             textParams.fontFamily = "Liberation Sans";
-            textParams.fontSize = 30;
+            textParams.fontSize = 20;
             textParams.textFillColor = Cairo::Colors::White;
             textParams.textLineColor = Cairo::Colors::White;
             textParams.bgPadding = 10;

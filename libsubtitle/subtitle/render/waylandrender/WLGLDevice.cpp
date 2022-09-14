@@ -253,7 +253,7 @@ void WLGLDevice::getScreenSize(size_t *width, size_t *height) {
 
         ALOGV("getScreenSize, from eglQuerySurface: [%dx%d]", w, h);
 
-        if (w > 0 || h > 0) {
+        if ((w > 0) && (h > 0)) {
             *width = w;
             *height = h;
             return;
@@ -615,10 +615,10 @@ WLRect WLGLDevice::drawText(TextParams& textParams, WLRect &videoOriginRect,
         if (textParams.bgRoundRadius > 0) {
             RoundRectangle roundRect(&drawContext, fontBox.x, fontBox.y, fontBox.getWidth(),
                                      fontBox.getHeight(), textParams.bgRoundRadius);
-            roundRect.draw(textParams.bgColor, textParams.bgColor);
+            roundRect.draw(Colors::Transparent, textParams.bgColor);
         } else {
             Rectangle rectangle(&drawContext, fontBox.x, fontBox.y, fontBox.getWidth(), fontBox.getHeight());
-            rectangle.draw(textParams.bgColor, textParams.bgColor);
+            rectangle.draw(Colors::Transparent, textParams.bgColor);
         }
     }
 

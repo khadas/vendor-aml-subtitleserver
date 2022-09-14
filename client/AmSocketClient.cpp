@@ -32,18 +32,10 @@ static const char* mName = "AmSocketClient";
 
 AmSocketClient::AmSocketClient() {
     mSockFd = -1;
-
-    #ifdef RDK_AML_SUBTITLE_SOCKET
-    mCmdSockFd = -1;
-    #endif //RDK_AML_SUBTITLE_SOCKET
 }
 
 AmSocketClient::~AmSocketClient() {
     mSockFd = -1;
-
-    #ifdef RDK_AML_SUBTITLE_SOCKET
-    mCmdSockFd = -1;
-    #endif //RDK_AML_SUBTITLE_SOCKET
 }
 
 int64_t AmSocketClient::GetNowUs() {
@@ -57,11 +49,7 @@ int AmSocketClient::socketConnect() {
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-
-    #ifdef RDK_AML_SUBTITLE_SOCKET
-    inet_aton("127.0.0.1", (struct in_addr *)&addr.sin_addr);
-    #endif //RDK_AML_SUBTITLE_SOCKET
-
+    //inet_aton("127.0.0.1", (struct in_addr *)&addr.sin_addr);
     addr.sin_port = htons(SERVER_PORT);
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
     mSockFd = socket(AF_INET, SOCK_STREAM, 0);
@@ -159,116 +147,6 @@ void AmSocketClient::socketDisconnect() {
         close(mSockFd);
         mSockFd = -1;
     }
-
-    #ifdef RDK_AML_SUBTITLE_SOCKET
-    if (mCmdSockFd >= 0) {
-        close(mCmdSockFd);
-        mCmdSockFd = -1;
-    }
-    #endif //RDK_AML_SUBTITLE_SOCKET
 }
 
-
-#ifdef RDK_AML_SUBTITLE_SOCKET
-int AmSocketClient::socketConnectCmd() {
-    struct sockaddr_in addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    inet_aton("127.0.0.1", (struct in_addr *)&addr.sin_addr);
-    addr.sin_port = htons(SERVER_PORT_CMD);
-    mCmdSockFd = socket(AF_INET, SOCK_STREAM, 0);
-    if (mCmdSockFd < 0) {
-        ALOGI("%s:%d, create socket failed!mCmdSockFd:%d, error=%d, err:%s\n", __FILE__, __LINE__, mCmdSockFd, errno, strerror(errno));
-        return -1;
-    }
-    ALOGI("%s:%d, create socket success!mCmdSockFd:%d\n", __FILE__, __LINE__, mCmdSockFd);
-
-    //fix upgrade first play connect fail because of early conntect ,add while strategy for 40ms.
-    int64_t startTime = GetNowUs();
-    while (true) {
-        if (connect(mCmdSockFd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-            //load dvb so need time since add close caption subtitle, add to 120ms.
-            //only has subtitle to connect socket
-            if ( GetNowUs() - startTime > 120000ll) {//systemTime(SYSTEM_TIME_MONOTONIC) / 1000LL;
-                ALOGI("%s:%d, connect socket failed!, error=%d, err:%s\n", __FILE__, __LINE__, errno, strerror(errno));
-                close(mCmdSockFd);
-                mCmdSockFd = -1;
-                return -1;
-            }
-        } else {
-           break;
-        }
-    }
-
-    ALOGI("%s:%d, connect socket success!mCmdSockFd:%d\n", __FILE__, __LINE__, mCmdSockFd);
-
-    return 0;
-}
-
-int AmSocketClient::socketSendCmd(const char *buf, int size) {
-    android::AutoMutex _l(mCmdSockLock);
-    char value[PROPERTY_VALUE_MAX] = {0};
-    if (property_get("sys.amsocket.disable", value, "false") > 0) {
-        if (!strcmp(value, "true")) {
-            return -1;
-        }
-    }
-    int sendLen = 0;
-    int retLen = 0;
-    int leftLen = size;
-    const char *sendBuf = buf;
-    char recvBuf[32] = {0};
-
-    if (mCmdSockFd >= 0) {
-        do {
-            //prepare send length
-            if (leftLen > SEND_LEN) {
-                sendLen = SEND_LEN;
-            }
-            else {
-                sendLen = leftLen;
-            }
-
-            //start to send
-            retLen = send(mCmdSockFd, sendBuf, sendLen, 0);
-            if (retLen < 0) {
-                if (errno == EINTR) {
-                    retLen = 0;
-                }
-                ALOGI("%s:%d, send socket failed!retLen:%d\n", __FILE__, __LINE__, retLen);
-                return -1;
-            }
-
-            //prepare left buffer pointer
-            sendBuf += retLen;
-            leftLen -= retLen;
-        } while (leftLen > 0);
-
-        return sendLen;
-    }
-    else
-    {
-        return -1;
-    }
-
-}
-
-int AmSocketClient::socketRecvCmd(char *buf, int size) {
-    android::AutoMutex _l(mCmdSockLock);
-    int retlen = 0;
-    if (mCmdSockFd >= 0) {
-        retlen = recv(mCmdSockFd, buf, size, 0);
-        if (retlen < 0) {
-            if (errno == EINTR)
-                retlen = 0;
-            else {
-                ALOGE("%s:%d, receive socket failed!", __FILE__, __LINE__);
-                return -1;
-            }
-        }
-    }
-
-    return retlen;
-}
-#endif //RDK_AML_SUBTITLE_SOCKET
 //}

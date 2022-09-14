@@ -129,6 +129,8 @@ void WLRender::removeSubtitleItem(std::shared_ptr<AML_SPUVAR> spu) {
     mRenderMutex.lock();
     mShowingSubs.remove(spu);
     mRenderMutex.unlock();
+
+    sendMessage(AMLMessage(kWhat_show_subtitle_item));
 }
 
 void WLRender::drawItems() {
@@ -169,7 +171,7 @@ void WLRender::drawItems() {
             textParams.textFillColor = Cairo::Colors::White;
             textParams.textLineColor = Cairo::Colors::White;
             textParams.bgPadding = 10;
-            textParams.bgColor = Cairo::Colors::Black;
+            textParams.bgColor = Cairo::Colors::GrayTransparent;
 
             mWLDevice->drawMultiText(textParams, originDisplayRect, rect, screenRect);
         } else {

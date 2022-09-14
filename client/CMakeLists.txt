@@ -27,7 +27,6 @@ set(subtitleclient_srcs
         ../libsubtitle/ISubtitleCallback.cpp
         SubtitleReportAPI.cpp
         AmSocketClient.cpp
-        AmSubtitle.cpp
         )
 
 set(TARGET subtitleclient)

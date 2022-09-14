@@ -11,7 +11,7 @@
 
 typedef enum subtitlecmd_e {
     //PQ CMD(201~299)
-    SUBTITLE_MOUDLE_CMD_START           = 400,
+    SUBTITLE_MODULE_CMD_START           = 400,
     SUBTITLE_OPENCONNECTION           = 401,
     SUBTITLE_CLOSECONNECTION          = 402,
 

@@ -10,26 +10,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <binder/IPCThreadState.h>
-#include <binder/ProcessState.h>
-#include <binder/IServiceManager.h>
-#include <binder/IServiceManager.h>
 #include "SubtitleServiceLinux.h"
 
 
 int main(int argc, char **argv) {
-   SubtitleServiceLinux *mpSubtitleService = SubtitleServiceLinux::GetInstance();
-   sp<ProcessState> proc(ProcessState::self());
+   std::shared_ptr<SubtitleServiceLinux> mpSubtitleService =
+           std::shared_ptr<SubtitleServiceLinux>(SubtitleServiceLinux::GetInstance());
+   mpSubtitleService->join();
 
-   sp<IServiceManager> serviceManager = defaultServiceManager();
-   serviceManager->addService(String16("subtitleservice"), mpSubtitleService);
-
-   proc->startThreadPool();
-
-   #ifdef RDK_AML_SUBTITLE_SOCKET
-   mpSubtitleService->SubtitleServiceHandleMessage();
-   #endif
-
-   IPCThreadState::self()->joinThreadPool();
+   printf("SubtitleService EXIT!!!");
+   return 0;
 }
 

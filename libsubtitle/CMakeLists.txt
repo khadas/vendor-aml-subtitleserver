@@ -40,11 +40,13 @@ set(subtitle_srcs
         SubtitleServer.cpp
         ipc/SocketServer.cpp
         ipc/IpcBuffer.cpp
+        ipc/IpcSocket.cpp
         utils/ringbuffer.c
         utils/AndroidCallbackMessageQueue.cpp
         utils/Segment.cpp
         utils/MemoryLeakTrackUtil.cpp
         utils/VideoInfo.cpp
+        utils/SubtitleSignalHandler.cpp
         io/FileSource.cpp
         io/SocketSource.cpp
         io/DeviceSource.cpp

@@ -12,22 +12,16 @@
 #include <map>
 #include <memory>
 
-#include <binder/Binder.h>
-#include <binder/Parcel.h>
-#include <binder/IServiceManager.h>
-#include <binder/IMemory.h>
 #include <iostream>
 #include <vector>
 #include "ISubtitleCallback.h"
-
-#ifdef RDK_AML_SUBTITLE_SOCKET
-    #include "AmSubtitle.h"
-#endif //RDK_AML_SUBTITLE_SOCKET
 
 using namespace android;
 using android::IMemory;
 using std::vector;
 using std::string;
+
+class IpcSocket;
 
 #ifdef __cplusplus
 extern "C" {
@@ -71,7 +65,7 @@ public:
 };
 
 
-class SubtitleClientLinux //: public BnSubtitleCallback//, public ISubtitleCallback
+class SubtitleClientLinux
 {
 public:
 
@@ -172,14 +166,8 @@ class SubtitleCallback : public BnSubtitleCallback{
     void applyRenderType();
 
 private:
-
-    #ifdef RDK_AML_SUBTITLE_SOCKET
-    void SendMethodCall(char *CmdString, size_t cmdSize, native_handle_t* handle = nullptr);
-    AmSubtitle *mAmSubtitle;
-    #else
+    static int eventReceiver(int fd, void *selfData);
     int SendMethodCall(char *CmdString, native_handle_t* handle = nullptr);
-    #endif
-
     int SplitRetBuf(const char *commandData);
     char mRetBuf[128] = {0};
     std::string  mRet[10];
@@ -191,7 +179,7 @@ private:
     int mRenderType = 1/*DIRECT_RENDER*/;
 
     sp<IBinder> mSubtitleServicebinder;
-
+    std::shared_ptr<IpcSocket> mIpcSocket;
 
    sp<SubtitleCallback> mCallback;
 };

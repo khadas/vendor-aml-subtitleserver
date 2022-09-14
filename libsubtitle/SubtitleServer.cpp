@@ -62,8 +62,6 @@ SubtitleServer *SubtitleServer::Instance() {
 const static int FIRST_SESSION_ID = 0x1F230000;
 const static int LAST_SESSION_ID = 0x7FFFFFFF;
 
-#define SUPPORT_MULTI 0
-
 SubtitleServer::SubtitleServer() {
     // mDeathRecipient =new DeathRecipient(this);
     // mFallbackPlayStarted = false;
@@ -81,15 +79,6 @@ SubtitleServer::SubtitleServer() {
 
 std::shared_ptr<SubtitleService> SubtitleServer::getSubtitleServiceLocked(int sId) {
     ALOGD("getSubtitleServiceLocked, sId= %d", sId);
-#if SUPPORT_MULTI
-    auto search = mServiceClients.find((sId));
-    if (search != mServiceClients.end()) {
-        return search->second;
-    } else {
-        ALOGE("Error! cannot found service by id:%x", sId);
-    }
-#else
-    (void) sId;
 
     auto search = mServiceClients.find((sId));
     if (search != mServiceClients.end()) {
@@ -97,7 +86,7 @@ std::shared_ptr<SubtitleService> SubtitleServer::getSubtitleServiceLocked(int sI
     } else {
         ALOGE("Error! cannot found service by id:%x", sId);
     }
-#endif
+
     return nullptr;
 }
 

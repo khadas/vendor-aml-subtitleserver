@@ -266,7 +266,7 @@ void SubtitleService::setPipId(int mode, int id) {
     if (NULL == mDataSource )
         return;
     mDataSource->setPipId(mode, id);
-   if ((DTV_SUB_DTVKIT_SCTE27 == mSubParam.dtvSubType) && (mode == PIP_MEDIASYNC_ID) && (!same)) {
+   if ((mode == PIP_MEDIASYNC_ID) && (!same)) {
        mSubtiles->setParameter(&mSubParam);
    }
 }

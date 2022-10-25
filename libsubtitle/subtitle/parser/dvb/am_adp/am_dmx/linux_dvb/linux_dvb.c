@@ -85,7 +85,6 @@ static AM_ErrorCode_t dvb_set_source(AM_DMX_Device_t *dev, AM_DMX_Source_t src);
 AM_DMX_Driver_t linux_dvb_dmx_drv = {
 .open  = dvb_open,
 .close = dvb_close,
-.wake           = dvb_wake,
 .alloc_filter = dvb_alloc_filter,
 .free_filter  = dvb_free_filter,
 .set_sec_filter = dvb_set_sec_filter,
@@ -94,7 +93,8 @@ AM_DMX_Driver_t linux_dvb_dmx_drv = {
 .set_buf_size   = dvb_set_buf_size,
 .poll           = dvb_poll,
 .read           = dvb_read,
-.set_source     = dvb_set_source,
+.wake           = dvb_wake,
+.set_source     = dvb_set_source
 };
 
 
@@ -209,7 +209,13 @@ static AM_ErrorCode_t dvb_set_pes_filter(AM_DMX_Device_t *dev, AM_DMX_Filter_t *
 
 	UNUSED(dev);
 
-	fcntl(fd,F_SETFL,O_NONBLOCK);
+	//TODO for coverity check_return
+	ret = fcntl(fd,F_SETFL,O_NONBLOCK);
+	if (ret == -1)
+	{
+		AM_DEBUG(1, "fcntl failed (%s)", strerror(errno));
+		return AM_DMX_ERR_SYS;
+	}
 
 	ret = ioctl(fd, DMX_SET_PES_FILTER, params);
 	if (ret == -1)
@@ -263,7 +269,7 @@ static AM_ErrorCode_t dvb_poll(AM_DMX_Device_t *dev, AM_DMX_FilterMask_t *mask, 
 {
 	DVBDmx_t *dmx = (DVBDmx_t*)dev->drv_data;
 	struct pollfd fds[DMX_FILTER_COUNT_EXT];
-	int fids[DMX_FILTER_COUNT_EXT];
+	int fids[DMX_FILTER_COUNT_EXT] = {0};
 	int i, cnt = 0, ret;
 
 	for (i = 0; i < DMX_FILTER_COUNT; i++)
@@ -310,7 +316,7 @@ static AM_ErrorCode_t dvb_poll(AM_DMX_Device_t *dev, AM_DMX_FilterMask_t *mask, 
 static AM_ErrorCode_t dvb_wake(AM_DMX_Device_t *dev)
 {
 	DVBDmx_t *dmx = (DVBDmx_t*)dev->drv_data;
-	uint8_t wdata  = 0;
+	uint64_t wdata  = 0;
 
 	int event_fd = dmx->event_fd;
 	int ret = write(event_fd, &wdata, 8);

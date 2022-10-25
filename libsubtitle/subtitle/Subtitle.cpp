@@ -209,10 +209,23 @@ void Subtitle::run() {
 
         switch (mPendingAction) {
             case ACTION_SUBTITLE_SET_PARAM: {
+                bool createAndStart = false;
                 if (mParser == nullptr) {
+                    // when the first time start subtitle, some parameter may affect the behavior
+                    // such as cached teletext. we use tsid/onid/pid to check need use cached ttx or not
+                    createAndStart = true;
                     mParser = ParserFactory::create(mSubPrams, mDataSource);
-                    mParser->startParse(mParserNotifier, mPresentation.get());
-                    mPresentation->startPresent(mParser);
+                } else if(mParser->getParseType() == TYPE_SUBTITLE_CLOSED_CAPTION){
+                    /*
+                     * When ccparser is created by default,
+                     * it can be changed to the correct parser type
+                     * when specifying the parser type subsequently
+                     */
+                    mParser->stopParse();
+                    mPresentation->stopPresent();
+                    mParser = nullptr;
+                    createAndStart = true;
+                    mParser = ParserFactory::create(mSubPrams, mDataSource);
                 }
                 if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_DVB) {
                     mParser->updateParameter(TYPE_SUBTITLE_DTVKIT_DVB, &mSubPrams->dtvkitDvbParam);
@@ -221,17 +234,24 @@ void Subtitle::run() {
                     mParser->updateParameter(TYPE_SUBTITLE_DVB_TELETEXT, &mSubPrams->ttParam);
                 } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_SCTE27) {
                     mParser->updateParameter(TYPE_SUBTITLE_DTVKIT_SCTE27, &mSubPrams->scteParam);
+                } else if (mSubPrams->subType == TYPE_SUBTITLE_CLOSED_CAPTION) {
+                    mParser->updateParameter(TYPE_SUBTITLE_CLOSED_CAPTION, &mSubPrams->ccParam);
+                }
+                if (createAndStart) {
+                    mParser->startParse(mParserNotifier, mPresentation.get());
+                    mPresentation->startPresent(mParser);
                 }
             }
             break;
             case ACTION_SUBTITLE_RECEIVED_SUBTYPE: {
+                if (mSubPrams->subType == TYPE_SUBTITLE_CLOSED_CAPTION || mSubPrams->subType == TYPE_SUBTITLE_INVALID) {
+                    ALOGD("CC type or invalid type, break, do nothings!");
+                    break;
+                }
                 if (mParser != nullptr) {
                     mParser->stopParse();
                     mPresentation->stopPresent();
                     mParser = nullptr;
-                }
-                if (mSubPrams->subType == TYPE_SUBTITLE_CLOSED_CATPTION) {
-                    break;
                 }
                 mParser = ParserFactory::create(mSubPrams, mDataSource);
                 mParser->startParse(mParserNotifier, mPresentation.get());
@@ -247,7 +267,7 @@ void Subtitle::run() {
             break;
             case ACTION_SUBTITLE_RESET_MEDIASYNC:
                 if (mParser != nullptr) {
-                    mParser->setPipId(2, mSubPrams->mediaId);
+                    mParser->setPipId(PIP_MEDIASYNC_ID, mSubPrams->mediaId);
             }
             break;
             case ACTION_SUBTITLE_RESET_FOR_SEEK:
@@ -266,11 +286,13 @@ void Subtitle::run() {
         // wait100ms, still no parser, then start default CC
         if (mParser == nullptr) {
             ALOGD("No parser found, create default!");
-            if (mFd > 0) {
-                mSubPrams->subType = TYPE_SUBTITLE_EXTERNAL;// if mFd > 0 is Ext sub
-            }
             // start default parser, normally, this is CC
             mParser = ParserFactory::create(mSubPrams, mDataSource);
+            if (mParser == nullptr) {
+                ALOGE("Parser creat failed, break!");
+                break;
+            }
+
             mParser->startParse(mParserNotifier, mPresentation.get());
             mPresentation->startPresent(mParser);
         }

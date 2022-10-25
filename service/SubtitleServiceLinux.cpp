@@ -205,9 +205,11 @@ int SubtitleServiceLinux::SetCmd(subtitle_module_param_t param, native_handle_t 
                 break;
             case SUBTITLE_USERDATAOPEN:
                 ALOGD(" SubtitleServiceLinux  %s, line %d", __FUNCTION__, __LINE__);
+                ret = mpSubtitlecontrol->userDataOpen(paramData[0]);
                 break;
             case SUBTITLE_USERDATACLOSE:
                 ALOGD(" SubtitleServiceLinux  %s, line %d", __FUNCTION__, __LINE__);
+                ret = mpSubtitlecontrol->userDataClose(paramData[0]);
                 break;
             case SUBTITLE_SETSUBTYPE:
                 ret = mpSubtitlecontrol->setSubType(paramData[0], paramData[1]);
@@ -311,7 +313,8 @@ int SubtitleServiceLinux::ParserSubtitleCommand(const char *commandData, native_
           mSubtitleCommand[0].c_str(), mSubtitleCommand[1].c_str());
     if (strcmp(mSubtitleCommand[0].c_str(), "subtitle") == 0) {
         if ((strcmp(mSubtitleCommand[1].c_str(), "ctrl") == 0) ||
-            (strcmp(mSubtitleCommand[1].c_str(), "set") == 0)) {
+            (strcmp(mSubtitleCommand[1].c_str(), "set") == 0) ||
+            (strcmp(mSubtitleCommand[1].c_str(), "afdcontrol") == 0)) {
             ret = SetCmd(subtitleParam, handle);
         } else if (strcmp(mSubtitleCommand[1].c_str(), "get") == 0) {
             ret = GetCmd(subtitleParam);

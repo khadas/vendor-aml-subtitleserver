@@ -25,6 +25,9 @@
 #include <errno.h>
 #include <am_debug.h>
 #include "am_misc.h"
+#include <string.h>
+#include <assert.h>
+
 /****************************************************************************
  * Macro definitions
  ***************************************************************************/
@@ -36,7 +39,7 @@ int (*Write_Sysfs_ptr)(const char *path, char *value);
 int (*ReadNum_Sysfs_ptr)(const char *path, char *value, int size);
 int (*Read_Sysfs_ptr)(const char *path, char *value);
 
-//static int AM_SYSTEMCONTROL_INIT=0;
+static int AM_SYSTEMCONTROL_INIT=0;
 
 typedef struct am_rw_sysfs_cb_s
 {
@@ -60,8 +63,99 @@ am_rw_prop_cb_t rwPropCb = {.readPropCb = NULL, .writePropCb = NULL};
 
 #endif
 
+/**\brief init systemcontrol rw api ptr
+ * \param null
+ * \param[in] null
+ * \return
+ *   - AM_SUCCESS 成功
+ *   - 其他值 错误代码
+ */
+static AM_ErrorCode_t am_init_syscontrol_api()
+{
+#if 0//def ANDROID
+	if (AM_SYSTEMCONTROL_INIT == 0)
+	{
+		void* handle = NULL;
+#ifndef NO_SYSFS
+		if (handle == NULL) {
+			handle = dlopen("libam_sysfs.so", RTLD_NOW);//RTLD_NOW  RTLD_LAZY
+		}
+#endif
+		if (handle == NULL)
+		{
+			//AM_DEBUG(1, "open lib error--%s\r\n",dlerror());
+			return AM_FAILURE;
+		}
+		AM_DEBUG(1, "open lib ok--\r\n");
+		Write_Sysfs_ptr = dlsym(handle, "AM_SystemControl_Write_Sysfs");
+		ReadNum_Sysfs_ptr = dlsym(handle, "AM_SystemControl_ReadNum_Sysfs");
+		Read_Sysfs_ptr = dlsym(handle, "AM_SystemControl_Read_Sysfs");
 
+		AM_SYSTEMCONTROL_INIT=1;
+		if (Write_Sysfs_ptr == NULL)
+		{
+			AM_DEBUG(1, "cannot get write sysfs api\r\n");
+		}
+		if (ReadNum_Sysfs_ptr == NULL)
+		{
+			AM_DEBUG(1, "cannot get read num sysfs api\r\n");
+		}
+		if (Read_Sysfs_ptr == NULL)
+		{
+			AM_DEBUG(1, "cannot get read sysfs api\r\n");
+		}
+	}
+#endif
+	return AM_SUCCESS;
+}
 
+static AM_ErrorCode_t try_write(int fd, const char *buf, int len)
+{
+#if 0
+	const char *ptr = buf;
+	int left = len;
+	int ret;
+
+	while (left)
+	{
+		ret = write(fd, ptr, left);
+		if (ret == -1)
+		{
+			if (errno != EINTR)
+				return AM_FAILURE;
+			ret = 0;
+		}
+
+		ptr += ret;
+		left-= ret;
+	}
+#endif
+	return AM_SUCCESS;
+}
+
+static AM_ErrorCode_t try_read(int fd, char *buf, int len)
+{
+#if 0
+	char *ptr = buf;
+	int left = len;
+	int ret;
+
+	while (left)
+	{
+		ret = read(fd, ptr, left);
+		if (ret == -1)
+		{
+			if (errno != EINTR)
+				return AM_FAILURE;
+			ret = 0;
+		}
+
+		ptr += ret;
+		left-= ret;
+	}
+#endif
+	return AM_SUCCESS;
+}
 
 /****************************************************************************
  * API functions
@@ -192,21 +286,21 @@ AM_ErrorCode_t AM_FileRead(const char *name, char *buf, int len)
 {
 #if 1
 	int fd;
-    int c = 0;
-	//unsigned long val = 0;
+	int c = 0;
+	unsigned long val = 0;
 	//char bcmd[32];
 	//memset(bcmd, 0, 32);
 	fd = open(name, O_RDONLY);
 	if (fd >= 0) {
 		c = read(fd, buf, len);
 		if (c > 0) {
-			//AM_DEBUG(0, "read sucess val:%s", buf);
+			//AM_DEBUG(0, "read success val:%s", buf);
 		} else {
-			//AM_DEBUG(0, "read failed!file %s,err: %s", name, strerror(errno));
+			AM_DEBUG(0, "read failed!file %s,err: %s", name, strerror(errno));
 		}
 		close(fd);
 	} else {
-		//AM_DEBUG(0, "unable to open file %s,err: %s", name, strerror(errno));
+		AM_DEBUG(0, "unable to open file %s,err: %s", name, strerror(errno));
 	}
 
 #else
@@ -250,7 +344,7 @@ AM_ErrorCode_t AM_FileRead(const char *name, char *buf, int len)
 
 /**\brief 向一个prop set字符串
  * \param[in] name 文件名
- * \param[in] cmd 向propset 的字符串
+ * \param[in] cmd 向prop set 的字符串
  * \return
  *   - AM_SUCCESS 成功
  *   - 其他值 错误代码
@@ -456,6 +550,91 @@ AM_ErrorCode_t AM_LocalGetResp(int fd, char *buf, int len)
 	return AM_SUCCESS;
 }
 
+/* UTF8 utilities */
+
+/* This parses a UTF8 string one character at a time. It is passed a pointer
+ * to the string and the length of the string. It sets 'value' to the value of
+ * the current character. It returns the number of characters read or a
+ * negative error code:
+ * -1 = string too short
+ * -2 = illegal character
+ * -3 = subsequent characters not of the form 10xxxxxx
+ * -4 = character encoded incorrectly (not minimal length).
+ */
+
+static int UTF8_getc(const unsigned char *str, int len, unsigned long *val)
+{
+	int ret = 0;
+#if 0
+	const unsigned char *p;
+	unsigned long value;
+	if (len <= 0) return 0;
+	p = str;
+
+	/* Check syntax and work out the encoded value (if correct) */
+	if ((*p & 0x80) == 0) {
+		value = *p++ & 0x7f;
+		ret = 1;
+	} else if ((*p & 0xe0) == 0xc0) {
+		if (len < 2) return -1;
+		if ((p[1] & 0xc0) != 0x80) return -3;
+		value = (*p++ & 0x1f) << 6;
+		value |= *p++ & 0x3f;
+		if (value < 0x80) return -4;
+		ret = 2;
+	} else if ((*p & 0xf0) == 0xe0) {
+		if (len < 3) return -1;
+		if ( ((p[1] & 0xc0) != 0x80)
+		   || ((p[2] & 0xc0) != 0x80) ) return -3;
+		value = (*p++ & 0xf) << 12;
+		value |= (*p++ & 0x3f) << 6;
+		value |= *p++ & 0x3f;
+		if (value < 0x800) return -4;
+		ret = 3;
+	} else if ((*p & 0xf8) == 0xf0) {
+		if (len < 4) return -1;
+		if ( ((p[1] & 0xc0) != 0x80)
+		   || ((p[2] & 0xc0) != 0x80)
+		   || ((p[3] & 0xc0) != 0x80) ) return -3;
+		value = ((unsigned long)(*p++ & 0x7)) << 18;
+		value |= (*p++ & 0x3f) << 12;
+		value |= (*p++ & 0x3f) << 6;
+		value |= *p++ & 0x3f;
+		if (value < 0x10000) return -4;
+		ret = 4;
+	} else if ((*p & 0xfc) == 0xf8) {
+		if (len < 5) return -1;
+		if ( ((p[1] & 0xc0) != 0x80)
+		   || ((p[2] & 0xc0) != 0x80)
+		   || ((p[3] & 0xc0) != 0x80)
+		   || ((p[4] & 0xc0) != 0x80) ) return -3;
+		value = ((unsigned long)(*p++ & 0x3)) << 24;
+		value |= ((unsigned long)(*p++ & 0x3f)) << 18;
+		value |= ((unsigned long)(*p++ & 0x3f)) << 12;
+		value |= (*p++ & 0x3f) << 6;
+		value |= *p++ & 0x3f;
+		if (value < 0x200000) return -4;
+		ret = 5;
+	} else if ((*p & 0xfe) == 0xfc) {
+		if (len < 6) return -1;
+		if ( ((p[1] & 0xc0) != 0x80)
+		   || ((p[2] & 0xc0) != 0x80)
+		   || ((p[3] & 0xc0) != 0x80)
+		   || ((p[4] & 0xc0) != 0x80)
+		   || ((p[5] & 0xc0) != 0x80) ) return -3;
+		value = ((unsigned long)(*p++ & 0x1)) << 30;
+		value |= ((unsigned long)(*p++ & 0x3f)) << 24;
+		value |= ((unsigned long)(*p++ & 0x3f)) << 18;
+		value |= ((unsigned long)(*p++ & 0x3f)) << 12;
+		value |= (*p++ & 0x3f) << 6;
+		value |= *p++ & 0x3f;
+		if (value < 0x4000000) return -4;
+		ret = 6;
+	} else return -2;
+	*val = value;
+#endif
+	return ret;
+}
 
 static int in_utf8(unsigned long value, void *arg)
 {
@@ -466,13 +645,13 @@ static int in_utf8(unsigned long value, void *arg)
 #endif
 	return 1;
 }
-/*
+
 static int is_ctrl_code(unsigned long v)
 {
 	return ((v >= 0x80) && (v <= 0x9f))
 		|| ((v >= 0xE080) && (v <= 0xE09f));
 }
-*/
+
 /* This function traverses a string and passes the value of each character
  * to an optional function along with a void * argument.
  */
@@ -530,15 +709,15 @@ static int traverse_string(const unsigned char *p, int len,
  */
 AM_ErrorCode_t AM_Check_UTF8(const char *src, int src_len, char *dest, int *dest_len)
 {
-	//assert(src);
-	//assert(dest);
-	//assert(dest_len);
+	assert(src);
+	assert(dest);
+	assert(dest_len);
 
-	//int ret;
+	int ret;
 	int nchar;
 	nchar = 0;
 	/* This counts the characters and does utf8 syntax checking */
-	traverse_string((unsigned char*)src, src_len, in_utf8, &nchar,dest, dest_len);
+	ret = traverse_string((unsigned char*)src, src_len, in_utf8, &nchar,dest, dest_len);
 
 	*dest_len = nchar;
 	return AM_SUCCESS;

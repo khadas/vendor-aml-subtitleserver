@@ -1,5 +1,6 @@
 #define LOG_TAG "DvbParser"
 #include <unistd.h>
+#include <climits>
 #include <fcntl.h>
 #include <string>
 #include <list>
@@ -219,6 +220,7 @@ struct DVBSubContext {
 
 #define SINGLE_OBJECT_DATA        4
 #define SINGLE_FIRST_OBJECT_DATA  1
+#define REGION_SEGMENT_CNT        2
 
 
 #define TOP_FIELD           0
@@ -231,6 +233,7 @@ struct DVBSubContext {
 
 #define HIGH_32_BIT_PTS 0xFFFFFFFF
 #define TSYNC_32_BIT_PTS 0xFFFFFFFF
+
 
 /* crop table */
 static const int MAX_NEG_CROP = 1024;
@@ -1559,7 +1562,7 @@ int DvbParser::decodeSubtitle(std::shared_ptr<AML_SPUVAR> spu, char *pSrc, const
                     break;
                 case DVBSUB_OBJECT_SEGMENT:
                     cnt_object++;
-                    if (totalObject >= SINGLE_OBJECT_DATA && total_RegionSegment == SINGLE_OBJECT_DATA) {
+                    if (totalObject >= SINGLE_OBJECT_DATA && total_RegionSegment != REGION_SEGMENT_CNT) {//only ==2, change top and bottom field
                         cnt_object = SINGLE_FIRST_OBJECT_DATA;
                     }
                     ret = parseObjectSegment(p, segmentLength, cnt_object, totalObject);
@@ -1685,6 +1688,10 @@ int DvbParser::hwDemuxParse() {
         }
 
         if (needSkipData) {
+            if (packetLen < 0 || packetLen > INT_MAX) {
+                LOGE("illegal packetLen!!!\n");
+                return false;
+            }
             for (int iii = 0; iii < packetLen; iii++) {
                 char tmp;
                 if (mDataSource->read(&tmp, 1) == 0) {

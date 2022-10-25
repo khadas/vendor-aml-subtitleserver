@@ -17,7 +17,7 @@ std::shared_ptr<Parser> ParserFactory::create(
     ALOGD("ParserFactory::create: type= %d", type);
     // TODO: unless we can determin CC type, or default start CC parser
     if (type == TYPE_SUBTITLE_INVALID) {
-        type = TYPE_SUBTITLE_CLOSED_CATPTION;
+        type = TYPE_SUBTITLE_CLOSED_CAPTION;
      }
 
     switch (type) {
@@ -49,7 +49,7 @@ std::shared_ptr<Parser> ParserFactory::create(
         case TYPE_SUBTITLE_DVB_TELETEXT:
         case TYPE_SUBTITLE_DTVKIT_TELETEXT:
             return std::shared_ptr<Parser>(new TeletextParser(source));
-        case TYPE_SUBTITLE_CLOSED_CATPTION: {
+        case TYPE_SUBTITLE_CLOSED_CAPTION: {
             std::shared_ptr<Parser> p = std::shared_ptr<Parser>(new ClosedCaptionParser(source));
             if (p != nullptr) {
                 p->updateParameter(type, &subParam->ccParam);

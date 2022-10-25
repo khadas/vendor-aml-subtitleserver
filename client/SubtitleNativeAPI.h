@@ -62,7 +62,7 @@ typedef enum {
     TYPE_SUBTITLE_TMD_TXT   = 7,
     TYPE_SUBTITLE_IDX_SUB,  //now discard
     TYPE_SUBTITLE_DVB_TELETEXT,
-    TYPE_SUBTITLE_CLOSED_CATPTION,
+    TYPE_SUBTITLE_CLOSED_CAPTION,
     TYPE_SUBTITLE_SCTE27,
     TYPE_SUBTITLE_EXTERNAL,
     TYPE_SUBTITLE_MAX,
@@ -263,7 +263,7 @@ AmlSubtitleStatus amlsub_RegistOnDataCB(AmlSubtitleHnd handle, AmlSubtitleDataCb
 AmlSubtitleStatus amlsub_RegistAfdEventCB(AmlSubtitleHnd handle, AmlAfdEventCb listener);
 AmlSubtitleStatus amlsub_RegistOnChannelUpdateCb(AmlSubtitleHnd handle, AmlChannelUpdateCb listener);
 AmlSubtitleStatus amlsub_RegistOnSubtitleAvailCb(AmlSubtitleHnd handle, AmlSubtitleAvailCb listener);
-AmlSubtitleStatus amlsub_RegistGetDimesionCb(AmlSubtitleHnd handle, AmlSubtitleDimensionCb listener);
+AmlSubtitleStatus amlsub_RegistGetDimensionCb(AmlSubtitleHnd handle, AmlSubtitleDimensionCb listener);
 AmlSubtitleStatus amlsub_RegistOnSubtitleLanguageCb(AmlSubtitleHnd handle, AmlSubtitleLanguageCb listener);
 AmlSubtitleStatus amlsub_RegistOnSubtitleInfoCB(AmlSubtitleHnd handle, AmlSubtitleInfoCb listener);
 

@@ -308,6 +308,13 @@ static AM_ErrorCode_t userdata_package_poll(AM_USERDATA_Device_t *dev, int timeo
 	int rv, ret = AM_SUCCESS, cnt;
 	struct timespec rt;
 
+	// not opened or deinitilized.
+	// If client call userdata close before stop decode, may has problem.
+	// Add more protection here.
+	if (dev->open_cnt <= 0) {
+		return AM_FAILURE;
+	}
+
 	cnt = userdata_ring_buf_avail(&dev->pkg_buf);
 	if (cnt <= 0)
 	{
@@ -346,10 +353,9 @@ AM_ErrorCode_t AM_USERDATA_Open(int dev_no, const AM_USERDATA_OpenPara_t *para)
 {
 	AM_USERDATA_Device_t *dev;
 	AM_ErrorCode_t ret = AM_SUCCESS;
-	//int i;
+	int i;
 
 	assert(para);
-
 	AM_TRY(userdata_get_dev(dev_no, &dev));
 
 	pthread_mutex_lock(&am_gAdpLock);
@@ -357,7 +363,7 @@ AM_ErrorCode_t AM_USERDATA_Open(int dev_no, const AM_USERDATA_OpenPara_t *para)
 	if (dev->open_cnt)
 	{
 		AM_DEBUG(1, "userdata device %d has already been openned", dev_no);
-		//dev->open_cnt++;
+		dev->open_cnt++;
 		goto final;
 	}
 
@@ -404,18 +410,20 @@ AM_ErrorCode_t AM_USERDATA_Close(int dev_no)
 
 	if (dev->open_cnt > 0)
 	{
-		if (dev->open_cnt == 1)
+		dev->open_cnt--;
+		if (dev->open_cnt == 0)
 		{
+			//Notify cond(if has), we're exiting, should break polling
+			pthread_cond_broadcast(&dev->pkg_buf.cond);
 			if (dev->drv->close)
 			{
 				dev->drv->close(dev);
 			}
-
+			AM_DEBUG(1, "AM_USERDATA_Close pthread_mutex_destroy");
 			pthread_mutex_destroy(&dev->lock);
 
 			userdata_ring_buf_deinit(&dev->pkg_buf);
 		}
-		dev->open_cnt--;
 	}
 
 	pthread_mutex_unlock(&am_gAdpLock);
@@ -481,6 +489,23 @@ AM_ErrorCode_t AM_USERDATA_GetMode(int dev_no, int *mode)
 
 	if (dev->drv->get_mode)
 		ret = dev->drv->get_mode(dev, mode);
+
+	pthread_mutex_unlock(&dev->lock);
+
+	return ret;
+}
+
+AM_ErrorCode_t AM_USERDATA_SetParameters(int dev_no, int para)
+{
+	AM_USERDATA_Device_t *dev;
+	AM_ErrorCode_t ret = AM_SUCCESS;
+
+	AM_TRY(userdata_get_openned_dev(dev_no, &dev));
+
+	pthread_mutex_lock(&dev->lock);
+
+	if (dev->drv->set_param)
+		ret = dev->drv->set_param(dev, para);
 
 	pthread_mutex_unlock(&dev->lock);
 

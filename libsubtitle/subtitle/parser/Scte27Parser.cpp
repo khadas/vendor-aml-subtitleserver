@@ -155,6 +155,7 @@ static void drawEndCallback(AM_SCTE27_Handle_t handle) {
 
     TVSubtitleData *ctx = parser->getContexts();
     std::shared_ptr<AML_SPUVAR> spu(new AML_SPUVAR());
+    spu->subtitle_type = SubtitleType::TYPE_SUBTITLE_SCTE27;
     spu->buffer_size = SCTE27_SUB_SIZE;
     spu->spu_data = (unsigned char *)malloc(SCTE27_SUB_SIZE);
     if (!spu->spu_data) {

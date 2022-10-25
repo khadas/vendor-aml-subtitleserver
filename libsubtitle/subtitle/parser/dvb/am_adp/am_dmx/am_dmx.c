@@ -57,6 +57,7 @@ extern "C" {
 /****************************************************************************
  * Static data
  ***************************************************************************/
+
 #ifdef EMU_DEMUX
 extern AM_DMX_Driver_t emu_dmx_drv;
 #define HW_DMX_DRV emu_dmx_drv
@@ -64,9 +65,8 @@ extern AM_DMX_Driver_t emu_dmx_drv;
 extern AM_DMX_Driver_t linux_dvb_dmx_drv;
 #define HW_DMX_DRV linux_dvb_dmx_drv
 #endif
-
-extern AM_DMX_Driver_t dvr_dmx_drv;
-#define SW_DMX_DRV dvr_dmx_drv
+//extern const AM_DMX_Driver_t dvr_dmx_drv;
+//#define SW_DMX_DRV dvr_dmx_drv
 
 static AM_DMX_Device_t dmx_devices[DMX_DEV_COUNT] =
 {
@@ -165,11 +165,14 @@ static void* dmx_data_thread(void *arg)
 #define BUF_SIZE (4096)
 
 	sec_buf = (uint8_t*)malloc(BUF_SIZE);
-
+	//for coverity
+	if (sec_buf) {
+		memset(sec_buf, 0, BUF_SIZE);
+	}
 	while (dev->enable_thread)
 	{
 		AM_DMX_FILTER_MASK_CLEAR(&mask);
-		int id;
+		uint32_t id;
 
 		ret = dev->drv->poll(dev, &mask, DMX_POLL_TIMEOUT);
 		if (ret == AM_SUCCESS)
@@ -373,7 +376,9 @@ AM_ErrorCode_t AM_DMX_Open(int dev_no, const AM_DMX_OpenPara_t *para)
 		pthread_mutex_init(&dev->lock, NULL);
 		pthread_cond_init(&dev->cond, NULL);
 		dev->enable_thread = AM_TRUE;
+		pthread_mutex_lock(&dev->lock);
 		dev->flags = 0;
+		pthread_mutex_unlock(&dev->lock);
 
 		if (pthread_create(&dev->thread, NULL, dmx_data_thread, dev))
 		{
@@ -585,7 +590,7 @@ AM_ErrorCode_t AM_DMX_SetPesFilter(int dev_no, int fhandle, const struct dmx_pes
 	if (ret == AM_SUCCESS)
 	{
 		ret = dev->drv->set_pes_filter(dev, filter, params);
-		AM_DEBUG(2, "set pes filter %d PID %d", fhandle, params->pid);
+		AM_DEBUG(2, "set pes filter %d PID %d flags %d", fhandle, params->pid, params->flags);
 	}
 
 	pthread_mutex_unlock(&dev->lock);

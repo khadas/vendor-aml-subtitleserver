@@ -78,7 +78,7 @@ typedef struct
 	int height;
 	int media_sync;
 	void                    *user_data;      /**< user private data*/
-	AM_Bool_t hasReportAvai;
+	AM_Bool_t hasReportAvailable;
 	AM_Bool_t hasReportLang;
 	int lastWidth;
 	int lastHeight;

@@ -45,6 +45,8 @@ private:
 
     void clearScreen();
 
+    bool isText(std::shared_ptr<AML_SPUVAR>& spu);
+
     enum {
         kWhat_thread_init,
         kWhat_show_subtitle_item,

@@ -7,50 +7,6 @@
 #include <utils/CallStack.h>
 
 using android::CallStack;
-//namespace vendor {
-//namespace amlogic {
-//namespace hardware {
-//namespace subtitleserver {
-//namespace V1_0 {
-//namespace implementation {
-
-// FMQ polling data
-/*class FmqReaderImpl : public FmqReader {
-public:
-    FmqReaderImpl(DataMQ* dataMQ) : mDataMQ(dataMQ) {
-        ALOGD("%s", __func__);
-    }
-    virtual ~FmqReaderImpl() {
-        ALOGD("%s", __func__);
-    }
-
-    virtual bool pollEvent() {return true;}
-    virtual size_t availableSize() {
-        if (mDataMQ == nullptr) return 0;
-        return mDataMQ->availableToRead();
-    }
-
-    virtual size_t read(uint8_t *buffer, size_t size) {
-            size_t availToRead = mDataMQ->availableToRead();
-            if (availToRead > size) {
-                availToRead = size;
-            }
-
-            if (availToRead > 0) {
-                if (mDataMQ->readBlocking(buffer, availToRead, 50*1000*1000LL)) {
-                    return availToRead;
-                } else {
-                    ALOGE("Error! cannot read data! require:%d avail:%d", size, availToRead);
-                    return -1;
-                }
-            }
-        return 0;
-    }
-
-private:
-    DataMQ* mDataMQ;
-};
-*/
 
 SubtitleServer *SubtitleServer::sInstance = nullptr;
 

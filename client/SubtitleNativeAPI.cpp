@@ -29,7 +29,7 @@ static AmlSubDataType __mapServerType2ApiType(int type) {
         case TYPE_SUBTITLE_SSA:
             return SUB_DATA_TYPE_STRING;
 
-        case TYPE_SUBTITLE_CLOSED_CATPTION:
+        case TYPE_SUBTITLE_CLOSED_CAPTION:
             return SUB_DATA_TYPE_CC_JSON;
 
     }
@@ -43,11 +43,12 @@ static int __mapApiType2SubtitleType(int type) {
     switch (type) {
         case TYPE_SUBTITLE_DVB:
             return DTV_SUB_DTVKIT_DVB;
-
         case TYPE_SUBTITLE_DVB_TELETEXT:
             return DTV_SUB_DTVKIT_TELETEXT;
         case TYPE_SUBTITLE_SCTE27:
             return DTV_SUB_DTVKIT_SCTE27;
+        case TYPE_SUBTITLE_CLOSED_CAPTION:
+            return DTV_SUB_CC;
     }
     //default:
     return type;
@@ -290,7 +291,7 @@ AmlSubtitleStatus amlsub_Open(AmlSubtitleHnd handle, AmlSubtitleParam *param) {
         ALOGE("Error! invalid input param, param=%p", param);
         return SUB_STAT_INV;
     }
-    //ctx->mClient->userDataOpen();
+    ctx->mClient->userDataOpen();
     // Here, we support all the parametes from client to server
     // server will filter the parameter, select to use according from the type.
     ctx->mClient->setSubType(__mapApiType2SubtitleType(param->subtitleType));
@@ -481,7 +482,7 @@ AmlSubtitleStatus amlsub_RegistAfdEventCB(AmlSubtitleHnd handle, AmlAfdEventCb l
 }
 
 AmlSubtitleStatus
-amlsub_RegistGetDimesionCb(AmlSubtitleHnd handle, AmlSubtitleDimensionCb listener) {
+amlsub_RegistGetDimensionCb(AmlSubtitleHnd handle, AmlSubtitleDimensionCb listener) {
     if (DEBUG_CALL) ALOGD("call>> %s handle[%p]", __func__, handle);
     SubtitleContext *ctx = (SubtitleContext *) handle;
     if (ctx == nullptr) {

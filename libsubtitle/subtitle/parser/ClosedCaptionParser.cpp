@@ -73,6 +73,32 @@ static void cc_rating_cb (AM_CC_Handle_t handle, vbi_rating *rating) {
     }
 }
 
+static void q_tone_data_cb(AM_CC_Handle_t handle, char *buffer, int size) {
+    ALOGD("q_tone_data_cb data:%s, size:%d", buffer ,size);
+    std::shared_ptr<AML_SPUVAR> spu(new AML_SPUVAR());
+    spu->subtitle_type = TYPE_SUBTITLE_CLOSED_CAPTION;
+    spu->spu_data = (unsigned char *)malloc(size);
+    memset(spu->spu_data, 0, size);
+    memcpy(spu->spu_data, buffer, size);
+    spu->buffer_size = size;
+    spu->isQtoneData = true;
+
+    // report data:
+    {
+        std::unique_lock<std::mutex> autolock(gLock);
+        ClosedCaptionParser *parser = ClosedCaptionParser::getCurrentInstance();
+        if (parser != nullptr) {
+            // CC and scte use little dvb, render&presentation already handled.
+            spu->isImmediatePresent = true;
+            parser->addDecodedItem(std::shared_ptr<AML_SPUVAR>(spu));
+        } else {
+            ALOGD("Report json string to a deleted cc parser!");
+        }
+    }
+
+
+}
+
 static void cc_data_cb(AM_CC_Handle_t handle, int mask) {
     (void)handle;
     if (mask > 0) {
@@ -107,9 +133,10 @@ static void cc_data_cb(AM_CC_Handle_t handle, int mask) {
 void json_update_cb(AM_CC_Handle_t handle) {
     (void)handle;
 
-    //LOGI("@@@@@@ cc json string: %s", ClosedCaptionParser::sJsonStr);
+    LOGI("@@@@@@ cc json string: %s", sJsonStr);
     int mJsonLen = strlen(sJsonStr);
     std::shared_ptr<AML_SPUVAR> spu(new AML_SPUVAR());
+    spu->subtitle_type = TYPE_SUBTITLE_CLOSED_CAPTION;
     spu->spu_data = (unsigned char *)malloc(mJsonLen);
     memset(spu->spu_data, 0, mJsonLen);
     memcpy(spu->spu_data, sJsonStr, mJsonLen);
@@ -136,10 +163,10 @@ void ClosedCaptionParser::notifyAvailable(int avil) {
     }
 }
 
-void ClosedCaptionParser::notifyChannelState(int stat, int chnnlId) {
+void ClosedCaptionParser::notifyChannelState(int stat, int channelId) {
     if (mNotifier != nullptr) {
-        ALOGD("CC_DATA_CB: %d %d", stat, chnnlId);
-        mNotifier->onSubtitleDataEvent(stat, chnnlId);
+        ALOGD("CC_DATA_CB: %d %d", stat, channelId);
+        mNotifier->onSubtitleDataEvent(stat, channelId);
     }
 }
 
@@ -153,7 +180,7 @@ ClosedCaptionParser *ClosedCaptionParser::getCurrentInstance() {
 ClosedCaptionParser::ClosedCaptionParser(std::shared_ptr<DataSource> source) {
     LOGI("creat ClosedCaption parser");
     mDataSource = source;
-    mParseType = TYPE_SUBTITLE_CLOSED_CATPTION;
+    mParseType = TYPE_SUBTITLE_CLOSED_CAPTION;
 
     std::unique_lock<std::mutex> autolock(gLock);
     sInstance = this;
@@ -169,6 +196,7 @@ ClosedCaptionParser::~ClosedCaptionParser() {
     stopAmlCC();
     // call back may call parser, parser later destroy
     stopParse();
+    if (mLang) free(mLang);
     delete mCcContext;
 }
 
@@ -176,6 +204,9 @@ bool ClosedCaptionParser::updateParameter(int type, void *data) {
     (void)type;
   CcParam *cc_param = (CcParam *) data;
   mChannelId = cc_param->ChannelID;
+  if (strlen(cc_param->lang) > 0) {
+      mLang = strdup(cc_param->lang);
+  }
   //mVfmt = cc_param->vfmt;
   LOGI("@@@@@@ updateParameter mChannelId: %d, mVfmt:%d", mChannelId, mVfmt);
   return true;
@@ -203,12 +234,12 @@ int ClosedCaptionParser::startAtscCc(int source, int vfmt, int caption, int fg_c
     AM_CC_CreatePara_t cc_para;
     AM_CC_StartPara_t spara;
     int ret;
-   // int mode;
+    int mode;
 
     setDvbDebugLogLevel();
 
-    LOGI("start cc: vfmt %d caption %d, fgc %d, bgc %d, fgo %d, bgo %d, fsize %d, fstyle %d",
-            vfmt, caption, fg_color, bg_color, fg_opacity, bg_opacity, font_size, font_style);
+    LOGI("start cc: vfmt %d caption %d, fgc %d, bgc %d, fgo %d, bgo %d, fsize %d, fstyle %d mMediaSyncId:%d",
+            vfmt, caption, fg_color, bg_color, fg_opacity, bg_opacity, font_size, font_style, mMediaSyncId);
 
     memset(&cc_para, 0, sizeof(cc_para));
     memset(&spara, 0, sizeof(spara));
@@ -227,6 +258,14 @@ int ClosedCaptionParser::startAtscCc(int source, int vfmt, int caption, int fg_c
     cc_para.switch_timeout = 3000;//3s
     cc_para.json_update = json_update_cb;
     cc_para.json_buffer = sJsonStr;
+#ifdef SUPPORT_KOREA
+    cc_para.q_tone_cb = q_tone_data_cb;
+    if (mLang != nullptr) {
+        strncpy(cc_para.lang, mLang, sizeof(cc_para.lang));
+        cc_para.lang[ sizeof(cc_para.lang) -1 ] = '\0';
+    }
+#endif
+
     spara.vfmt = vfmt;
     spara.player_id = mPlayerId;
     spara.mediaysnc_id = mMediaSyncId;
@@ -239,6 +278,7 @@ int ClosedCaptionParser::startAtscCc(int source, int vfmt, int caption, int fg_c
     spara.user_options.font_size   = (AM_CC_FontSize_t)font_size;
     spara.user_options.font_style  = (AM_CC_FontStyle_t)font_style;
 
+    ALOGD("%s %s", mLang, cc_para.lang);
     ret = AM_CC_Create(&cc_para, &mCcContext->cc_handle);
     if (ret != AM_SUCCESS) {
         goto error;
@@ -277,6 +317,11 @@ int ClosedCaptionParser::startAmlCC() {
     if (source != AM_CC_INPUT_VBI) {
         mVfmt = VideoInfo::Instance()->getVideoFormat();
     }
+
+    if (sInstance == nullptr) {
+        sInstance = this;
+    }
+
     LOGI(" start cc source:%d, channel:%d, mvfmt:%d", source, channel, mVfmt);
     startAtscCc(source, mVfmt, channel, 0, 0, 0, 0, 0, 0);
 
@@ -290,7 +335,7 @@ int ClosedCaptionParser::parse() {
         if (mState == SUB_INIT) {
             /*this have multi thread issue.
             startAmlCC have delay, if this mState after startAmlCC,
-            then resumeplay will cause stopParse first, mState will SUB_STOP to
+            then resumeplay will cause stopParser first, mState will SUB_STOP to
             SUB_PLAYING, which cause while circle, and cc thread will not release*/
             mState = SUB_PLAYING;
 

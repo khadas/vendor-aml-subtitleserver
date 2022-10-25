@@ -35,14 +35,17 @@ extern "C" {
 #include <signal.h>
 #include <sys/utsname.h>
 #include <stdbool.h>
-//#include "MediaSyncInterface.h"
+#include "MediaSyncInterface.h"
+#include "cutils/properties.h"
 #include <stdlib.h>
+#include <strings.h>
 
 #define USERDATA_POLL_TIMEOUT 100
 #define MAX_CC_NUM			64
 #define MAX_CC_DATA_LEN  (1024*5 + 4)
 
-#define IS_H264_OR_H265(p)	((p[0] == 0xb5 && p[3] == 0x47 && p[4] == 0x41 && p[5] == 0x39 && p[6] == 0x34))
+#define IS_H264(p)	((p[0] == 0xb5 && p[3] == 0x47 && p[4] == 0x41 && p[5] == 0x39 && p[6] == 0x34))
+#define IS_H265(p)	((p[0] == 0xb5 && p[3] == 0x47 && p[4] == 0x41 && p[5] == 0x39 && p[6] == 0x34))
 #define IS_DIRECTV(p) ((p[0] == 0xb5 && p[1] == 0x00 && p[2] == 0x2f))
 #define IS_AVS(p)	 ((p[0] == 0x47) && (p[1] == 0x41) && (p[2] == 0x39) && (p[3] == 0x34))
 #define IS_ATSC(p)	((p[0] == 0x47) && (p[1] == 0x41) && (p[2] == 0x39) && (p[3] == 0x34))
@@ -56,7 +59,7 @@ extern "C" {
 #define AMSTREAM_IOC_UD_POC _IOR(AMSTREAM_IOC_MAGIC, 0x55, int)
 #define AMSTREAM_IOC_UD_FLUSH_USERDATA _IOR(AMSTREAM_IOC_MAGIC, 0x56, int)
 #define AMSTREAM_IOC_UD_BUF_READ _IOR(AMSTREAM_IOC_MAGIC, 0x57, int)
-#define AMSTREAM_IOC_UD_AVAIBLE_VDEC      _IOR(AMSTREAM_IOC_MAGIC, 0x5c, unsigned int)
+#define AMSTREAM_IOC_UD_AVAILABLE_VDEC      _IOR(AMSTREAM_IOC_MAGIC, 0x5c, unsigned int)
 
 /****************************************************************************
  * Type definitions
@@ -89,7 +92,7 @@ typedef enum {
 
 struct userdata_meta_info_t {
 	uint32_t poc_number;
-	/************ flags bit defination ***********
+	/************ flags bit definition ***********
 	bit 0:		//used for mpeg2
 		1, group start
 		0, not group start
@@ -132,7 +135,7 @@ struct userdata_meta_info_t {
 	uint32_t flags;
 	uint32_t vpts;			/*video frame pts*/
 	/******************************************
-	0: pts is invalid, please use duration to calcuate
+	0: pts is invalid, please use duration to calculate
 	1: pts is valid
 	******************************************/
 	uint32_t vpts_valid;
@@ -208,29 +211,31 @@ static AM_ErrorCode_t aml_open(AM_USERDATA_Device_t *dev, const AM_USERDATA_Open
 static AM_ErrorCode_t aml_close(AM_USERDATA_Device_t *dev);
 static AM_ErrorCode_t aml_set_mode(AM_USERDATA_Device_t *dev, int mode);
 static AM_ErrorCode_t aml_get_mode(AM_USERDATA_Device_t *dev, int *mode);
+static AM_ErrorCode_t aml_set_param(AM_USERDATA_Device_t *dev, int para);
 
 AM_USERDATA_Driver_t aml_ud_drv = {
 .open  = aml_open,
 .close = aml_close,
 .set_mode = aml_set_mode,
 .get_mode = aml_get_mode,
+.set_param = aml_set_param,
 };
 
 int64_t am_get_video_pts(void* media_sync)
 {
-      #define VIDEO_PTS_PATH "/sys/class/tsync/pts_video"
-   //   int64_t value;
-/*	if (media_sync != NULL) {
+	#define VIDEO_PTS_PATH "/sys/class/tsync/pts_video"
+	int64_t value = 0;
+	if (media_sync != NULL) {
 		MediaSync_getTrackMediaTime(media_sync, &value);
-		value = 0x1FFFFFFFF & ((9*value)/100);
+		value = 0xFFFFFFFF & ((9*value)/100);//now userdata pass only 32bit.
 		return value;
-	} else {*/
+	} else {
 		char buffer[16] = {0};
 		AM_FileRead(VIDEO_PTS_PATH,buffer,16);
 		return strtoul(buffer, NULL, 16);
-//	}
+	}
 }
-/*
+
 static void dump_cc_data(char *who, int poc, uint8_t *buff, int size)
 {
 	int i;
@@ -245,7 +250,7 @@ static void dump_cc_data(char *who, int poc, uint8_t *buff, int size)
 
 	AM_DEBUG(AM_DEBUG_LEVEL, "CC DUMP:who:%s poc: %d :%s", who, poc, buf);
 }
-*/
+
 static void aml_free_cc_data (AM_CCData *cc)
 {
 	if (cc->buf)
@@ -309,9 +314,9 @@ static userdata_type aml_check_userdata_format (uint8_t *buf, int vfmt, int len)
 
 	if (vfmt == 2)
 	{
-		if (IS_H264_OR_H265(buf))
+		if (IS_H264(buf) || IS_H265(buf))
 		{
-			AM_DEBUG(AM_DEBUG_LEVEL,"CC format is h264_cc_type");
+			AM_DEBUG(AM_DEBUG_LEVEL,"CC format is h264_or_h265_cc_type");
 			return H264_CC_TYPE;
 		}
 		else if (IS_DIRECTV(buf))
@@ -417,8 +422,10 @@ static void aml_add_cc_data(AM_USERDATA_Device_t *dev, int poc, int type, uint8_
 	AM_UDDrvData *ud = (AM_UDDrvData*)dev->drv_data;
 	AM_CCData **pcc, *cc;
 	char  buf[256];
-	char *pp = buf;
-	int   left = sizeof(buf), i, pr;
+
+	//for coverity, this code has no effect.0830version index 176
+	//char *pp = buf;
+	//int   left = sizeof(buf), i, pr;
 
 	if (ud->cc_num >= MAX_CC_NUM) {
 #if 0
@@ -435,13 +442,14 @@ static void aml_add_cc_data(AM_USERDATA_Device_t *dev, int poc, int type, uint8_
 #endif
 	}
 
-	for (i = 0; i < len; i ++) {
+	//for coverity, this code has no effect.
+	/*for (i = 0; i < len; i ++) {
 		pr = snprintf(pp, left, "%02x ", p[i]);
 		if (pr < left) {
 			pp   += pr;
 			left -= pr;
 		}
-	}
+	}*/
 
 	AM_DEBUG(AM_DEBUG_LEVEL, "CC poc:%d ptype:%d data:%s", poc, type, buf);
 
@@ -472,6 +480,10 @@ static void aml_add_cc_data(AM_USERDATA_Device_t *dev, int poc, int type, uint8_
 		ud->free_list = cc->next;
 	} else {
 		cc = (AM_CCData*)malloc(sizeof(AM_CCData));
+		if (!cc) {
+			AM_DEBUG(0, "Error! cc data malloc failed!");
+			return;
+		}
 		cc->buf  = NULL;
 		cc->size = 0;
 		cc->cap  = 0;
@@ -480,6 +492,10 @@ static void aml_add_cc_data(AM_USERDATA_Device_t *dev, int poc, int type, uint8_
 
 	if (cc->cap < len) {
 		cc->buf = (uint8_t*)realloc(cc->buf, len);
+		if (!cc->buf) {
+			AM_DEBUG(0, "Error! cc buf realloc failed!");
+			return;
+		}
 		cc->cap = len;
 	}
 
@@ -517,11 +533,11 @@ len, int64_t pts, int pts_valid, int64_t duration)
 	if (type == I_TYPE)
 		aml_flush_cc_data(dev);
 
-	if (poc == ud->curr_poc + 1) {
+	if (poc == ud->curr_poc + 1 || poc == ud->curr_poc) {
 		AM_CCData *cc, **pcc;
 
 		aml_write_userdata(dev, p, len, pts, pts_valid, duration);
-		ud->curr_poc ++;
+		ud->curr_poc = poc;
 
 		pcc = &ud->cc_list;
 		while ((cc = *pcc)) {
@@ -545,16 +561,16 @@ len, int64_t pts, int pts_valid, int64_t duration)
 static int aml_process_scte_userdata(AM_USERDATA_Device_t *dev, uint8_t *data, int len, struct userdata_meta_info_t* meta_info)
 {
 	int cc_count = 0, cnt, i;
-	//int field_num;
-	//uint8_t* cc_section;
+	int field_num;
+	uint8_t* cc_section;
 	uint8_t cc_data[64] = {0};
 	uint8_t* scte_head;
 	uint8_t* scte_head_search_position;
 	int head_posi = 0;
-	int  field, line, cc1, cc2, size, ptype, ref;
-	int bits = 0, array_position = 0;
+	int prio, field, line, cc1, cc2, mark, size, ptype, ref;
+	int write_position, bits = 0, array_position = 0;
 	uint8_t *p;
-	//int left = len;
+	int left = len;
 	int left_bits;
 	uint32_t v;
 	int flags;
@@ -633,12 +649,12 @@ static int aml_process_scte_userdata(AM_USERDATA_Device_t *dev, uint8_t *data, i
 	GET(cnt, 5);
 	array_position = 7;
 	for (i = 0; i < cnt; i ++) {
-		//GET(prio, 2);
+		GET(prio, 2);
 		GET(field, 2);
 		GET(line, 5);
 		GET(cc1, 8);
 		GET(cc2, 8);
-		//GET(mark, 1);
+		GET(mark, 1);
 		if (field == 3)
 			field = 1;
 		AM_DEBUG(AM_DEBUG_LEVEL, "loop %d field %d line %d cc1 %x cc2 %x",
@@ -666,8 +682,8 @@ static int aml_process_scte_userdata(AM_USERDATA_Device_t *dev, uint8_t *data, i
 			array_position += 3;
 			cc_count++;
 		}
-		else
-			continue;
+		/*else
+			continue;*/ //for coverity useless_continue
 	}
 	cc_data[5] = 0x40 |cc_count;
 	size = 7 + cc_count*3;
@@ -690,8 +706,8 @@ static int aml_process_mpeg_userdata(AM_USERDATA_Device_t *dev, uint8_t *data, i
 	uint8_t *pd = data;
 	int left = len;
 	int r = 0;
-	//int i;
-	//int package_count = 0;
+	int i;
+	int package_count = 0;
 	int userdata_length;
 	int flag;
 	int64_t pts;
@@ -704,13 +720,14 @@ static int aml_process_mpeg_userdata(AM_USERDATA_Device_t *dev, uint8_t *data, i
 		int ref, ptype;
 
 		if (MOD_ON_CC(ud->mode) && IS_ATSC(hdr->atsc_flag) ) {
-			//aml_ud_header_t *nhdr;
-			uint8_t *pp;
+			aml_ud_header_t *nhdr;
+			uint8_t *pp, t;
 			uint32_t v;
-			//int pl;
+			int pl;
 
-			pp = (uint8_t*)&hdr->atsc_flag;
-			//pl = 8;
+			//pp = (uint8_t*)&hdr->atsc_flag;
+			pp = pd + 8;//for coverity, in case p[4] atsc flag overrun
+			pl = 8;
 
 			v = (pd[4] << 24) | (pd[5] << 16) | (pd[6] << 8) | pd[7];
 			ref   = (v >> 16) & 0x3ff;
@@ -727,10 +744,13 @@ static int aml_process_mpeg_userdata(AM_USERDATA_Device_t *dev, uint8_t *data, i
 
 			break;
 		} else if (MOD_ON_AFD(ud->mode) && IS_AFD(hdr->atsc_flag)) {
-			uint8_t *pafd_hdr = (uint8_t*)hdr->atsc_flag;
-			AM_USERDATA_AFD_t afd = *((AM_USERDATA_AFD_t *)(pafd_hdr + 4));
+			uint8_t *pafd_hdr = (uint8_t*)hdr->cc_data_start;
+			AM_USERDATA_AFD_t afd = *((AM_USERDATA_AFD_t *)(pafd_hdr));
 			//afd.reserved = afd.pts = 0;
 			AM_EVT_Signal(dev->dev_no, AM_USERDATA_EVT_AFD, (void*)&afd);
+			pd += 8;
+			left -= 8;
+			r += 8;
 			break;
 		} else {
 			pd   += 8;
@@ -798,7 +818,7 @@ static void aml_h264_userdata_package(AM_USERDATA_Device_t *dev, int poc, int ty
 static int aml_process_h264_userdata(AM_USERDATA_Device_t *dev, uint8_t *data, int len, struct userdata_meta_info_t* meta_info, void* media_sync)
 {
 	AM_UDDrvData *ud = (AM_UDDrvData*)dev->drv_data;
-	//int fd = ud->fd;
+	int fd = ud->fd;
 	uint8_t *pd = data;
 	int left = len;
 	int r = 0;
@@ -810,7 +830,7 @@ static int aml_process_h264_userdata(AM_USERDATA_Device_t *dev, uint8_t *data, i
 
 	while (left >= 8) {
 		if (MOD_ON_CC(ud->mode)
-			&& ((IS_H264_OR_H265(pd) || IS_DIRECTV(pd) || IS_AVS(pd)))) {
+			&& ((IS_H264(pd) || IS_H265(pd) || IS_DIRECTV(pd) || IS_AVS(pd)))) {
 			int hdr = (ud->format == H264_CC_TYPE) ? 3 : 0;
 			int pl;
 
@@ -857,17 +877,16 @@ static int aml_process_h264_userdata(AM_USERDATA_Device_t *dev, uint8_t *data, i
 
 static int get_kernel_version(void)
 {
-        int version, subversion, patchlevel;
-        struct utsname utsn;
+	int version, subversion, patchlevel;
+	struct utsname utsn;
 
-        /* Return 0 on failure, and attempt to probe with empty kversion */
-        if (uname(&utsn))
-                return 0;
-        if (sscanf(utsn.release, "%d.%d.%d",
-                   &version, &subversion, &patchlevel) != 3)
-                return 0;
-        AM_DEBUG(AM_DEBUG_LEVEL, "get_kernel_version version= %d,subversion=%d",version,subversion);
-        return (version << 16) + (subversion << 8) + patchlevel;
+	/* Return 0 on failure, and attempt to probe with empty kversion */
+	if (uname(&utsn))
+		return 0;
+	if (sscanf(utsn.release, "%d.%d.%d", &version, &subversion, &patchlevel) != 3)
+		return 0;
+	AM_DEBUG(AM_DEBUG_LEVEL, "get_kernel_version version= %d,subversion=%d",version,subversion);
+	return (version << 16) + (subversion << 8) + patchlevel;
 }
 
 static void* aml_userdata_thread (void *arg)
@@ -875,7 +894,7 @@ static void* aml_userdata_thread (void *arg)
 	AM_USERDATA_Device_t *dev = (AM_USERDATA_Device_t*)arg;
 	AM_UDDrvData *ud = (AM_UDDrvData*)dev->drv_data;
 	int fd = ud->fd;
-	int r, ret;
+	int r, ret, i;
 	struct pollfd pfd;
 	uint8_t data[MAX_CC_DATA_LEN];
 	uint8_t *pd = data;
@@ -891,13 +910,13 @@ static void* aml_userdata_thread (void *arg)
 	pfd.events = POLLIN|POLLERR;
 	pfd.fd = fd;
 	void* media_sync = NULL;
-	/*if (ud->mediasync_id >= 0) {
+	if (ud->mediasync_id >= 0) {
 		media_sync = MediaSync_create();
 		if (NULL != media_sync) {
-			MediaSync_bindInstance(media_sync, ud->mediasync_id, MEDIA_VIDEO);
+			MediaSync_bindInstance(media_sync, ud->mediasync_id, MEDIA_SUBTITLE);
 		}
-	}*/
-      int kernel_version = get_kernel_version();
+	}
+	int kernel_version = get_kernel_version();
 	kernel_version = kernel_version>>16;
 	while (ud->running) {
 		//If scte and mpeg both exist, we need to ignore scte cc data,
@@ -907,6 +926,14 @@ static void* aml_userdata_thread (void *arg)
 		AM_DEBUG(AM_DEBUG_LEVEL, "userdata after poll ret %d", ret);
 		if (!ud->running)
 			break;
+
+		if (media_sync == NULL && ud->mediasync_id >= 0) {
+			media_sync = MediaSync_create();
+			if (NULL != media_sync) {
+				MediaSync_bindInstance(media_sync, ud->mediasync_id, MEDIA_SUBTITLE);
+			}
+		}
+
 		if (ret != 1)
 			continue;
 		if (!(pfd.revents & POLLIN))
@@ -914,16 +941,18 @@ static void* aml_userdata_thread (void *arg)
 		//For multi-instances support
 		vdec_ids = 0;
 
-		if (-1 == ioctl(fd, AMSTREAM_IOC_UD_AVAIBLE_VDEC, &vdec_ids)) {
-			AM_DEBUG(AM_DEBUG_LEVEL, "get avaible vdec failed");
+		if (-1 == ioctl(fd, AMSTREAM_IOC_UD_AVAILABLE_VDEC, &vdec_ids)) {
+			AM_DEBUG(AM_DEBUG_LEVEL, "get available vdec failed");
 			continue;
 		} else {
-			AM_DEBUG(AM_DEBUG_LEVEL, "get avaible vdec OK: 0x%x\n", vdec_ids);
+			AM_DEBUG(AM_DEBUG_LEVEL, "get available vdec OK: 0x%x\n", vdec_ids);
 		}
-		if (kernel_version < 5) {
-			read_vdec_id = ffs(vdec_ids) - 1;
+
+		if (kernel_version >= 5 || property_get_int32("ro.build.version.sdk", 28) >= 29) {
+		//AM_DEBUG(0, "kernel version:%d, android sdk:%d",kernel_version, property_get_int32("ro.build.version.sdk", 28));
+			read_vdec_id = vdec_ids;
 		} else {
-                   read_vdec_id = vdec_ids;
+			read_vdec_id = ffs(vdec_ids) - 1;
 		}
 		if (read_vdec_id != ud->playerId) {
 			AM_DEBUG(0, "the player is not consistent with the video read_vdec_id=%d,ud->playerId=%d",read_vdec_id,ud->playerId);
@@ -958,7 +987,7 @@ static void* aml_userdata_thread (void *arg)
 			left += r;
 			pd = data;
 			}else {
-			    usleep(100*1000);
+			    usleep(20*1000);
 			}
 #if 0
 			static char display_buffer[10*1024];
@@ -986,6 +1015,7 @@ static void* aml_userdata_thread (void *arg)
 
 			if ((ud->format == MPEG_CC_TYPE) || (ud->format == MPEG_AFD_TYPE)) {
 				ud->scte_enable = 0;
+				//TODO coverity should be fixed index 176
 				r = aml_process_mpeg_userdata(dev, pd, left, &user_para_info.meta_info);
 			} else if (ud->format == SCTE_CC_TYPE) {
 				if (ud->scte_enable == 1)
@@ -1006,9 +1036,9 @@ static void* aml_userdata_thread (void *arg)
 		}while(user_para_info.meta_info.records_in_que > 1 || (left >= 8));
 	}
 	AM_DEBUG(0, "aml userdata thread exit");
-/*	if (media_sync != NULL) {
+	if (media_sync != NULL) {
 		MediaSync_destroy(media_sync);
-	}*/
+	}
 	return NULL;
 }
 
@@ -1106,6 +1136,16 @@ static AM_ErrorCode_t aml_get_mode(AM_USERDATA_Device_t *dev, int *mode)
 {
 	AM_UDDrvData *ud = (AM_UDDrvData*)dev->drv_data;
 	*mode = ud->mode;
+	return AM_SUCCESS;
+}
+
+static AM_ErrorCode_t aml_set_param(AM_USERDATA_Device_t *dev, int para)
+{
+	if (dev == NULL)
+		return AM_USERDATA_ERR_INVALID_ARG;
+	AM_UDDrvData *ud = dev->drv_data;
+	ud->mediasync_id = para;
+
 	return AM_SUCCESS;
 }
 

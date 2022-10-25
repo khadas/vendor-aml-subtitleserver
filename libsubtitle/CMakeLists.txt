@@ -47,6 +47,8 @@ set(subtitle_srcs
         utils/MemoryLeakTrackUtil.cpp
         utils/VideoInfo.cpp
         utils/SubtitleSignalHandler.cpp
+        utils/cJSON.c
+        utils/CCJsonParser.cpp
         io/FileSource.cpp
         io/SocketSource.cpp
         io/DeviceSource.cpp

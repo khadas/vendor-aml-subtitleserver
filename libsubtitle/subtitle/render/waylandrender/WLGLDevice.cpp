@@ -361,9 +361,17 @@ bool WLGLDevice::initTexture(void* data, WLRect &videoOriginRect, WLRect &cropRe
                  GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
     glAssert("initTexture_glTexImage2D");
 
+    // Avoid data is out of display frame
+    WLRect subCrop;
+    if (!videoOriginRect.intersect(cropRect, &subCrop)) {
+        ALOGE("Final subCrop is empty, return");
+        return false;
+    }
+    subCrop.log("Final subCrop");
+
     //Subtitle rect
-    glTexSubImage2D(GL_TEXTURE_2D, 0, cropRect.x(), cropRect.y(),
-                    cropRect.width(), cropRect.height(), GL_RGBA, GL_UNSIGNED_BYTE, data);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, subCrop.x(), subCrop.y(),
+                    subCrop.width(), subCrop.height(), GL_RGBA, GL_UNSIGNED_BYTE, data);
     glAssert("initTexture_glTexSubImage2D");
 
     glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_CROP_RECT_OES, crop);
@@ -464,10 +472,10 @@ void WLGLDevice::drawColor(float r, float g, float b, float a, WLRect &rect, boo
     }
 }
 
-void WLGLDevice::drawImage(void *img, WLRect &videoOriginRect, WLRect &src, WLRect &dst, bool flush) {
+bool WLGLDevice::drawImage(void *img, WLRect &videoOriginRect, WLRect &src, WLRect &dst, bool flush) {
     if (!initTexture(img, videoOriginRect, src)) {
         ALOGE("%s: initTexture failed", __FUNCTION__ );
-        return;
+        return false;
     }
 
     WLGLRect targetRect(dst, mScreenGLRect);
@@ -488,6 +496,8 @@ void WLGLDevice::drawImage(void *img, WLRect &videoOriginRect, WLRect &src, WLRe
         eglSwapBuffers(eglDisplay, eglSurface);
         glAssert("drawImage_eglSwapBuffers");
     }
+
+    return true;
 }
 
 void WLGLDevice::clear(WLGLRect * rect) {
@@ -583,7 +593,7 @@ WLRect WLGLDevice::drawText(TextParams& textParams, WLRect &videoOriginRect,
     if (content == nullptr || strlen(content) <= 0) {
         ALOGE("Empty text, do not render");
         if (flush) clear();
-        return WLRect();
+        return WLRect::empty();
     }
 
     Font font;
@@ -595,7 +605,7 @@ WLRect WLGLDevice::drawText(TextParams& textParams, WLRect &videoOriginRect,
     if (fontBox.isEmpty()) {
         if (flush) clear();
         ALOGE_IF(strlen(content) > 0, "No support text type rendering");
-        return WLRect();
+        return WLRect::empty();
     }
 
     int padding = textParams.bgPadding;
@@ -625,15 +635,16 @@ WLRect WLGLDevice::drawText(TextParams& textParams, WLRect &videoOriginRect,
     text.drawCenter(fontBox, textParams.textLineColor, textParams.textFillColor);
 
     //Move to center-bottom
-    fontBox.move((videoOriginRect.width() - fontBox.getWidth()) / 2,
-            videoOriginRect.height() - fontBox.getHeight() - marginBottom);
+    double moveX = (videoOriginRect.width() - fontBox.getWidth()) / 2;
+    double moveY = videoOriginRect.height() - fontBox.getHeight() - marginBottom;
+    fontBox.move(moveX, moveY);
     WLRect srcRect{(int)fontBox.x, (int)fontBox.y, (int)fontBox.x2, (int)fontBox.y2};
 
     uint8_t * data = textSurface.data();
-    if (data) {
-        drawImage(data, videoOriginRect, srcRect, dst, flush);
-    } else {
-        ALOGE("%s, No data will to be drew", __FUNCTION__);
+    if (!data || !drawImage(data, videoOriginRect, srcRect, dst, flush)) {
+        ALOGE("%s, No valid data will to be drew", __FUNCTION__);
+        if (flush) clear();
+        return WLRect::empty();
     }
 
     return srcRect;
@@ -642,14 +653,10 @@ WLRect WLGLDevice::drawText(TextParams& textParams, WLRect &videoOriginRect,
 void WLGLDevice::glAssert(const char* where) {
     GLenum err = glGetError();
 
-    if (err != GL_NO_ERROR) {
-        ALOGD("GL error: GL error(err_code: %d) on [%s]", err, where);
-    }
-
     if (where == nullptr) {
-        ALOG_ASSERT(err == GL_NO_ERROR, "GL error(err_code: %d): [%s]", err, __FUNCTION__);
+        ALOGE_IF(err != GL_NO_ERROR, "GL error(err_code: %d): [%s]", err, __FUNCTION__);
     } else {
-        ALOG_ASSERT(err == GL_NO_ERROR, "GL error(err_code: %d): [%s]", err, where);
+        ALOGE_IF(err != GL_NO_ERROR, "GL error(err_code: %d): [%s]", err, where);
     }
 
 }

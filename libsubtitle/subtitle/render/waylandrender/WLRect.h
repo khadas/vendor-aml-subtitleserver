@@ -13,6 +13,10 @@ public:
     WLRect(int left, int top, int right, int bottom)
             : mLeft(left), mTop(top), mRight(right), mBottom(bottom) {}
 
+    static WLRect empty() {
+        return WLRect(0, 0, 0, 0);
+    }
+
     void set(WLRect &rect) {
         mLeft = rect.mLeft;
         mTop = rect.mTop;

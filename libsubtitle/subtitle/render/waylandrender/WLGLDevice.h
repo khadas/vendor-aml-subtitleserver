@@ -64,7 +64,7 @@ public:
     void clear(WLGLRect *rect = nullptr) ;
     void drawColor(float r, float g, float b, float a, bool flush = true);
     void drawColor(float r, float g, float b, float a, WLRect& rect, bool flush = true);
-    void drawImage(void *img, WLRect &videoOriginRect, WLRect &src, WLRect &dst, bool flush = true);
+    bool drawImage(void *img, WLRect &videoOriginRect, WLRect &src, WLRect &dst, bool flush = true);
     WLRect drawText(TextParams& textParams, WLRect &videoOriginRect, WLRect &src, WLRect &dst,
             int marginBottom = MIN_TEXT_MARGIN_BOTTOM, bool flush = true);
     void drawMultiText(TextParams& textParams, WLRect &videoOriginRect, WLRect &src, WLRect &dst);

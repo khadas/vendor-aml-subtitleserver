@@ -17,7 +17,7 @@ public:
 
     //static char sJsonStr[CC_JSON_BUFFER_SIZE];
     static inline ClosedCaptionParser *getCurrentInstance();
-    void notifyChannelState(int stat, int chnnlId);
+    void notifyChannelState(int stat, int channelId);
     void notifyAvailable(int err);
 
 private:
@@ -34,11 +34,11 @@ private:
     int mChannelId = 0;
     int mDevNo = 0; // userdata device number
     int mVfmt = -1;
-    int mPlayerId = -1;
+    int mPlayerId = 0;//-1;
     int mMediaSyncId = -1;
     TVSubtitleData *mCcContext;
 
-
+    char *mLang = nullptr;
     static ClosedCaptionParser *sInstance;
 };
 

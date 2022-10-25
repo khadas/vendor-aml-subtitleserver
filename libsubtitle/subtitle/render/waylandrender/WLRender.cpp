@@ -7,6 +7,7 @@
 
 #include "WLGLDevice.h"
 #include <Parser.h>
+#include <CCJsonParser.h>
 
 WLRender* WLRender::sInstance = nullptr;
 
@@ -157,8 +158,26 @@ void WLRender::drawItems() {
         WLRect originDisplayRect = WLRect(0, 0, dsp_w, dsp_h);
 
         WLRect screenRect = mWLDevice->screenRect();
-        if ((*it)->isSimpleText) {
+        if (isText(*it)) {
             auto text = reinterpret_cast<const char *>((*it)->spu_data);
+
+            if ((*it)->subtitle_type == TYPE_SUBTITLE_CLOSED_CAPTION) {
+                std::vector<std::string> ccData;
+                std::string input = text;
+                if (!CCJsonParser::populateData(input, ccData)) {
+                    ALOGE("No valid data");
+                    continue;
+                }
+
+                std::string ccText;
+                for (std::string& item : ccData) {
+                    ccText.append(item).append("\n");
+                }
+
+                text = ccText.c_str();
+            }
+
+
             ALOGD("Text type: '%s'", text);
 
             // Using 720p to show subtitle for reduce mem.
@@ -187,6 +206,13 @@ void WLRender::drawItems() {
     }
 
     ALOGD("After draw items: %d", mShowingSubs.size());
+}
+
+bool WLRender::isText(std::shared_ptr<AML_SPUVAR> &spu) {
+    return spu->isSimpleText
+           || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_CLOSED_CAPTION
+           || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_SCTE27
+           || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_DTVKIT_SCTE27;
 }
 
 void WLRender::onThreadExit() {

@@ -22,7 +22,7 @@ static AmlSubDataType __mapServerType2ApiType(int type) {
     switch (type) {
         case TYPE_SUBTITLE_DVB:
         case TYPE_SUBTITLE_PGS:
-            return SUB_DATA_TYPE_POSITON_BITMAP;
+            return SUB_DATA_TYPE_POSITION_BITMAP;
 
         case TYPE_SUBTITLE_EXTERNAL:
         case TYPE_SUBTITLE_MKV_STR:

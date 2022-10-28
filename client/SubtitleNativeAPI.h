@@ -48,7 +48,7 @@ typedef enum {
     SUB_DATA_TYPE_STRING = 0,
     SUB_DATA_TYPE_CC_JSON = 1,
     SUB_DATA_TYPE_BITMAP = 2,
-    SUB_DATA_TYPE_POSITON_BITMAP = 4,
+    SUB_DATA_TYPE_POSITION_BITMAP = 4,
 } AmlSubDataType;
 
 typedef enum {

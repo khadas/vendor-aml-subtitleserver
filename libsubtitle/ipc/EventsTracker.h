@@ -104,6 +104,11 @@ public:
                 ALOGD("Exit thread...");
                 mExited = true;
             }
+
+            if (mThread->joinable()) {
+                mThread->join();
+                ALOGD("join thread...");
+            }
         }
     }
 

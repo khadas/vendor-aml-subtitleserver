@@ -40,7 +40,7 @@ static const std::string SUBTITLE_READ_DEVICE = "/dev/amstream_sub_read";
 #define AMSTREAM_IOC_SUB_LENGTH  _IOR(AMSTREAM_IOC_MAGIC, 0x1b, int)
 #define AMSTREAM_IOC_SUB_RESET   _IOW(AMSTREAM_IOC_MAGIC, 0x1a, int)
 #define SECTION_DEMUX_INDEX 2
-
+//#define DUMP_SUB_DATA
 DemuxSource *DemuxSource::sInstance = nullptr;
 DemuxSource *DemuxSource::getCurrentInstance() {
     return DemuxSource::sInstance;
@@ -94,6 +94,7 @@ DemuxSource::DemuxSource() : mRdFd(-1), mState(E_SOURCE_INV),
     sInstance = this;
     mPlayerId = -1;
     mMediaSyncId = -1;
+    subType = -1;
     mMediaSync = MediaSync_create();
     ALOGD("DeviceSource");
 }
@@ -181,6 +182,19 @@ static void pes_data_cb(int dev_no, int fhandle, const uint8_t *data, int len, v
     memcpy(rdBuffer, data, len);
     std::shared_ptr<char> spBuf = std::shared_ptr<char>(rdBuffer, [](char *buf) { delete [] buf; });
     DemuxSource::getCurrentInstance()->mSegment->push(spBuf, len);
+    #ifdef DUMP_SUB_DATA
+    //for dump
+    if (DemuxSource::getCurrentInstance()->mDumpFd == -1) {
+        ALOGD("#pes_data_cb len:%d", len);
+        DemuxSource::getCurrentInstance()->mDumpFd = ::open("/tmp/cur_sub.dump", O_RDWR | O_CREAT, 0666);
+        ALOGD("need dump Source2: mDumpFd=%d %d", DemuxSource::getCurrentInstance()->mDumpFd, errno);
+    }
+
+    if (DemuxSource::getCurrentInstance()->mDumpFd > 0) {
+        write(DemuxSource::getCurrentInstance()->mDumpFd, data, len);
+    }
+    #endif
+
 }
 
 

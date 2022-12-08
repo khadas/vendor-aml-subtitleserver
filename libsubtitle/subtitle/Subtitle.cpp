@@ -247,6 +247,9 @@ void Subtitle::run() {
                 if (mSubPrams->subType == TYPE_SUBTITLE_CLOSED_CAPTION || mSubPrams->subType == TYPE_SUBTITLE_INVALID) {
                     ALOGD("CC type or invalid type, break, do nothings!");
                     break;
+                } else if (mSubPrams->subType == TYPE_SUBTITLE_DVB_TELETEXT && mParser != nullptr && mParser->getParseType() == TYPE_SUBTITLE_DVB_TELETEXT) {
+                    ALOGD("Already create parser,break do nothing");
+                    break;
                 }
                 if (mParser != nullptr) {
                     mParser->stopParse();

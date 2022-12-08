@@ -42,10 +42,12 @@
 
 //teletext graphics support load animation
 //#define SUPPORT_LOAD_ANIMATION
+//#define SUPPORT_GRAPHICS_MODE_SUBTITLE_PAGE_FULL_SCREEN
+//#define UNREMOVED_MIX_VIDEO_MODE_FOUR_COLOR_KEY_BACKGROUND
 
-#define TELETEX_WARN_PAGE_1 0x548080
-#define TELETEX_WARN_PAGE_2 0x548000
-#define TELETEX_WARN_PAGE_3 0xb18081
+#define TELETEXT_WARN_PAGE_1 0x548080
+#define TELETEXT_WARN_PAGE_2 0x548000
+#define TELETEXT_WARN_PAGE_3 0xb18081
 
 #define C4_ERASE_PAG        0x000080
 #define C5_NEWSFLASH        0x004000
@@ -67,7 +69,11 @@
 #define TELETEXT_ROW 26
 #define TELETEXT_COL 41
 
-#define TELETEXT_USE_SUBTITLESERVER 1
+#define TELETEXT_USE_SUBTITLESERVER  1
+#define CHANGE_CHARACTER_TABLE_TRUE  1
+#define CHANGE_CHARACTER_TABLE_FALSE 0
+#define BS_REGIONID                  88
+#define ARABIC_REGIONID              64
 #define NEED_CACHE_ZVBI_STATUS 1
 #define DUMP_SUB false
 
@@ -75,6 +81,8 @@
 #define TELETEXT_MIN_PAGE_NUMBER     99
 #define TELETEXT_MIN_SUBPAGE_NUMBER  0x0
 #define TELETEXT_MAX_SUBPAGE_NUMBER  0x99
+
+#define TELETEXT_MIN_INTERVAL_TIME   200 // milliseconds
 
 #define TELETEXT_PAGE_NUMBER_800     800
 #define TELETEXT_MAX_MAGAZINE_NUMBER 7
@@ -113,6 +121,9 @@
 
 #define DOUBLE_BITMAP_CHAR_HEIGHT BITMAP_CHAR_HEIGHT/2
 
+#ifndef PROPERTY_VALUE_MAX
+#define PROPERTY_VALUE_MAX 92
+#endif
 
 #define OSD_HALF_SIZE (1920*1280/8)
 #define NAVIGATOR_COLORBAR_LINK_SIZE 4
@@ -177,6 +188,7 @@ public:
     ZvbiGlobalStatus() : lastShowingPage(0),lastMagazine(-1),lastSubPageNo(-1),subtitlePageId(0), mVbi(nullptr),
         mLastPid(-1), mLastOnid(-1), mLastTsid(-1) {
         mKeepUsingVbi = false;
+        mNeedCheckTimeout = false;
         for (int j = 0; j < TELETEXT_SUBTITLE_MAX_NUMBER; j++) {
                 atvSubtitlePage[j] = 0;
                 dtvSubtitlePage[j] = 0;
@@ -198,7 +210,7 @@ private:
     int mLastTsid;
     bool mKeepUsingVbi;
 
-    // if use async handler thread, maybe easy to implement this machanism
+    // if use async handler thread, maybe easy to implement this mechanism
     std::chrono::time_point<std::chrono::system_clock> mSearchStart;
     bool mNeedCheckTimeout;
 };
@@ -387,10 +399,13 @@ static void fixTransparency(TeletextContext *ctx, AVSubtitleRect *subRect, vbi_p
                     [[fallthrough]];
                 case VBI_TRANSPARENT_FULL:
                     //when the data is graphics,the last two line data doesn't apply the transparent
-                    if (!(ctx->isSubtitle) && ((iy >= 240) && (iy <= 260)))
-                        break;
+                    // if (!(ctx->isSubtitle) && ((iy >= 240) && (iy <= 260)))
+                    //     break;
                     for (; pixel < pixelnext; pixel++) {
                         if (*pixel == vc->background) {
+                            #ifdef UNREMOVED_MIX_VIDEO_MODE_FOUR_COLOR_KEY_BACKGROUND
+                            if (!(ctx->isSubtitle) && ((iy >= 240) && (iy <= 248)) && vc->background) break;
+                            #endif
                             *pixel = VBI_TRANSPARENT_BLACK;
                         }
                     }
@@ -444,6 +459,7 @@ static int genSubBitmap(TeletextContext *ctx, AVSubtitleRect *subRect, vbi_page 
     subRect->x = ctx->xOffset;
     subRect->y = ctx->yOffset + chopTop * BITMAP_CHAR_HEIGHT;
 
+    #ifdef NEED_CACHE_ZVBI_STATUS
     if ((ctx->atvTeletext && isSubtitlePage(gVBIStatus.atvSubtitlePage, ctx->gotoPage)) || (ctx->dtvTeletext && isSubtitlePage(gVBIStatus.dtvSubtitlePage, ctx->gotoPage))) {
         resy = (page->rows - chopTop) * BITMAP_CHAR_HEIGHT;
     } else {
@@ -455,6 +471,19 @@ static int genSubBitmap(TeletextContext *ctx, AVSubtitleRect *subRect, vbi_page 
             resy = (page->rows - chopTop) * DOUBLE_BITMAP_CHAR_HEIGHT;
         }
     }
+    #else
+    if (ctx->doubleHeight == DOUBLE_HEIGHT_NORMAL) {
+        resy = (page->rows - chopTop) * BITMAP_CHAR_HEIGHT;
+    } else {
+        if (ctx->doubleHeight == DOUBLE_HEIGHT_NORMAL) {
+            resy = (page->rows - chopTop) * BITMAP_CHAR_HEIGHT;
+        } else if (ctx->doubleHeight == DOUBLE_HEIGHT_BOTTOM) {
+            resy = (page->rows - chopTop) * DOUBLE_BITMAP_CHAR_HEIGHT;
+        } else if (ctx->doubleHeight == DOUBLE_HEIGHT_TOP) {
+            resy = (page->rows - chopTop) * DOUBLE_BITMAP_CHAR_HEIGHT;
+        }
+    }
+    #endif
 
     uint8_t ci;
     vbi_char *vc = page->text + (chopTop * page->columns);
@@ -493,6 +522,7 @@ static int genSubBitmap(TeletextContext *ctx, AVSubtitleRect *subRect, vbi_page 
      ctx->dispMode, ctx->isSubtitle, ctx->pageType, ctx->time, ctx->subtitlePageNumber, ctx->gotoGraphicsSubtitlePage, ctx->lockSubpg, page->columns, page->rows, ctx->heightIndex, ctx->doubleHeight, subRect->x,
      subRect->y, subRect->w, subRect->h, chopTop);
 
+    #ifdef NEED_CACHE_ZVBI_STATUS
     if ((ctx->atvTeletext && isSubtitlePage(gVBIStatus.atvSubtitlePage, ctx->gotoPage)) || (ctx->dtvTeletext && isSubtitlePage(gVBIStatus.dtvSubtitlePage, ctx->gotoPage))) {
         height = page->rows - chopTop;
     } else {
@@ -507,8 +537,16 @@ static int genSubBitmap(TeletextContext *ctx, AVSubtitleRect *subRect, vbi_page 
         LOGI("%s This ATV ctx->gotoPage:%d is a subtitle or newflash.", __FUNCTION__, ctx->gotoPage);
         ctx->isSubtitle = true;
     }
+    #else
+    if (ctx->doubleHeight == DOUBLE_HEIGHT_NORMAL) {
+       height = page->rows - chopTop;
+    } else {
+       height = (page->rows - chopTop)/2;
+    }
+    #endif
 
     #ifdef TELETEXT_GRAPHICS_SUBTITLE_PAGENUMBER_BLACKGROUND
+        #ifdef NEED_CACHE_ZVBI_STATUS
         if (ctx->isSubtitle && ctx->subtitleMode == TT2_GRAPHICS_MODE) {
             if (ctx->resetShowSubtitlePageNumberTimeFlag || (ctx->subtitlePageNumber != ctx->gotoGraphicsSubtitlePage && ctx->gotoGraphicsSubtitlePage != 0) || (ctx->gotoGraphicsSubtitlePage > 0 && ctx->gotoGraphicsSubtitlePage <= TELETEXT_MIN_PAGE_NUMBER)) {
                 page->pgno = vbi_dec2bcd(ctx->gotoGraphicsSubtitlePage);
@@ -564,7 +602,43 @@ static int genSubBitmap(TeletextContext *ctx, AVSubtitleRect *subRect, vbi_page 
                     /*reveal*/ctx->reveal, /*flash*/ ctx->flash, /*Subtitle*/ctx->isSubtitle, ctx->dispMode/*0*/, 1, ctx->lockSubpg/*0*/,  ctx->time, 0);
             }
         }
+        #else
+        if (ctx->isSubtitle) {
+            if ((ctx->subtitlePageNumber != ctx->gotoGraphicsSubtitlePage && ctx->gotoGraphicsSubtitlePage != 0) || (ctx->gotoGraphicsSubtitlePage > 0 && ctx->gotoGraphicsSubtitlePage <= TELETEXT_MIN_PAGE_NUMBER)) {
+                page->pgno = vbi_dec2bcd(ctx->gotoGraphicsSubtitlePage);
+                ctx->subtitlePageNumber = ctx->gotoGraphicsSubtitlePage;
+                ctx->lasttime = std::chrono::system_clock::now();
+                ctx->subtitlePageNumberShowTimeOutFlag = true;
+            } else {
+                if (std::chrono::system_clock::now() - ctx->lasttime >= std::chrono::seconds(TELETEXT_SUBTITLE_PAGE_SHOW_TIME)) {
+                    page->pgno = -1;//Do not display page numbers
+                    ctx->subtitlePageNumberShowTimeOutFlag = false;
+                } else {
+                    page->pgno = vbi_dec2bcd(ctx->gotoGraphicsSubtitlePage);
+                    ctx->subtitlePageNumber = ctx->gotoGraphicsSubtitlePage;
+                }
+            }
+
+            if (page->pgno < 0) {
+                vbi_draw_vt_page_region(page, VBI_PIXFMT_PAL8, subRect->pict.data[0], subRect->pict.lineSize[0],
+                        0, 2*ctx->heightIndex + chopTop, page->columns, height,
+                        /*reveal*/ctx->reveal, /*flash*/ ctx->flash, /*Subtitle*/ctx->isSubtitle, 0/*ctx->isSubtitle*/, 1, ctx->lockSubpg/*0*/,  ctx->time, 0);
+            } else {
+                vbi_draw_vt_page_region(page, VBI_PIXFMT_PAL8, subRect->pict.data[0], subRect->pict.lineSize[0],
+                        0, 2*ctx->heightIndex + chopTop, page->columns, height,
+                        /*reveal*/ctx->reveal, /*flash*/ ctx->flash, /*Subtitle*/ctx->isSubtitle, 1/*ctx->isSubtitle*/, 1, ctx->lockSubpg/*0*/,  ctx->time, 0);
+            }
+
+        } else {
+            ctx->lasttime = std::chrono::system_clock::now();
+            ctx->subtitlePageNumberShowTimeOutFlag = false;
+            vbi_draw_vt_page_region(page, VBI_PIXFMT_PAL8, subRect->pict.data[0], subRect->pict.lineSize[0],
+                    0, 2*ctx->heightIndex + chopTop, page->columns, height,
+                    /*reveal*/ctx->reveal, /*flash*/ ctx->flash, /*Subtitle*/ctx->isSubtitle, ctx->dispMode/*0*/, 1, ctx->lockSubpg/*0*/,  ctx->time, 0);
+        }
+        #endif
     #else
+        #ifdef NEED_CACHE_ZVBI_STATUS
         if ((ctx->atvTeletext && isSubtitlePage(gVBIStatus.atvSubtitlePage, ctx->gotoPage)) || (ctx->dtvTeletext && isSubtitlePage(gVBIStatus.dtvSubtitlePage, ctx->gotoPage))) {
             vbi_draw_vt_page_region(page, VBI_PIXFMT_PAL8, subRect->pict.data[0], subRect->pict.lineSize[0],
                 0, 2*0 + chopTop, page->columns, height,
@@ -574,6 +648,11 @@ static int genSubBitmap(TeletextContext *ctx, AVSubtitleRect *subRect, vbi_page 
                 0, 2*ctx->heightIndex + chopTop, page->columns, height,
                 /*reveal*/ctx->reveal, /*flash*/ ctx->flash, /*Subtitle*/ctx->isSubtitle, ctx->dispMode/*0*/, 1, ctx->lockSubpg/*0*/,  ctx->time, 0);
         }
+        #else
+            vbi_draw_vt_page_region(page, VBI_PIXFMT_PAL8, subRect->pict.data[0], subRect->pict.lineSize[0],
+                0, 2*ctx->heightIndex + chopTop, page->columns, height,
+                /*reveal*/ctx->reveal, /*flash*/ ctx->flash, /*Subtitle*/ctx->isSubtitle, ctx->dispMode/*0*/, 1, ctx->lockSubpg/*0*/,  ctx->time, 0);
+        #endif
     #endif
 
     fixTransparency(ctx, subRect, page, chopTop, resx, resy);
@@ -621,7 +700,9 @@ static void tt2TimeUpdate(vbi_event *ev, void *user_data)
             ctx->acceptSubPage = parser->getSubPageInfoLocked();
             ctx->opacity = ctx->transparentBackground ? 0 : 255;
             ctx->flash = !ctx->flash;
-            parser->fetchVbiPageLocked(ctx->gotoPage, ctx->acceptSubPage);
+            if (parser->fetchVbiPageLocked(ctx->gotoPage, ctx->acceptSubPage) >= 0) {
+                parser->fetchVbiPageLocked(ctx->gotoPage, ctx->acceptSubPage);
+            }
         }
     }
 }
@@ -703,7 +784,7 @@ void selectSortSubtitlePage(int array[],int n){
 }
 
 
-// This is callback function registed to vbi.
+// This is callback function registered to vbi.
 // vbi callback from: teletextDecodeFrame, so should not add lock in this
 static void handler(vbi_event *ev, void *userData) {
     LOGI("[handler]\n");
@@ -746,6 +827,7 @@ static void handler(vbi_event *ev, void *userData) {
             if (!res) {
                 LOGE("%s, atv page cannot get now!\n",__FUNCTION__);
             } else {
+                #ifdef NEED_CACHE_ZVBI_STATUS
                 if (pageType & C6_SUBTITLE) {//atv subtitle
                     for (int i=0;i<TELETEXT_SUBTITLE_MAX_NUMBER;i++) {
                         LOGI("%s, save atv subtitle page:%d, gotoAtvSubtitleFlg:%d\n",__FUNCTION__, pgno, ctx->gotoAtvSubtitleFlg);
@@ -760,9 +842,14 @@ static void handler(vbi_event *ev, void *userData) {
                         }
                     }
                 }
+                #endif
             }
         }
-        if (ctx->atvTeletext);selectSortSubtitlePage(gVBIStatus.atvSubtitlePage,atvSubtitlePageInsertFlag);
+        #ifdef NEED_CACHE_ZVBI_STATUS
+        if (ctx->atvTeletext) {
+            selectSortSubtitlePage(gVBIStatus.atvSubtitlePage,atvSubtitlePageInsertFlag);
+        }
+        #endif
         //save dtv subtitle page for skip to subtitle faster
         if (ctx->dtvTeletext && pgno < TELETEXT_MAX_PAGE_NUMBER && pgno > TELETEXT_MIN_PAGE_NUMBER) {
             res = vbi_fetch_vt_page(ctx->vbi, page,
@@ -772,6 +859,7 @@ static void handler(vbi_event *ev, void *userData) {
             if (!res) {
                 LOGE("%s, dtv page cannot get now!\n",__FUNCTION__);
             } else {
+                #ifdef NEED_CACHE_ZVBI_STATUS
                 if (pageType & C6_SUBTITLE) {//dtv subtitle
                     for (int i=0;i<TELETEXT_SUBTITLE_MAX_NUMBER;i++) {
                         LOGI("%s, save dtv subtitle page:%d, gotoDtvSubtitleFlg:%d\n",__FUNCTION__, pgno, ctx->gotoDtvSubtitleFlg);
@@ -786,10 +874,14 @@ static void handler(vbi_event *ev, void *userData) {
                         }
                     }
                 }
+                #endif
             }
         }
-        if (ctx->dtvTeletext);selectSortSubtitlePage(gVBIStatus.dtvSubtitlePage,dtvSubtitlePageInsertFlag);
-
+        #ifdef NEED_CACHE_ZVBI_STATUS
+        if (ctx->dtvTeletext) {
+            selectSortSubtitlePage(gVBIStatus.dtvSubtitlePage,dtvSubtitlePageInsertFlag);
+        }
+        #endif
     }
 
     if (ctx->pageState == (TeletextPageState)TT2_DISPLAY_STATE) {
@@ -800,7 +892,9 @@ static void handler(vbi_event *ev, void *userData) {
             if (ctx->subtitlePageNumberShowTimeOutFlag && std::chrono::system_clock::now() - ctx->lasttime >= std::chrono::seconds(TELETEXT_SUBTITLE_PAGE_SHOW_TIME+1)) {
                 TeletextParser *parser = TeletextParser::getCurrentInstance();
                 LOGE("%s, return, page(%d), current page(%d), ctx->isSubtitle:%d, ctx->subtitlePageNumberShowTimeOutFlag:%d\n",__FUNCTION__, pgno, ctx->gotoPage, ctx->isSubtitle, ctx->subtitlePageNumberShowTimeOutFlag);
-                parser->fetchVbiPageLocked(ctx->gotoPage, ctx->subPageNum);
+                if (parser->fetchVbiPageLocked(ctx->gotoPage, ctx->subPageNum) >= 0) {
+                    parser->fetchVbiPageLocked(ctx->gotoPage, ctx->subPageNum);
+                }
             }
             #endif
             return;
@@ -814,8 +908,12 @@ static void handler(vbi_event *ev, void *userData) {
     }
     vbi_teletext_set_current_page(ctx->vbi, vbi_dec2bcd(ctx->gotoPage), vbi_dec2bcd(ctx->subPageNum));
 
-    if (ctx->regionId > 0) {
+    if (ctx->regionId >= 0 && ctx->regionId != BS_REGIONID) {
         vbi_teletext_set_default_region(ctx->vbi, ctx->regionId);
+        vbi_teletext_set_change_character_table(CHANGE_CHARACTER_TABLE_FALSE);
+    } else if (ctx->regionId >= 0 && ctx->regionId == BS_REGIONID) {
+        vbi_teletext_set_default_region(ctx->vbi, ARABIC_REGIONID);
+        vbi_teletext_set_change_character_table(CHANGE_CHARACTER_TABLE_TRUE);
     }
 
     res = vbi_fetch_vt_page(ctx->vbi, page,
@@ -829,7 +927,7 @@ static void handler(vbi_event *ev, void *userData) {
         return;
     }
     //now has 0x8000, 0x4000, 0x4000 may not subtitle ,so need 0x8000.
-    if ((pageType == TELETEX_WARN_PAGE_1) || (pageType == TELETEX_WARN_PAGE_2) || ((pageType == TELETEX_WARN_PAGE_3))) {
+    if ((pageType == TELETEXT_WARN_PAGE_1) || (pageType == TELETEXT_WARN_PAGE_2) || ((pageType == TELETEXT_WARN_PAGE_3))) {
         LOGE("%s, return, warn page \n",__FUNCTION__);
         free(page);
         return;
@@ -854,6 +952,7 @@ static void handler(vbi_event *ev, void *userData) {
          ctx->isSubtitle, pgno, vbi_bcd2dec(ev->ev.ttx_page.subno), ctx->gotoPage, ctx->pageNum, ctx->subPageNum, pageType & 0x8000, ctx->pageState, ctx->dispUpdate, len);
 
 
+    #ifdef NEED_CACHE_ZVBI_STATUS
     if (gVBIStatus.atvSubtitlePage[0] == 0 && ctx->isSubtitle) {
         LOGD("%s, gVBIStatus.atvSubtitlePage[0]:%d\n",__FUNCTION__, gVBIStatus.atvSubtitlePage[0]);
         gVBIStatus.atvSubtitlePage[0] = pgno;
@@ -863,6 +962,7 @@ static void handler(vbi_event *ev, void *userData) {
         LOGD("%s, gVBIStatus.dtvSubtitlePage[0]:%d\n",__FUNCTION__, gVBIStatus.dtvSubtitlePage[0]);
         gVBIStatus.dtvSubtitlePage[0] = pgno;
     }
+    #endif
 
     if (ctx->dispUpdate) {
         if (ctx->isSubtitle) {
@@ -888,7 +988,7 @@ static void handler(vbi_event *ev, void *userData) {
        static auto start = std::chrono::system_clock::now();
        auto end =  std::chrono::system_clock::now();
        std::chrono::duration<double> diff = end - start;
-       if (diff < std::chrono::milliseconds(40) && ctx->gotoPage > 0 && pgno != ctx->gotoPage) {
+       if (diff < std::chrono::milliseconds(TELETEXT_MIN_INTERVAL_TIME) && ctx->gotoPage > 0 && pgno != ctx->gotoPage) {
             free(page);
             return;
        }
@@ -1058,7 +1158,7 @@ TeletextParser::~TeletextParser() {
         mContext->pts = AV_NOPTS_VALUE;
         mContext->mixVideoState = TT2_MIX_BLACK;
         mContext->dispUpdate = 0;
-        mContext->regionId = 0;
+        mContext->regionId = -1;
         delete mContext;
         mContext = nullptr;
     }
@@ -1082,7 +1182,7 @@ static inline int generateNormalDisplay(AVSubtitleRect *subRect, unsigned char *
             des[(y*width*4) + x*4 + 1] = (src[(y*width) + x] >> 8) & 0xff;
             des[(y*width*4) + x*4 + 2] = (src[(y*width) + x] >> 16) & 0xff;
 
-#ifdef SUPPORT_LOAD_ANIMATION
+#ifdef SUPPORT_GRAPHICS_MODE_SUBTITLE_PAGE_FULL_SCREEN
             if (parser->mContext->isSubtitle && parser->mContext->subtitleMode == TT2_GRAPHICS_MODE) {
                 des[(y*width*4) + x*4 + 3] = 0xff;
             } else {
@@ -1137,10 +1237,6 @@ static inline int generateSearchDisplay(AVSubtitleRect *subRect, unsigned char *
         return -1;
     }
     memset(&des[TELETEXT_HEAD_HEIGHT*width*4], 0x00, (TELETEXT_TEXT_HEIGHT+TELETEXT_BAR_HEIGHT)*width*4);
-
-    if (height < maxHeight) {
-        return 0;// enlarge mode, do not need bottom
-    }
 
     hasData = 0;
     for (int y = (TELETEXT_HEAD_HEIGHT + TELETEXT_TEXT_HEIGHT); y < height; y++) {
@@ -1212,7 +1308,7 @@ int TeletextParser::saveTeletextGraphicsRect2Spu(std::shared_ptr<AML_SPUVAR> spu
         return -1;
     }
     if (spu->spu_data != nullptr) {
-        ALOGE("Error, resued spu data, we designed not resuable!!\n\n\n\n\n!!");
+        ALOGE("Error, resued spu data, we designed not reusable!!\n\n\n\n\n!!");
         free(spu->spu_data);
     }
     spu->buffer_size = resx * resy * sizeof(uint32_t);
@@ -1264,7 +1360,7 @@ int TeletextParser::saveDisplayRect2Spu(std::shared_ptr<AML_SPUVAR> spu, AVSubti
 
     spu->buffer_size = resx * resy * sizeof(uint32_t);
     if (spu->spu_data != nullptr) {
-        ALOGE("Error, resued spu data, we designed not resuable!!\n\n\n\n\n!!");
+        ALOGE("Error, resued spu data, we designed not reusable!!\n\n\n\n\n!!");
         free(spu->spu_data);
     }
     spu->spu_data = (unsigned char *)malloc(spu->buffer_size);
@@ -1281,7 +1377,7 @@ int TeletextParser::saveDisplayRect2Spu(std::shared_ptr<AML_SPUVAR> spu, AVSubti
             //if satisfy this check: the data is valid.And then the data if invalid and be filtered.
             //when the error is 2, it indicate that the data is valid but just background. need to free.
             //when the error is 0, it indicate that the data is valid.
-            //when the function reburn -1, it indicate the data is invalid but don't need to free.
+            //when the function return -1, it indicate the data is invalid but don't need to free.
             if ((error != 0) && ((pbuf[(y*resx) + x] != 0) && (pbuf[(y*resx) + x] != 0xff000000))) {
                 error = 0;
             }
@@ -1332,8 +1428,12 @@ int TeletextParser::fetchVbiPageLocked(int pageNum, int subPageNum) {
     }
     vbi_teletext_set_current_page(mContext->vbi, vbi_dec2bcd(pageNum), vbi_dec2bcd(subPageNum));
 
-    if (mContext->regionId > 0) {
+    if (mContext->regionId >= 0 && mContext->regionId != BS_REGIONID) {
         vbi_teletext_set_default_region(mContext->vbi, mContext->regionId);
+        vbi_teletext_set_change_character_table(CHANGE_CHARACTER_TABLE_FALSE);
+    } else if (mContext->regionId >= 0 && mContext->regionId == BS_REGIONID) {
+        vbi_teletext_set_default_region(mContext->vbi, ARABIC_REGIONID);
+        vbi_teletext_set_change_character_table(CHANGE_CHARACTER_TABLE_TRUE);
     }
 
     res = vbi_fetch_vt_page(mContext->vbi, page, vbi_dec2bcd(pageNum/*ctx->pageNum*/),
@@ -1348,7 +1448,7 @@ int TeletextParser::fetchVbiPageLocked(int pageNum, int subPageNum) {
     int subArray[36];
     int len = 36;
     bool ret = vbi_get_sub_info(mContext->vbi, vbi_dec2bcd(pageNum), subArray, &len);
-    //this only show graphics, and smoe graphics have subtitle.
+    //this only show graphics, and some graphics have subtitle.
    mContext->isSubtitle = (pageType & C6_SUBTITLE || pageType & C5_NEWSFLASH);
    mContext->pageType = pageType;
 #ifndef SUPPORT_LOAD_ANIMATION
@@ -1544,6 +1644,7 @@ int TeletextParser::nextPageLocked(int dir, bool fetch) {
         return -1;
     }
 
+    #ifdef NEED_CACHE_ZVBI_STATUS
     if (mContext->atvTeletext && mContext->subtitleMode == TT2_SUBTITLE_MODE && gVBIStatus.atvSubtitlePage[gVBIStatus.subtitlePageId] >= 100) {
         mContext->transparentBackground = 0;
         mContext->opacity = mContext->transparentBackground ? 0 : 255;
@@ -1559,6 +1660,7 @@ int TeletextParser::nextPageLocked(int dir, bool fetch) {
         mContext->gotoPage = gVBIStatus.dtvSubtitlePage[gVBIStatus.subtitlePageId];
         LOGI("%s,  dtvSubtitlePage[%d]:%d\n", __FUNCTION__, gVBIStatus.subtitlePageId, gVBIStatus.dtvSubtitlePage[gVBIStatus.subtitlePageId]);
     }
+    #endif
 
     LOGI("%s,  gotopage:%d\n", __FUNCTION__, mContext->gotoPage);
 
@@ -1645,21 +1747,25 @@ int TeletextParser::changeMixModeLocked() {
 
     switch (mContext->mixVideoState) {
         case TT2_MIX_BLACK:
+            vbi_set_subtitle_mix_video_flag(mContext->vbi, TT2_MIX_TRANSPARENT);
             mContext->mixVideoState = TT2_MIX_TRANSPARENT;
             mContext->transparentBackground = 1;
             notifyMixVideoState(TT2_MIX_TRANSPARENT);
             break;
         case TT2_MIX_TRANSPARENT:
+            vbi_set_subtitle_mix_video_flag(mContext->vbi, TT2_MIX_HALF_SCREEN);
             mContext->mixVideoState = TT2_MIX_HALF_SCREEN;
             mContext->transparentBackground = 0;
             notifyMixVideoState(TT2_MIX_HALF_SCREEN);
             break;
         case TT2_MIX_HALF_SCREEN:
+            vbi_set_subtitle_mix_video_flag(mContext->vbi, TT2_MIX_BLACK);
             mContext->mixVideoState = TT2_MIX_BLACK;
             mContext->transparentBackground = 0;
             notifyMixVideoState(TT2_MIX_BLACK);
             break;
         default:
+            vbi_set_subtitle_mix_video_flag(mContext->vbi, TT2_MIX_BLACK);
             mContext->mixVideoState = TT2_MIX_BLACK;
             mContext->transparentBackground = 0;
             notifyMixVideoState(TT2_MIX_BLACK);
@@ -1857,10 +1963,12 @@ int TeletextParser::gotoDefaultAtvSubtitleLocked(int atvSubtitlepageId) {
         return TT2_FAILURE;
     }
 
+    #ifdef NEED_CACHE_ZVBI_STATUS
     LOGI("%s atvSubtitlePage[%d]:%d\n", __FUNCTION__, atvSubtitlepageId, gVBIStatus.atvSubtitlePage[atvSubtitlepageId]);
-
+    #endif
     mContext->subtitleMode = TT2_GRAPHICS_MODE;
 
+    #ifdef NEED_CACHE_ZVBI_STATUS
     if (gVBIStatus.atvSubtitlePage[atvSubtitlepageId] >= 100) {
         mContext->gotoGraphicsSubtitlePage = gVBIStatus.atvSubtitlePage[atvSubtitlepageId];
         gotoPageLocked(gVBIStatus.atvSubtitlePage[atvSubtitlepageId], AM_TT2_ANY_SUBNO);
@@ -1869,6 +1977,7 @@ int TeletextParser::gotoDefaultAtvSubtitleLocked(int atvSubtitlepageId) {
         mContext->gotoAtvSubtitleFlg = TRUE;
         mContext->dispUpdate = 1;
     }
+    #endif
 
     return TT2_SUCCESS;
 }
@@ -1879,6 +1988,7 @@ int TeletextParser::gotoDefaultDtvSubtitleLocked(int dtvSubtitlepageId) {
         return TT2_FAILURE;
     }
 
+    #ifdef NEED_CACHE_ZVBI_STATUS
     LOGI("%s dtvSubtitlePage[%d]:%d\n", __FUNCTION__, dtvSubtitlepageId, gVBIStatus.dtvSubtitlePage[dtvSubtitlepageId]);
 
     mContext->subtitleMode = TT2_GRAPHICS_MODE;
@@ -1891,6 +2001,7 @@ int TeletextParser::gotoDefaultDtvSubtitleLocked(int dtvSubtitlepageId) {
         mContext->gotoDtvSubtitleFlg = TRUE;
         mContext->dispUpdate = 1;
     }
+    #endif
 
     return TT2_SUCCESS;
 }
@@ -1975,7 +2086,7 @@ bool TeletextParser::updateParameter(int type, void *data) {
     LOGD(" %s start, ttParam->event:%d magazine:%d subPageNo:0x%x\n", __FUNCTION__,ttParam->event, ttParam->magazine, ttParam->subPageNo);
 #ifdef NEED_CACHE_ZVBI_STATUS
     // teletext not started. this is the first time we check. when not started, vbi is null.
-    if ((mContext->vbi == nullptr || mUpdateParamCount == 0) && ttParam->event != TT_EVENT_SET_REGION_ID && (ttParam->event != TT_EVENT_GO_TO_SUBTITLE || (ttParam->event == TT_EVENT_GO_TO_SUBTITLE && mContext->subtitleMode == TT2_GRAPHICS_MODE))) {
+    if (ttParam->event != TT_EVENT_SET_REGION_ID && (ttParam->event != TT_EVENT_GO_TO_SUBTITLE || (ttParam->event == TT_EVENT_GO_TO_SUBTITLE && mContext->subtitleMode == TT2_GRAPHICS_MODE))) {
         ALOGD("This is the first? pid:%d onid:%d tsid:%d  %d", ttParam->pid, ttParam->onid, ttParam->tsid, ttParam->event);
         // tricky for check need keep using vbi or not
         gVBIStatus.updateProgramInfo(ttParam->pid, ttParam->onid, ttParam->tsid);
@@ -2092,13 +2203,30 @@ bool TeletextParser::handleControl() {
             //mContext->transparentBackground = 0; //SWPL-74650, TransparentBackground is not initialized here
             mContext->opacity = mContext->transparentBackground ? 0 : 255;
             mContext->subtitleMode = TT2_GRAPHICS_MODE;
+            if (ttParam->regionId >= 0) mContext->regionId = ttParam->regionId;
             return goHomeLocked();
         case TT_EVENT_GO_TO_PAGE:
-            mContext->transparentBackground = 0;
+            if (vbi_get_subtitle_mix_video_flag(mContext->vbi) == TT2_MIX_TRANSPARENT) {
+                vbi_set_subtitle_mix_video_flag(mContext->vbi, TT2_MIX_TRANSPARENT);
+                mContext->mixVideoState = TT2_MIX_TRANSPARENT;
+                mContext->transparentBackground = 1;
+                notifyMixVideoState(TT2_MIX_TRANSPARENT);
+            } else if (vbi_get_subtitle_mix_video_flag(mContext->vbi) == TT2_MIX_HALF_SCREEN) {
+                vbi_set_subtitle_mix_video_flag(mContext->vbi, TT2_MIX_HALF_SCREEN);
+                mContext->mixVideoState = TT2_MIX_HALF_SCREEN;
+                mContext->transparentBackground = 0;
+                notifyMixVideoState(TT2_MIX_HALF_SCREEN);
+            } else if (vbi_get_subtitle_mix_video_flag(mContext->vbi) == TT2_MIX_BLACK) {
+                vbi_set_subtitle_mix_video_flag(mContext->vbi, TT2_MIX_BLACK);
+                mContext->mixVideoState = TT2_MIX_BLACK;
+                mContext->transparentBackground = 0;
+                notifyMixVideoState(TT2_MIX_BLACK);
+            }
             mContext->opacity = mContext->transparentBackground ? 0 : 255;
             mContext->pageState = TT2_SEARCH_STATE;
             mContext->subtitleMode = TT2_GRAPHICS_MODE;
             mContext->resetShowSubtitlePageNumberTimeFlag = true;
+            if (ttParam->regionId >= 0) mContext->regionId = ttParam->regionId;
             page = convertPageDecimal2Hex(ttParam->magazine, ttParam->subPageNo);
             mContext->gotoGraphicsSubtitlePage = page;
             return gotoPageLocked(page, AM_TT2_ANY_SUBNO);
@@ -2106,7 +2234,8 @@ bool TeletextParser::handleControl() {
             mContext->transparentBackground = 0;
             mContext->opacity = mContext->transparentBackground ? 0 : 255;
             mContext->resetShowSubtitlePageNumberTimeFlag = true;
-#ifdef NEED_CACHE_ZVBI_STATUS
+            if (ttParam->regionId >= 0) mContext->regionId = ttParam->regionId;
+            #ifdef NEED_CACHE_ZVBI_STATUS
             LOGI("gVBIStatus.subtitlePageId:%d mContext->atvTeletext:%d mContext->dtvTeletext:%d", gVBIStatus.subtitlePageId, mContext->atvTeletext, mContext->dtvTeletext);
             if (mContext->atvTeletext && ttParam->magazine == -1 && ttParam->subPageNo == -1) {
                 mContext->subtitleMode = TT2_GRAPHICS_MODE;
@@ -2144,8 +2273,7 @@ bool TeletextParser::handleControl() {
                     }
                 }
             }
-#endif
-            if (ttParam->regionId > 0) mContext->regionId = ttParam->regionId;
+            #endif
             mContext->subtitleMode = TT2_SUBTITLE_MODE;
             page = convertPageDecimal2Hex(ttParam->magazine, ttParam->subPageNo);
             return gotoPageLocked(page, AM_TT2_ANY_SUBNO);
@@ -2161,6 +2289,7 @@ bool TeletextParser::handleControl() {
          case TT_EVENT_9:
              LOGE(" mGotoPageNum ttParam->event = %d, mGotoPageNum=%d",ttParam->event,mGotoPageNum);
              mGotoPageNum = mGotoPageNum*10 + (ttParam->event - 4);
+             if (ttParam->regionId >= 0) mContext->regionId = ttParam->regionId;
              if ((mGotoPageNum == 9) || (mGotoPageNum == 0) || (mGotoPageNum > TELETEXT_MAX_PAGE_NUMBER)) {
                  LOGE(" ERROR:: Input the error page number = %d \n",mGotoPageNum);
                  mGotoPageNum = 0;
@@ -2229,7 +2358,7 @@ int TeletextParser::initContext() {
     mContext->dispUpdate = 0;
     mContext->lockSubpg = 0;
     mContext->dispMode = 0;
-    mContext->regionId = 0;
+    mContext->regionId = -1;
     mContext->gotoGraphicsSubtitlePage = 0;
     mContext->subtitlePageNumber = 0;
     mContext->subtitlePageNumberShowTimeOutFlag = false;
@@ -2268,13 +2397,19 @@ int TeletextParser::initContext() {
         mContext->ex = vbi_export_new("text", &t);
     }
 #endif
+    #ifdef NEED_CACHE_ZVBI_STATUS
     LOGI(" %s page filter pgno: %d gVBIStatus.subtitlePageId:%d\n", __FUNCTION__, mContext->pageNum, gVBIStatus.subtitlePageId);
-
+    #endif
     return 0;
 }
 
 void TeletextParser::checkDebug() {
-    mDumpSub = DUMP_SUB;
+    char value[PROPERTY_VALUE_MAX] = {0};
+    memset(value, 0, PROPERTY_VALUE_MAX);
+//    property_get("vendor.subtitle.dump", value, "false");
+    if (!strcmp(value, "true")) {
+        mDumpSub = true;
+    }
 }
 
 int TeletextParser::teletextDecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char *srcData, int srcLen) {
@@ -2657,7 +2792,7 @@ int TeletextParser::hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
                         }
                         #ifdef SUPPORT_LOAD_ANIMATION
                         //wait video first frame ready.
-                        if (!mDataSource->isFileAvailble()) {
+                        if (!mDataSource->isFileAvailable()) {
                             LOGI("video first frame not ready, need wait ready!!\n");
                             if (buf) free(buf);
                             return -1;
@@ -2681,7 +2816,7 @@ int TeletextParser::hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
                         if (buf) free(buf);
                         return 0;
                     } else {
-                        LOGI("dump-pts-hwdmx!error pts(%lld) frame was abondon ret=%d bufsize=%d\n", spu->pts, ret, spu->buffer_size);
+                        LOGI("dump-pts-hwdmx!error pts(%lld) frame was abandon ret=%d bufsize=%d\n", spu->pts, ret, spu->buffer_size);
                         if (buf) free(buf);
                         return -1;
                     }
@@ -2750,7 +2885,7 @@ int TeletextParser::softDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
             spu->isKeepShowing = true;
             addDecodedItem(std::shared_ptr<AML_SPUVAR>(spu));
         } else {
-            if (mDumpSub) LOGI("dump-pts-swdmx!error this pts(%lld) frame was abondon\n", spu->pts);
+            if (mDumpSub) LOGI("dump-pts-swdmx!error this pts(%lld) frame was abandon\n", spu->pts);
         }
 
         if (data) {
@@ -2801,7 +2936,7 @@ int TeletextParser::atvHwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
                 spu->isKeepShowing = true;
                 addDecodedItem(std::shared_ptr<AML_SPUVAR>(spu));
             } else {
-                if (mDumpSub) LOGI("[%s::%d]dump-pts-atvHwDmx!error this pts(%lld) frame was abondon\n", __FUNCTION__,__LINE__, spu->pts);
+                if (mDumpSub) LOGI("[%s::%d]dump-pts-atvHwDmx!error this pts(%lld) frame was abandon\n", __FUNCTION__,__LINE__, spu->pts);
             }
 
             if (data) {
@@ -2813,7 +2948,7 @@ int TeletextParser::atvHwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
 }
 
 bool TeletextParser::getVbiNextValidPage(vbi_decoder *vbi, int dir, vbi_pgno *pgno, vbi_pgno *subno) {
-    int retryCount = 103;//ff-9a + 1, for sepcail sepcaily case, mostly will break in several times.
+    int retryCount = 103;//ff-9a + 1, for special case, mostly will break in several times.
     int tmpPage = *pgno, tmpSubPage = *subno;
     bool found = false;
 
@@ -2871,7 +3006,7 @@ int TeletextParser::parse() {
 void TeletextParser::dump(int fd, const char *prefix) {
     //TODO: dump run in binder thread, may need add lock!
 
-    dprintf(fd, "%s Tele Text Parser\n", prefix);
+    dprintf(fd, "%s Teletext Parser\n", prefix);
     dumpCommon(fd, prefix);
 
     if (mContext != nullptr) {

@@ -97,13 +97,13 @@ public:
     void enableSourceDump(bool enable) {
         mNeedDumpSource = enable;
     }
+    int mDumpFd;
 
     virtual void dump(int fd, const char *prefix) = 0;
 protected:
 
     std::mutex mLock;
     bool mNeedDumpSource;
-    int mDumpFd;
     int mPlayerId;
     int mMediaSyncId;
 };

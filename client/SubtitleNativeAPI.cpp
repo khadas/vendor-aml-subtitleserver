@@ -371,6 +371,7 @@ int amlsub_GetParameter(AmlSubtitleHnd handle, AmlSubtitleParamCmd cmd, void *va
 
 AmlSubtitleStatus amlsub_SetPip(AmlSubtitleHnd handle, AmlSubtitlePipMode mode, int value) {
     if (DEBUG_CALL) ALOGD("call>> %s handle[%p]", __func__, handle);
+    if (value == -1) return SUB_STAT_INV;
     SubtitleContext *ctx = (SubtitleContext *) handle;
     if (ctx == nullptr) {
         return SUB_STAT_INV;

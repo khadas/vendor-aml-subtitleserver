@@ -54,7 +54,9 @@ extern "C" {
 #include <signal.h>
 #include <sys/utsname.h>
 #include <stdbool.h>
+#ifdef MEDIASYNC_FOR_SUBTITLE
 #include "MediaSyncInterface.h"
+#endif
 #include "cutils/properties.h"
 #include <stdlib.h>
 #include <strings.h>
@@ -244,15 +246,19 @@ int64_t am_get_video_pts(void* media_sync)
 {
 	#define VIDEO_PTS_PATH "/sys/class/tsync/pts_video"
 	int64_t value = 0;
+	#ifdef MEDIASYNC_FOR_SUBTITLE
 	if (media_sync != NULL) {
 		MediaSync_getTrackMediaTime(media_sync, &value);
 		value = 0xFFFFFFFF & ((9*value)/100);//now userdata pass only 32bit.
 		return value;
 	} else {
+	#endif
 		char buffer[16] = {0};
 		AM_FileRead(VIDEO_PTS_PATH,buffer,16);
 		return strtoul(buffer, NULL, 16);
+	#ifdef MEDIASYNC_FOR_SUBTITLE
 	}
+	#endif
 }
 
 static void dump_cc_data(char *who, int poc, uint8_t *buff, int size)
@@ -929,12 +935,14 @@ static void* aml_userdata_thread (void *arg)
 	pfd.events = POLLIN|POLLERR;
 	pfd.fd = fd;
 	void* media_sync = NULL;
+	#ifdef MEDIASYNC_FOR_SUBTITLE
 	if (ud->mediasync_id >= 0) {
 		media_sync = MediaSync_create();
 		if (NULL != media_sync) {
 			MediaSync_bindInstance(media_sync, ud->mediasync_id, MEDIA_SUBTITLE);
 		}
 	}
+	#endif
 	int kernel_version = get_kernel_version();
 	kernel_version = kernel_version>>16;
 	while (ud->running) {
@@ -945,13 +953,14 @@ static void* aml_userdata_thread (void *arg)
 		AM_DEBUG(AM_DEBUG_LEVEL, "userdata after poll ret %d", ret);
 		if (!ud->running)
 			break;
-
+		#ifdef MEDIASYNC_FOR_SUBTITLE
 		if (media_sync == NULL && ud->mediasync_id >= 0) {
 			media_sync = MediaSync_create();
 			if (NULL != media_sync) {
 				MediaSync_bindInstance(media_sync, ud->mediasync_id, MEDIA_SUBTITLE);
 			}
 		}
+		#endif
 
 		if (ret != 1)
 			continue;
@@ -1055,9 +1064,11 @@ static void* aml_userdata_thread (void *arg)
 		}while(user_para_info.meta_info.records_in_que > 1 || (left >= 8));
 	}
 	AM_DEBUG(0, "aml userdata thread exit");
+	#ifdef MEDIASYNC_FOR_SUBTITLE
 	if (media_sync != NULL) {
 		MediaSync_destroy(media_sync);
 	}
+	#endif
 	return NULL;
 }
 

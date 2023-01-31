@@ -41,7 +41,10 @@
 #include "ParserFactory.h"
 #include "AndroidHidlRemoteRender.h"
 #include "Presentation.h"
-#include "render/waylandrender/WLRender.h"
+
+#ifdef USE_WAYLAND
+    #include "render/waylandrender/WLRender.h"
+#endif
 
 //using namespace amlogic;
 
@@ -161,9 +164,11 @@ Presentation::Presentation(std::shared_ptr<Display> disp, int renderType) :
     if (renderType == Render::CALLBACK_RENDER) {
         ALOGD("Create CALLBACK_RENDER");
         mRender = std::shared_ptr<Render>(new AndroidHidlRemoteRender/*SkiaRenderI*/(disp));
+    #ifdef USE_WAYLAND
     } else /*Render::DIRECT_RENDER*/ {
         ALOGD("Create DIRECT_RENDER");
         mRender = std::make_shared<WLRenderWrapper>();
+    #endif
     }
     mMsgProcess = nullptr; // only access in threadloop.
 }

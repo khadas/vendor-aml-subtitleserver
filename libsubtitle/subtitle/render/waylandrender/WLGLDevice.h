@@ -23,7 +23,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
+#ifdef USE_WAYLAND
 #ifndef _WLGLDEVICE_H
 #define _WLGLDEVICE_H
 
@@ -38,7 +38,7 @@
 #include <EGL/eglext.h>
 
 #include "WLRect.h"
-#include "textrender/color.h"
+#include "../textrender/color.h"
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 static const uint32_t kRed8     = 0x000000ff;
@@ -139,3 +139,4 @@ private:
 };
 
 #endif //_WLGLDEVICE_H
+#endif // USE_WAYLAND

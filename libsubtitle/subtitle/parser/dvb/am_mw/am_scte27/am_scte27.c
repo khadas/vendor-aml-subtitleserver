@@ -49,7 +49,9 @@ extern "C" {
 #include <android/log.h>
 #include <stdbool.h>
 
+#ifdef MEDIASYNC_FOR_SUBTITLE
 #include "MediaSyncInterface.h"
+#endif
 
 #define scte_log(...) __android_log_print(ANDROID_LOG_INFO, "SCTE", __VA_ARGS__)
 #define bmp_log(...) __android_log_print(ANDROID_LOG_INFO, "SCTE_BMP", __VA_ARGS__)
@@ -260,15 +262,19 @@ static uint32_t am_scte_get_video_pts(void* media_sync)
 {
 	#define VIDEO_PTS_PATH "/sys/class/tsync/pts_video"
 	int64_t value;
+	#ifdef MEDIASYNC_FOR_SUBTITLE
 	if (media_sync != NULL) {
 		MediaSync_getTrackMediaTime(media_sync, &value);
 		value = 0xFFFFFFFF & ((9*value)/100);
 		return value;
 	} else {
+	#endif
 		char buffer[16] = {0};
 		AM_FileRead(VIDEO_PTS_PATH,buffer,16);
 		return strtoul(buffer, NULL, 16);
+	#ifdef MEDIASYNC_FOR_SUBTITLE
 	}
+	#endif
 }
 
 static void clear_bitmap(AM_SCTE27_Parser_t *parser)
@@ -789,11 +795,13 @@ static void* scte27_thread(void *arg)
 	void* media_sync = NULL;
 	AM_DEBUG(0, " am_scte27.c node_check 1 media_sync_id = %d",media_sync_id);
 	if (media_sync_id >= 0) {
+		#ifdef MEDIASYNC_FOR_SUBTITLE
 		media_sync = MediaSync_create();
 		if (NULL != media_sync) {
 			MediaSync_bindInstance(media_sync, media_sync_id, MEDIA_SUBTITLE);
 			parser->media_sync_handler = media_sync;
 		}
+		#endif
 	}
 	while (parser->running)
 	{

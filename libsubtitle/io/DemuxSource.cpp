@@ -46,6 +46,7 @@
 
 #include <pthread.h>
 
+#ifdef MEDIASYNC_FOR_SUBTITLE
 extern "C"  {
 #include "MediaSyncInterface.h"
 mediasync_result MediaSync_bindInstance(void* handle, uint32_t SyncInsId,
@@ -53,6 +54,7 @@ mediasync_result MediaSync_bindInstance(void* handle, uint32_t SyncInsId,
 mediasync_result MediaSync_getTrackMediaTime(void* handle, int64_t *outMediaUs);
 
 }
+#endif
 
 static const std::string SYSFS_VIDEO_PTS = "/sys/class/tsync/pts_video";
 static const std::string SYSFS_VIDEO_FIRSTPTS = "/sys/class/tsync/firstvpts";
@@ -121,7 +123,9 @@ DemuxSource::DemuxSource() : mRdFd(-1), mState(E_SOURCE_INV),
     mPlayerId = -1;
     mMediaSyncId = -1;
     subType = -1;
+    #ifdef MEDIASYNC_FOR_SUBTITLE
     mMediaSync = MediaSync_create();
+    #endif
     ALOGD("DeviceSource");
 }
 
@@ -137,9 +141,13 @@ DemuxSource::~DemuxSource() {
         mReadThread->join();
         mReadThread = nullptr;
     }
-   if (mMediaSync != nullptr) {
+
+    #ifdef MEDIASYNC_FOR_SUBTITLE
+    if (mMediaSync != nullptr) {
         MediaSync_destroy(mMediaSync);
     }
+    #endif
+
     mPlayerId = -1;
     mMediaSyncId = -1;
     close_dvb_dmx(mDemuxContext, mDemuxId );
@@ -182,10 +190,12 @@ void DemuxSource::loopRenderTime() {
             if (-1 == mMediaSyncId) {
                 value = sysfsReadInt(SYSFS_VIDEO_PTS.c_str(), 16);
                 mSyncPts = value;
+            #ifdef MEDIASYNC_FOR_SUBTITLE
             } else {
                 MediaSync_getTrackMediaTime(mMediaSync, &value);
                 value = 0x1FFFFFFFF & ((9*value)/100);
                 mSyncPts = value;
+            #endif
             }
             static int i = 0;
             if (i++%300 == 0) {
@@ -381,10 +391,14 @@ void DemuxSource::setPipId (int mode, int id) {
        if ((-1 != mMediaSyncId) || (mMediaSyncId != id)) {
            mMediaSyncId = id;
            if (mMediaSync != nullptr) {
+               #ifdef MEDIASYNC_FOR_SUBTITLE
                MediaSync_destroy(mMediaSync);
                mMediaSync = MediaSync_create();
+               #endif
            }
+           #ifdef MEDIASYNC_FOR_SUBTITLE
            MediaSync_bindInstance(mMediaSync, mMediaSyncId, MEDIA_VIDEO);
+           #endif
        }
    }
 }

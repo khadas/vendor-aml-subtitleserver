@@ -40,6 +40,7 @@
 #include "sub_types2.h"
 static const std::string SYSFS_VIDEO_PTS = "/sys/class/tsync/pts_video";
 
+#ifdef MEDIASYNC_FOR_SUBTITLE
 extern "C"  {
 #include "MediaSyncInterface.h"
 mediasync_result MediaSync_bindInstance(void* handle, uint32_t SyncInsId,
@@ -47,6 +48,7 @@ mediasync_result MediaSync_bindInstance(void* handle, uint32_t SyncInsId,
 mediasync_result MediaSync_getTrackMediaTime(void* handle, int64_t *outMediaUs);
 
 }
+#endif
 
 static inline unsigned int make32bitValue(const char *buffer) {
     return buffer[0] | (buffer[1]<<8) | (buffer[2]<<16) | (buffer[3]<<24);
@@ -83,7 +85,9 @@ SocketSource::SocketSource() : mTotalSubtitle(-1),
     mExitRequested = false;
     mDumpFd = -1;
     mMediaSyncId = -1;
+    #ifdef MEDIASYNC_FOR_SUBTITLE
     mMediaSync = MediaSync_create();
+    #endif
     ALOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n", __FUNCTION__, __LINE__);
     mSegment = std::shared_ptr<BufferSegment>(new BufferSegment());
     ALOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n", __FUNCTION__, __LINE__);
@@ -107,7 +111,9 @@ SocketSource::SocketSource(const std::string url) : mTotalSubtitle(-1),
     mExitRequested = false;
     mDumpFd = -1;
     mMediaSyncId = -1;
+    #ifdef MEDIASYNC_FOR_SUBTITLE
     mMediaSync = MediaSync_create();
+    #endif
     ALOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n",__FUNCTION__,__LINE__);
     mSegment = std::shared_ptr<BufferSegment>(new BufferSegment());
     ALOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n",__FUNCTION__,__LINE__);
@@ -125,11 +131,13 @@ void SocketSource::setPipId(int mode, int id) {
     } else if (PIP_MEDIASYNC_ID == mode) {
         if ((-1 != mMediaSyncId) || (mMediaSyncId != id)) {
             mMediaSyncId = id;
+            #ifdef MEDIASYNC_FOR_SUBTITLE
             if (mMediaSync != nullptr) {
                 MediaSync_destroy(mMediaSync);
                 mMediaSync = MediaSync_create();
             }
             MediaSync_bindInstance(mMediaSync, mMediaSyncId, MEDIA_VIDEO);
+            #endif
         }
     }
 }
@@ -137,10 +145,11 @@ void SocketSource::setPipId(int mode, int id) {
 SocketSource::~SocketSource() {
     ALOGD("%s", __func__);
     mExitRequested = true;
-
+    #ifdef MEDIASYNC_FOR_SUBTITLE
     if (mMediaSync != nullptr) {
         MediaSync_destroy(mMediaSync);
     }
+    #endif
 
     // TODO: no ring ref?
     SubSocketServer::unregistClient(this);
@@ -161,10 +170,12 @@ void SocketSource::loopRenderTime() {
             if (-1 == mMediaSyncId) {
                 value = sysfsReadInt(SYSFS_VIDEO_PTS.c_str(), 16);
                 mSyncPts = value;
+            #ifdef MEDIASYNC_FOR_SUBTITLE
             } else {
                 MediaSync_getTrackMediaTime(mMediaSync, &value);
                 value = 0x1FFFFFFFF & ((9*value)/100);
-                mSyncPts = value;
+               mSyncPts = value;
+            #endif
             }
             static int i = 0;
             if (i++%300 == 0) {

@@ -43,7 +43,7 @@
 
 struct DVBSubCLUT {
     int id;
-     uint32_t clut4[4];
+    uint32_t clut4[4];
     uint32_t clut16[16];
     uint32_t clut256[256];
 
@@ -899,7 +899,7 @@ int DvbParser::init() {
 
 void DvbParser::checkDebug() {
     //dump dvb subtitle bitmap
-    mDumpSub = false;
+    mDumpSub = true;
 }
 
 void DvbParser::notifySubtitleDimension(int width, int height) {
@@ -1414,7 +1414,7 @@ void DvbParser::saveResult2Spu(std::shared_ptr<AML_SPUVAR> spu) {
         }
 
        if (mDumpSub) {
-           snprintf(filename, sizeof(filename), "./data/subtitleDump/dvb(%lld)", spu->pts);
+           snprintf(filename, sizeof(filename), "./tmp/subtitleDump/dvb(%lld)", spu->pts);
            save2BitmapFile(filename, pbuf, width, height);
        }
 

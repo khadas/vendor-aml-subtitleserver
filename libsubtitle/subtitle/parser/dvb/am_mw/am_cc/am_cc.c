@@ -56,8 +56,9 @@ extern "C" {
 #include "math.h"
 #include <stdbool.h>
 
+#ifdef MEDIASYNC_FOR_SUBTITLE
 #include "MediaSyncInterface.h"
-
+#endif
 /****************************************************************************
  * Macro definitions
  ***************************************************************************/
@@ -174,15 +175,19 @@ uint32_t am_cc_get_video_pts(void* media_sync)
 {
 	#define VIDEO_PTS_PATH "/sys/class/tsync/pts_video"
 	int64_t value;
+	#ifdef MEDIASYNC_FOR_SUBTITLE
 	if (media_sync != NULL) {
 		MediaSync_getTrackMediaTime(media_sync, &value);
 		value = 0xFFFFFFFF & ((9*value)/100);
 		return value;
 	} else {
+	#endif
 		char buffer[16] = {0};
 		AM_FileRead(VIDEO_PTS_PATH,buffer,16);
 		return strtoul(buffer, NULL, 16);
+	#ifdef MEDIASYNC_FOR_SUBTITLE
 	}
+	#endif
 }
 
 static void am_cc_get_page_canvas(AM_CC_Decoder_t *cc, struct vbi_page *pg, int* x_point, int* y_point)
@@ -1061,10 +1066,12 @@ static void *am_cc_render_thread(void *arg)
 	timeout = 10;
 	void* media_sync = NULL;
 	if (cc->media_sync_id >= 0) {
+		#ifdef MEDIASYNC_FOR_SUBTITLE
 		media_sync = MediaSync_create();
 		if (NULL != media_sync) {
 			MediaSync_bindInstance(media_sync, cc->media_sync_id, MEDIA_SUBTITLE);
 		}
+		#endif
 	}
 	while (cc->running)
 	{

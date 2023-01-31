@@ -24,6 +24,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef USE_WAYLAND
+
 #define LOG_TAG "WLGLDevice"
 
 #include "WLGLDevice.h"
@@ -35,14 +37,20 @@
 #include <utils/Log.h>
 #include <cstring>
 #include <vector>
+#include <string>
 
-#include "textrender/text.h"
-#include "textrender/round_rectangle.h"
+#include "../textrender/text.h"
+#include "../textrender/round_rectangle.h"
 using namespace Cairo;
 
 #define ENV_XDG_RUNTIME_DIR "XDG_RUNTIME_DIR"
 #define ENV_WAYLAND_DISPLAY "WAYLAND_DISPLAY"
 #define SUBTITLE_OVERLAY_NAME "subtitle-overlay"
+
+#ifdef ALOGD
+#undef ALOGD
+#endif
+#define ALOGD(...) ALOGI(__VA_ARGS__)
 
 class RdkShellCmd {
 public:
@@ -132,9 +140,9 @@ bool WLGLDevice::connectDisplay() {
         ALOGD("connectDisplay, current env= {%s, %s}", runtimeDir, waylandDisplay);
         if (runtimeDir != nullptr && strlen(runtimeDir) > 0
             && waylandDisplay != nullptr && strlen(waylandDisplay) > 0) {
-            ALOGV("createDisplay with preset env");
+            ALOGD("createDisplay with preset env");
             if (createDisplay()) {
-                ALOGV("createDisplay success for {%s, %s}", runtimeDir, waylandDisplay);
+                ALOGD("createDisplay success for {%s, %s}", runtimeDir, waylandDisplay);
                 return true;
             } else {
                 ALOGE("createDisplay failed for {%s, %s}", runtimeDir, waylandDisplay);
@@ -145,14 +153,14 @@ bool WLGLDevice::connectDisplay() {
     };
 
     auto funcConnectFromCandidatesEnvs = [&]()->bool {
-        ALOGV("createDisplay with candidate envs");
+        ALOGD("createDisplay with candidate envs");
         int n = sizeof(sCandidateEnvs) / sizeof(sCandidateEnvs[0]);
         for (int i = 0; i < n; ++i) {
             struct DisplayEnv& env = sCandidateEnvs[i];
             setupEnv(env.xdg_runtime_dir, env.wayland_display);
 
             if (createDisplay()) {
-                ALOGV("createDisplay success for {%s, %s}", env.xdg_runtime_dir, env.wayland_display);
+                ALOGD("createDisplay success for {%s, %s}", env.xdg_runtime_dir, env.wayland_display);
                 return true;
             } else {
                 ALOGE("createDisplay failed for {%s, %s}", env.xdg_runtime_dir, env.wayland_display);
@@ -178,6 +186,8 @@ bool WLGLDevice::createSubtitleOverlay() {
         rdkShellCmd.moveToBack(SUBTITLE_OVERLAY_NAME);
         return true;
     }
+
+    ALOGE("Create Subtitle overlay failed");
 
     return false;
 }
@@ -263,7 +273,7 @@ void WLGLDevice::getScreenSize(size_t *width, size_t *height) {
     if (env) {
         int w = 0, h = 0;
         if (sscanf(env, "%dx%d", &w, &h) == 2) {
-            ALOGV("getScreenSize, from env WESTEROS_GL_GRAPHICS_MAX_SIZE: [%dx%d]", w, h);
+            ALOGD("getScreenSize, from env WESTEROS_GL_GRAPHICS_MAX_SIZE: [%dx%d]", w, h);
             if ((w > 0) && (h > 0)) {
                 *width = w;
                 *height = h;
@@ -277,7 +287,7 @@ void WLGLDevice::getScreenSize(size_t *width, size_t *height) {
         eglQuerySurface(display, surface, EGL_WIDTH, &w);
         eglQuerySurface(display, surface, EGL_HEIGHT, &h);
 
-        ALOGV("getScreenSize, from eglQuerySurface: [%dx%d]", w, h);
+        ALOGD("getScreenSize, from eglQuerySurface: [%dx%d]", w, h);
 
         if ((w > 0) && (h > 0)) {
             *width = w;
@@ -286,7 +296,7 @@ void WLGLDevice::getScreenSize(size_t *width, size_t *height) {
         }
     }
 
-    ALOGV("getScreenSize, from defult: [%dx%d]", WIDTH, HEIGHT);
+    ALOGD("getScreenSize, from defult: [%dx%d]", WIDTH, HEIGHT);
     *width = WIDTH;
     *height = HEIGHT;
 }
@@ -334,6 +344,8 @@ bool WLGLDevice::initEGL() {
     mScreenRect.set(0, 0, width, height);
     mScreenGLRect.set(0, height, width, 0);
 
+    ALOGD("getScreenSize: [%d, %d]", (int)width, (int)height);
+
     surface = wl_compositor_create_surface(compositor);
     shellSurface = wl_shell_get_shell_surface(shell, surface);
     wl_shell_surface_add_listener(shellSurface, &shell_surface_listener, this);
@@ -357,6 +369,7 @@ bool WLGLDevice::initEGL() {
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    ALOGD("initEGL OK");
     return true;
 }
 
@@ -686,3 +699,5 @@ void WLGLDevice::glAssert(const char* where) {
     }
 
 }
+
+#endif // USE_WAYLAND

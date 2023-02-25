@@ -1,3 +1,29 @@
+/*
+ * Copyright (C) 2014-2019 Amlogic, Inc. All rights reserved.
+ *
+ * All information contained herein is Amlogic confidential.
+ *
+ * This software is provided to you pursuant to Software License Agreement
+ * (SLA) with Amlogic Inc ("Amlogic"). This software may be used
+ * only in accordance with the terms of this agreement.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification is strictly prohibited without prior written permission from
+ * Amlogic.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #define LOG_TAG "ExtSubFactory"
 
 #include "ParserFactory.h"
@@ -65,11 +91,11 @@ int ExtSubFactory::detect(std::shared_ptr<DataSource> source) {
 
 
         if (sscanf(line, "%d,%d,%d", &i, &i, &i) == 3) {
-            return SUB_MPL1;
+            return SUB_ML1;
         }
 
         if (sscanf(line, "[%d][%d]", &i, &i) == 2) {
-            return SUB_MPL2;
+            return SUB_ML2;
         }
 
         if (sscanf(line, "%d:%d:%d.%d,%d:%d:%d.%d", &i, &i, &i, &i, &i, &i,&i, &i) == 8) {
@@ -206,10 +232,10 @@ std::shared_ptr<TextSubtitle> ExtSubFactory::create(std::shared_ptr<DataSource> 
         case SUB_JACOSUB://13
            return std::shared_ptr<TextSubtitle> (new Jacosub(source));
 
-        case SUB_MPL1://14
+        case SUB_ML1://14
             return std::shared_ptr<TextSubtitle> (new Mplayer1(source));
 
-        case SUB_MPL2://15
+        case SUB_ML2://15
             return std::shared_ptr<TextSubtitle> (new Mplayer2(source));
 
        // case SUB_XML://16

@@ -32,7 +32,6 @@ include_directories(
         subtitle
         ../../zvbi/src
         subtitle/render/waylandrender
-        subtitle/render/waylandrender/wayland_inc
 )
 
 if (USE_WAYLAND)

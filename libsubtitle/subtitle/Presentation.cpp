@@ -46,6 +46,10 @@
     #include "render/waylandrender/WLRender.h"
 #endif
 
+#ifdef USE_DFB
+    #include "render/directfbrender/DFBRender.h"
+#endif
+
 //using namespace amlogic;
 
 #define MAX_ALLOWED_EXT_SPU_NUM 1000
@@ -165,9 +169,14 @@ Presentation::Presentation(std::shared_ptr<Display> disp, int renderType) :
         ALOGD("Create CALLBACK_RENDER");
         mRender = std::shared_ptr<Render>(new AndroidHidlRemoteRender/*SkiaRenderI*/(disp));
     #ifdef USE_WAYLAND
-    } else /*Render::DIRECT_RENDER*/ {
-        ALOGD("Create DIRECT_RENDER");
+    } else /*Render::WL RENDER*/ {
+        ALOGD("Create WL RENDER");
         mRender = std::make_shared<WLRenderWrapper>();
+    #endif
+    #ifdef USE_DFB
+    } else /*Render::DFB RENDER*/ {
+        ALOGD("Create DFB RENDER");
+        mRender = std::make_shared<DFBRenderWrapper>();
     #endif
     }
     mMsgProcess = nullptr; // only access in threadloop.

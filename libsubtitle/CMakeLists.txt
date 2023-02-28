@@ -32,6 +32,7 @@ include_directories(
         subtitle
         ../../zvbi/src
         subtitle/render/waylandrender
+        subtitle/render/directfbrender
 )
 
 if (USE_WAYLAND)
@@ -166,6 +167,7 @@ if (USE_DFB)
             subtitle/parser/ExtParser/WebVtt.cpp
             subtitle/render/AndroidHidlRemoteRender.cpp
             subtitle/render/directfbrender/DFBDevice.cpp
+            subtitle/render/directfbrender/DFBRender.cpp
             subtitle/parser/dvb/am_mw/am_cc/am_cc.c
             subtitle/parser/dvb/am_mw/am_cc/cc_json.c
             subtitle/parser/dvb/am_mw/am_scte27/am_scte27.c
@@ -192,6 +194,10 @@ if (USE_WAYLAND)
     add_definitions(-DUSE_WAYLAND) # Macro definition USE_SEE
 endif()
 
+if (USE_DFB)
+    add_definitions(-DUSE_DFB) # Macro definition USE_SEE
+endif()
+
 target_link_libraries(${TARGET} PUBLIC binder)
 target_link_libraries(${TARGET} PUBLIC log)
 target_link_libraries(${TARGET} PUBLIC zvbi)
@@ -203,6 +209,10 @@ if (USE_WAYLAND)
     target_link_libraries(${TARGET} PUBLIC wayland-egl)
     target_link_libraries(${TARGET} PUBLIC EGL)
     target_link_libraries(${TARGET} PUBLIC GLESv1_CM)
+endif()
+
+if (USE_DFB)
+    target_link_libraries(${TARGET} PUBLIC directfb)
 endif()
 
 if (MEDIASYNC_FOR_SUBTITLE)

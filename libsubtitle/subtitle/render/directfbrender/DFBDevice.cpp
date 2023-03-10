@@ -47,7 +47,7 @@
 #include <pthread.h>
 
 #include <directfb.h>
-
+#include <png.h>
 
 #include "../textrender/text.h"
 #include "../textrender/round_rectangle.h"
@@ -203,7 +203,7 @@ static IDirectFBSurface *load_image(std::string filename)
     return surf;
 }
 
-static void apply_surface(int x, int y, IDirectFBSurface *source, IDirectFBSurface *destination,int type)
+static void apply_surface(int x, int y, IDirectFBSurface *source, IDirectFBSurface *destination, int type)
 {
     destination->SetBlittingFlags(destination, DSBLIT_SRC_COLORKEY);
     source->SetSrcColorKey(source, 0xFF, 0x0, 0xFF);
@@ -218,7 +218,7 @@ static void apply_surface(int x, int y, IDirectFBSurface *source, IDirectFBSurfa
 static void save2BitmapFile(const char *filename, uint32_t *bitmap, int w, int h) {
     FILE *f;
     char fname[40];
-    snprintf(fname, sizeof(fname), "%s", filename);
+    snprintf(fname, sizeof(fname), "%s.png", filename);
     f = fopen(fname, "w");
     ALOGD("%s start", __FUNCTION__);
     if (!f) {
@@ -377,7 +377,8 @@ bool DFBDevice::drawImage(int type, unsigned char *img, int64_t pts, int buffer_
     char *filename;
     ALOGD("DFBDevice %s img:%p buffer_size:%d pts:%lld, spu_width:%d spu_height:%d src.x():%d ,src.y():%d ,src.width():%d ,src.height():%d start", __FUNCTION__, img, buffer_size, pts, spu_width, spu_height, src.x(),src.y(),src.width(),src.height());
     filename = "/tmp/subtitle_dfb";
-    save2BitmapFile(filename, (uint32_t *)img, spu_width, spu_height);
+    saveAsPNG(filename, (uint32_t *)img, spu_width, spu_height);
+//    save2BitmapFile(filename, (uint32_t *)img, spu_width, spu_height);
     DFBResult             ret;
     image = load_image(std::string(filename));
     apply_surface((screen_width/10)*3,(screen_height/10)*8 , image, screen, type);
@@ -531,4 +532,58 @@ DFBRect DFBDevice::drawText(int type, TextParams& textParams, int64_t pts, int b
     return srcRect;
 }
 
-#endif // USE_WAYLAND
+// save png picture
+void DFBDevice::saveAsPNG(const char *filename, uint32_t *data, int width, int height) {
+    FILE *fp = fopen(filename, "wb");
+    if (!fp) {
+        printf("Error: failed to open file %s\n", filename);
+        return;
+    }
+
+    // init png_struct and png_info
+    png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    if (!png_ptr) {
+        printf("Error: failed to create png struct\n");
+        fclose(fp);
+        return;
+    }
+    png_infop info_ptr = png_create_info_struct(png_ptr);
+    if (!info_ptr) {
+        printf("Error: failed to create png info struct\n");
+        png_destroy_write_struct(&png_ptr, NULL);
+        fclose(fp);
+        return;
+    }
+
+    // Set the error callback function of png_ptr
+    if (setjmp(png_jmpbuf(png_ptr))) {
+        printf("Error: failed to write png\n");
+        png_destroy_write_struct(&png_ptr, &info_ptr);
+        fclose(fp);
+        return;
+    }
+
+    // Initialize PNG I/O
+    png_init_io(png_ptr, fp);
+
+    // Write PNG file header
+    png_set_IHDR(png_ptr, info_ptr, width, height, 8, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+    png_write_info(png_ptr, info_ptr);
+
+    // write image data
+    png_bytep row_pointers[height];
+    for (int y = 0; y < height; y++) {
+        row_pointers[y] = (png_bytep)&data[y * width];
+    }
+    png_write_image(png_ptr, row_pointers);
+
+    // write end-of-file marker
+    png_write_end(png_ptr, NULL);
+
+    // clear memory
+    png_destroy_write_struct(&png_ptr, &info_ptr);
+    fclose(fp);
+}
+
+
+#endif // USE_DFB

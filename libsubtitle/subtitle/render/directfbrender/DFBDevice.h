@@ -124,6 +124,7 @@ private:
     bool createDisplay();
     bool initTexture(void* data, DFBRect &videoOriginRect, DFBRect &cropRect);
     void getScreenSize(size_t *width, size_t *height);
+    void saveAsPNG(const char *filename, uint32_t *data, int width, int height);
 
     struct Texture {
         int width;

@@ -31,7 +31,7 @@
 /**\file am_cc.c
  * \brief 数据库模块
  *
- * \author Xia Lei Peng <leipeng.xia@amlogic.com>
+ * \author Amlogic
  * \date 2013-03-10: create the document
  ***************************************************************************/
 
@@ -443,7 +443,8 @@ static AM_ErrorCode_t am_q_tone_data_event(AM_CC_Decoder_t *cc, uint8_t * data, 
 static void am_cc_vbi_event_handler(vbi_event *ev, void *user_data)
 {
 	AM_CC_Decoder_t *cc = (AM_CC_Decoder_t*)user_data;
-	int pgno, subno, ret;
+	int pgno, subno;
+	int ret = -1;
 	char* json_buffer;
 	AM_CC_JsonChain_t* node, *json_chain_head;
 	static int count = 0;
@@ -493,9 +494,7 @@ static void am_cc_vbi_event_handler(vbi_event *ev, void *user_data)
 				return;
 			}
 			/* Convert to json attributes */
-			if (cc->vbi_pgno <= 6) {
-				ret = tvcc_to_json (&cc->decoder, cc->vbi_pgno, json_buffer, JSON_STRING_LENGTH);
-			}
+			ret = tvcc_to_json (&cc->decoder, cc->vbi_pgno, json_buffer, JSON_STRING_LENGTH);
 			if (ret == -1)
 			{
 				AM_DEBUG(0, "tvcc_to_json failed");
@@ -664,7 +663,7 @@ static int am_cc_render(AM_CC_Decoder_t *cc)
 				AM_DEBUG(AM_DEBUG_LEVEL, "render_thread pts gap large than 0, value %d", decode_time_gap);
 				has_data_to_render = 0;
 				node = node->json_chain_next;
-				continue;
+				break;
 			}
 			AM_DEBUG(AM_DEBUG_LEVEL, "render_thread pts in range, node->pts %x videopts %x", node->pts, cc->video_pts);
 		}
@@ -820,7 +819,7 @@ static void *am_vbi_data_thread(void *arg)
 				while (ret >= (int)sizeof(struct vbi_data_s)) {
 					solve_vbi_data(cc, pd);
 
-					pd++;
+					pd ++;
 					ret -= sizeof(struct vbi_data_s);
 				}
 			} else {
@@ -1152,7 +1151,7 @@ static void *am_cc_render_thread(void *arg)
 		if (cc->curr_data_mask & (1 << cc->vbi_pgno)) {
 			nodata = 0;
 			last   = now;
-		} else if ((now - last) > 14000) {
+		} else if ((now - last) > 10000 && nodata ==0) {
 			last = now;
 			AM_DEBUG(0, "cc render thread: No data now.");
 			if ((cc->vbi_pgno < AM_CC_CAPTION_TEXT1) || (cc->vbi_pgno > AM_CC_CAPTION_TEXT4)) {
@@ -1206,8 +1205,10 @@ AM_ErrorCode_t AM_CC_Create(AM_CC_CreatePara_t *para, AM_CC_Handle_t *handle)
 
 	memset(cc, 0, sizeof(AM_CC_Decoder_t));
 	cc->json_chain_head = (AM_CC_JsonChain_t*) calloc (sizeof(AM_CC_JsonChain_t), 1);
-	if (cc->json_chain_head == NULL)
+	if (cc->json_chain_head == NULL) {
+		free (cc);
 		return AM_CC_ERR_NO_MEM;
+	}
 
 	cc->json_chain_head->json_chain_next = cc->json_chain_head;
 	cc->json_chain_head->json_chain_prior = cc->json_chain_head;

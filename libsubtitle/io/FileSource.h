@@ -39,7 +39,7 @@ class FileSource : public DataSource {
 
 public:
     FileSource() {mFd = -1;}
-    FileSource(int fd);
+    FileSource(int fd, int fdExtra);
     virtual ~FileSource();
 
     size_t totalSize();
@@ -49,7 +49,7 @@ public:
     bool start();
     bool stop();
     size_t lseek(int offSet, int whence);
-    bool isFileAvailble();
+    bool isFileAvailable();
     virtual size_t availableDataSize();
     virtual size_t read(void *buffer, size_t size);
 
@@ -61,7 +61,7 @@ public:
 
 private:
     int mFd;
-
+    //int mFdExtra;
 };
 
 #endif

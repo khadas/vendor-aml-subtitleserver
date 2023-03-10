@@ -72,6 +72,10 @@ FmqReceiver::~FmqReceiver() {
 bool FmqReceiver::readLoop() {
     IpcPackageHeader curHeader;
     rbuf_handle_t bufferHandle = ringbuffer_create(1024*1024, "fmqbuffer");
+    if (bufferHandle == nullptr) {
+        ALOGE("%s ring buffer create error! \n", __func__);
+        return false;
+    }
 
     ALOGD("%s", __func__);
     while (!mStop) {
@@ -86,20 +90,25 @@ bool FmqReceiver::readLoop() {
             size_t available = mReader->availableSize();
             if (available > 0) {
                 char *recvBuf = (char *)malloc(available);
-                size_t readed = mReader->read((uint8_t*)recvBuf, available);
-                if (readed <= 0) {
+                if (!recvBuf) {
+                    ALOGE("%s recvBuf malloc error! \n", __func__);
+                    continue;
+                }
+                size_t read = mReader->read((uint8_t*)recvBuf, available);
+                if (read <= 0) {
                     usleep(1000);
+                    free(recvBuf);
                     continue;
                 }
 
-                //ALOGD("readed: available %d size: %d", available, readed);
+                //ALOGD("read: available %d size: %d", available, read);
 
-                ringbuffer_write(bufferHandle, recvBuf, readed, RBUF_MODE_BLOCK);
+                ringbuffer_write(bufferHandle, recvBuf, read, RBUF_MODE_BLOCK);
                 free(recvBuf);
             } else {
                 usleep(1000);
             }
-
+             // TODO coverity no 94:q
             // consume all data.
             while (!mStop && (ringbuffer_read_avail(bufferHandle) > sizeof(IpcPackageHeader))) {
                 char buffer[sizeof(IpcPackageHeader)];
@@ -129,6 +138,10 @@ bool FmqReceiver::readLoop() {
                 ringbuffer_read(bufferHandle, buffer, sizeof(IpcPackageHeader), RBUF_MODE_BLOCK);
 
                 char *payloads = (char *) malloc(curHeader.dataSize +4);
+                if (!payloads) {
+                    ALOGE("%s payload malloc error! \n", __func__, __LINE__);
+                    continue;
+                }
                 memcpy(payloads, &curHeader.pkgType, 4); // fill package type
                 ringbuffer_read(bufferHandle, payloads+4, curHeader.dataSize, RBUF_MODE_BLOCK);
                 {  // notify listener
@@ -137,9 +150,9 @@ bool FmqReceiver::readLoop() {
                     //ALOGD("payload listener=%p type=%x, %d", listener.get(), peekAsSocketWord(payloads), curHeader.dataSize);
                     if (listener != nullptr) {
                         if (listener->onData(payloads, curHeader.dataSize+4) < 0) {
-                            free(payloads);
-                            ringbuffer_free(bufferHandle);
-                            return -1;
+                            //for some ext and internal sub switch, if here return, then ext sub(now this no data) switch
+                            //to internal will no sub. so not return.
+                            ALOGE("%s no need free buffer handle, need wait stop now! \n", __func__);
                         }
                     }
                 }
@@ -160,7 +173,7 @@ void FmqReceiver::dump(int fd, const char *prefix) {
         for (auto it = mClients.begin(); it != mClients.end(); it++) {
             auto lstn = (*it);
             if (lstn != nullptr)
-                dprintf(fd, "%s   InforListener: %p\n", prefix, lstn.get());
+                dprintf(fd, "%s   InfoListener: %p\n", prefix, lstn.get());
         }
     }
     dprintf(fd, "%s   mStop: %d\n", prefix, mStop);

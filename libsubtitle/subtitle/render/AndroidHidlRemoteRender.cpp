@@ -29,9 +29,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string>
-//#include "trace_support.h"
 #include <utils/Log.h>
-#include <utils/CallStack.h>
 
 #include "AndroidHidlRemoteRender.h"
 #include "AndroidCallbackMessageQueue.h"
@@ -40,7 +38,7 @@
 //using ::vendor::amlogic::hardware::subtitleserver::V1_0::implementation::SubtitleServerHal;
 using android::AndroidCallbackMessageQueue;
 
-static const int FADDING_SUB = 0;
+static const int FADING_SUB = 0;
 static const int SHOWING_SUB = 1;
 
 bool AndroidHidlRemoteRender::postSubtitleData() {
@@ -52,7 +50,7 @@ bool AndroidHidlRemoteRender::postSubtitleData() {
 
     if (mShowingSubs.size() <= 0) {
         if (queue != nullptr) {
-            queue->postDisplayData(nullptr, mParseType, 0, 0, 0, 0, 0, 0, 0, FADDING_SUB);
+            queue->postDisplayData(nullptr, mParseType, 0, 0, 0, 0, 0, 0, 0, FADING_SUB);
             return true;
         } else {
             ALOGE("Error! should not null here!");
@@ -62,6 +60,20 @@ bool AndroidHidlRemoteRender::postSubtitleData() {
 
     // only show the newest, since only 1 line for subtitle.
     for (auto it = mShowingSubs.rbegin(); it != mShowingSubs.rend(); it++) {
+
+        if (((*it)->spu_data) == nullptr) {
+            if ((*it)->dynGen) {
+                ALOGD("dynamic gen and return!");
+                if (((*it)->spu_data) == nullptr) {
+                    ALOGE("Error! why still no decoded spu_data???");
+                    continue;
+                }
+            } else {
+                ALOGE("Error! why not decoded spu_data, but push to show???");
+                continue;
+            }
+        }
+
         width = (*it)->spu_width;
         height = (*it)->spu_height;
         if (mParseType == TYPE_SUBTITLE_DTVKIT_TELETEXT || mParseType == TYPE_SUBTITLE_DVB_TELETEXT) {
@@ -74,16 +86,19 @@ bool AndroidHidlRemoteRender::postSubtitleData() {
         videoHeight = (*it)->spu_origin_display_h;
         size = (*it)->buffer_size;
 
-        if (((*it)->spu_data) == nullptr) {
-            ALOGE("Error! why not decoded spu_data, but push to show???");
-            continue;
-        }
-
-        ALOGD(" in AndroidHidlRemoteRender:%s width=%d, height=%d data=%p size=%d",
-            __func__, width, height, (*it)->spu_data, (*it)->buffer_size);
+        ALOGD(" in AndroidHidlRemoteRender:%s type:%d, width=%d, height=%d data=%p size=%d",
+            __func__, mParseType,  width, height, (*it)->spu_data, (*it)->buffer_size);
         DisplayType  displayType = ParserFactory::getDisplayType(mParseType);
         if ((SUBTITLE_IMAGE_DISPLAY == displayType) && ((0 == width) || (0 == height))) {
            continue;
+        }
+
+        if (mParseType == TYPE_SUBTITLE_EXTERNAL) {
+            if (width > 0 && height > 0) {
+                displayType = SUBTITLE_IMAGE_DISPLAY;
+            } else {
+                displayType = SUBTITLE_TEXT_DISPLAY;
+            }
         }
 
         if (SUBTITLE_TEXT_DISPLAY == displayType) {
@@ -92,6 +107,7 @@ bool AndroidHidlRemoteRender::postSubtitleData() {
 
         /* The same as vlc player. showing and fading policy */
         if (queue != nullptr) {
+            mParseType = ((*it)->isQtoneData) ? TYPE_SUBTITLE_Q_TONE_DATA: mParseType;
             queue->postDisplayData((const char *)((*it)->spu_data), mParseType, x, y, width, height, videoWidth, videoHeight, size, SHOWING_SUB);
             return true;
         } else {
@@ -125,7 +141,7 @@ bool AndroidHidlRemoteRender::hideSubtitleItem(std::shared_ptr<AML_SPUVAR> spu) 
     ALOGD("hideSubtitleItem");
     //some stream is special.some subtitles have pts, but some subtitles don't have pts.
     //In this situation if use the remove() function,it may cause the subtitle contains
-    //pts don't hide untile the subtitle without pts disappear.
+    //pts don't hide until the subtitle without pts disappear.
     //mShowingSubs.remove(spu);
     mShowingSubs.clear();
     return postSubtitleData();

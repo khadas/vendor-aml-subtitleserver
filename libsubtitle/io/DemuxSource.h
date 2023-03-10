@@ -49,7 +49,7 @@ public:
     bool start();
     bool stop();
 
-    bool isFileAvailble();
+    bool isFileAvailable();
     virtual size_t availableDataSize();
     virtual size_t read(void *buffer, size_t size);
     virtual void dump(int fd, const char *prefix);
@@ -61,8 +61,9 @@ public:
     virtual void setPipId (int mode, int id);
     static inline DemuxSource *getCurrentInstance();
     std::shared_ptr<BufferSegment> mSegment;
-    int subType;
+    int mSubType;
     virtual size_t lseek(int offSet, int whence) {return 0;}
+    bool mDumpSub;
 private:
     void loopRenderTime();
     void pes_data_cb(int dev_no, int fhandle, const uint8_t *data, int len, void *user_data);
@@ -81,6 +82,7 @@ private:
 
     int mPid = -1;
     int mDemuxId = -1;
+    int mSecureLevelFlag = 0;
     int mParam1;
     int mParam2; //ancillary_id
     static DemuxSource *sInstance;

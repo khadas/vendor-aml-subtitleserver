@@ -78,10 +78,10 @@ extern "C" {
  ***************************************************************************/
 
 #ifdef EMU_DEMUX
-extern AM_DMX_Driver_t emu_dmx_drv;
+extern const AM_DMX_Driver_t emu_dmx_drv;
 #define HW_DMX_DRV emu_dmx_drv
 #else
-extern AM_DMX_Driver_t linux_dvb_dmx_drv;
+extern const AM_DMX_Driver_t linux_dvb_dmx_drv;
 #define HW_DMX_DRV linux_dvb_dmx_drv
 #endif
 //extern const AM_DMX_Driver_t dvr_dmx_drv;

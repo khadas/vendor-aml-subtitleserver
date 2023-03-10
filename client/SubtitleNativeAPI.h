@@ -60,7 +60,7 @@ typedef enum {
     E_SUBTITLE_FMQ = 0,   /* for soft support subtitle data, use hidl FastMessageQueue */
     E_SUBTITLE_DEV,       /* use /dev/amstream_sub_read as the IO source */
     E_SUBTITLE_FILE,      /* for external subtitle file */
-    E_SUBTITLE_SOCK,      /* deprecated, android not permmit to use anymore */
+    E_SUBTITLE_SOCK,      /* deprecated, android not permit to use anymore */
     E_SUBTITLE_DEMUX,     /* use aml hwdemux as the data source */
     E_SUBTITLE_VBI,       /* use /dev/vbi as the IO source */
 } AmlSubtitleIOType;
@@ -75,6 +75,7 @@ typedef enum {
     SUB_DATA_TYPE_CC_JSON = 1,
     SUB_DATA_TYPE_BITMAP = 2,
     SUB_DATA_TYPE_POSITION_BITMAP = 4,
+    SUB_DATA_TYPE_QTONE = 0xAAAA,
 } AmlSubDataType;
 
 typedef enum {
@@ -90,6 +91,9 @@ typedef enum {
     TYPE_SUBTITLE_DVB_TELETEXT,
     TYPE_SUBTITLE_CLOSED_CAPTION,
     TYPE_SUBTITLE_SCTE27,
+    TYPE_SUBTITLE_DTVKIT_DVB, //12
+    TYPE_SUBTITLE_DTVKIT_TELETEXT,
+    TYPE_SUBTITLE_DTVKIT_SCTE27,
     TYPE_SUBTITLE_EXTERNAL,
     TYPE_SUBTITLE_MAX,
 } AmlSubtitletype;
@@ -175,20 +179,22 @@ typedef enum {
 typedef struct {
     const char *extSubPath;
     AmlSubtitleIOType ioSource;
-    int subtitleType;
-    int pid;
-    int videoFormat;             //cc
-    int channelId;               //cc
-    int ancillaryPageId;         //dvb
-    int compositionPageId;       //dvb
+    int subtitleType = 0;
+    int pid = 0;
+    int videoFormat = 0;             //cc
+    int channelId = 0;               //cc
+    int ancillaryPageId = 0;         //dvb
+    int compositionPageId = 0;       //dvb
     int dmxId;
-    int fd;
+    int fd = 0;
+    int flag = 0;
+    const char *lang;
 } AmlSubtitleParam;
 
 
 typedef struct {
-    int magazine;
-    int page;
+    int magazine = 0;
+    int page = 0;
     AmlTeletextEvent event;
     int regionid;
     int subpagedir;

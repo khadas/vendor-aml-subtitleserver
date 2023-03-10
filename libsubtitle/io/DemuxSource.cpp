@@ -68,6 +68,8 @@ static const std::string SUBTITLE_READ_DEVICE = "/dev/amstream_sub_read";
 #define AMSTREAM_IOC_SUB_LENGTH  _IOR(AMSTREAM_IOC_MAGIC, 0x1b, int)
 #define AMSTREAM_IOC_SUB_RESET   _IOW(AMSTREAM_IOC_MAGIC, 0x1a, int)
 #define SECTION_DEMUX_INDEX 2
+#define DMX_SUBTITLE_NO_SEC 0
+#define DMX_SUBTITLE_SEC   (2 << 10)
 //#define DUMP_SUB_DATA
 DemuxSource *DemuxSource::sInstance = nullptr;
 DemuxSource *DemuxSource::getCurrentInstance() {
@@ -122,15 +124,15 @@ DemuxSource::DemuxSource() : mRdFd(-1), mState(E_SOURCE_INV),
     sInstance = this;
     mPlayerId = -1;
     mMediaSyncId = -1;
-    subType = -1;
+    mSubType = -1;
     #ifdef MEDIASYNC_FOR_SUBTITLE
     mMediaSync = MediaSync_create();
     #endif
-    ALOGD("DeviceSource");
+    ALOGD("DemuxSource, subtitle mediasync create.");
 }
 
 DemuxSource::~DemuxSource() {
-    ALOGD("~DeviceSource");
+    ALOGD("~DemuxSource");
     mExitRequested = true;
     if (mRenderTimeThread != nullptr) {
         mRenderTimeThread->join();
@@ -162,11 +164,11 @@ size_t DemuxSource::totalSize() {
 bool DemuxSource::notifyInfoChange() {
     std::unique_lock<std::mutex> autolock(mLock);
     for (auto it = mInfoListeners.begin(); it != mInfoListeners.end(); it++) {
-        auto wk_lstner = (*it);
+        auto wk_listener = (*it);
         int value = -1;
 
-        if (auto lstn = wk_lstner.lock()) {
-            lstn->onTypeChanged(subType);
+        if (auto lstn = wk_listener.lock()) {
+            lstn->onTypeChanged(mSubType);
             return true;
         }
     }
@@ -178,15 +180,14 @@ void DemuxSource::loopRenderTime() {
     while (!mExitRequested) {
         mLock.lock();
         for (auto it = mInfoListeners.begin(); it != mInfoListeners.end(); it++) {
-            auto wk_lstner = (*it);
+            auto wk_listener = (*it);
 
-            if (wk_lstner.expired()) {
+            if (wk_listener.expired()) {
                 ALOGV("[threadLoop] lstn null.\n");
                 continue;
             }
 
-            ALOGD("mMediaSyncId= %d", mMediaSyncId);
-            int64_t value;
+            int64_t value = -1;
             if (-1 == mMediaSyncId) {
                 value = sysfsReadInt(SYSFS_VIDEO_PTS.c_str(), 16);
                 mSyncPts = value;
@@ -201,8 +202,9 @@ void DemuxSource::loopRenderTime() {
             if (i++%300 == 0) {
                 ALOGE(" read pts: %lld %llu", value, value);
             }
-            if (!mExitRequested) {
-                if (auto lstn = wk_lstner.lock()) {
+
+            if (!mExitRequested && value > 0) {
+                if (auto lstn = wk_listener.lock()) {
                     lstn->onRenderTimeChanged(value);
                 }
             }
@@ -234,9 +236,9 @@ static void pes_data_cb(int dev_no, int fhandle, const uint8_t *data, int len, v
 }
 
 
-static int open_dvb_dmx(TVSubtitleData *data, int dmx_id, int pid)
+static int open_dvb_dmx(TVSubtitleData *data, int dmx_id, int pid, int flag)
 {
-        ALOGE("[open_dmx]dmx_id:%d,pid:%d", dmx_id, pid);
+        ALOGE("[open_dmx]dmx_id:%d,pid:%d,flag:%d", dmx_id, pid, flag);
         AM_DMX_OpenPara_t op;
         struct dmx_pes_filter_params pesp;
         struct dmx_sct_filter_params param;
@@ -245,17 +247,20 @@ static int open_dvb_dmx(TVSubtitleData *data, int dmx_id, int pid)
         data->dmx_id = -1;
         data->filter_handle = -1;
         memset(&op, 0, sizeof(op));
-
+        data->dmx_id = dmx_id;
+        if (data->dmx_id == -1) {
+            ALOGE("[open_dmx]ERROR invalid argument,data->dmx_id is -1");
+            return -1;
+        }
         ret = AM_DMX_Open(dmx_id, &op);
         if (ret != AM_SUCCESS)
             goto error;
-        data->dmx_id = dmx_id;
         ALOGE("[open_dmx]AM_DMX_Open");
 
         ret = AM_DMX_AllocateFilter(dmx_id, &data->filter_handle);
         if (ret != AM_SUCCESS)
             goto error;
-        ALOGE("[open_dmx]AM_DMX_AllocateFilter");
+        ALOGE("[open_dmx]AM_DMX_AllocateFilter data->filter_handle:%d,mSubType:%d",data->filter_handle,DemuxSource::getCurrentInstance()->mSubType);
 
         ret = AM_DMX_SetBufferSize(dmx_id, data->filter_handle, 0x80000);
         if (ret != AM_SUCCESS)
@@ -264,7 +269,12 @@ static int open_dvb_dmx(TVSubtitleData *data, int dmx_id, int pid)
         memset(&pesp, 0, sizeof(pesp));
         pesp.pid = pid;
         pesp.output = DMX_OUT_TAP;
-        if (12 == DemuxSource::getCurrentInstance()->subType) {
+        if (flag) {
+          pesp.flags= DMX_SUBTITLE_SEC;
+        } else {
+          pesp.flags= DMX_SUBTITLE_NO_SEC;
+        }
+        if (TYPE_SUBTITLE_DTVKIT_DVB == DemuxSource::getCurrentInstance()->mSubType) {
             ALOGE("[open_dmx] dvb demux");
             pesp.pes_type = DMX_PES_SUBTITLE;
             pesp.input = DMX_IN_FRONTEND;
@@ -272,7 +282,7 @@ static int open_dvb_dmx(TVSubtitleData *data, int dmx_id, int pid)
             if (ret != AM_SUCCESS)
                 goto error;
             ALOGE("[open_dmx]AM_DMX_SetPesFilter");
-        } else if (13 == DemuxSource::getCurrentInstance()->subType) {
+        } else if (TYPE_SUBTITLE_DTVKIT_TELETEXT == DemuxSource::getCurrentInstance()->mSubType) {
             ALOGE("[open_dmx] teletext demux");
             pesp.pes_type = DMX_PES_SUBTITLE;//DMX_PES_TELETEXT;
             pesp.input = DMX_IN_FRONTEND;
@@ -280,7 +290,7 @@ static int open_dvb_dmx(TVSubtitleData *data, int dmx_id, int pid)
             if (ret != AM_SUCCESS)
                 goto error;
             ALOGE("[open_dmx]AM_DMX_SetPesFilter");
-        } else if (14 == DemuxSource::getCurrentInstance()->subType) {
+        } else if (TYPE_SUBTITLE_DTVKIT_SCTE27 == DemuxSource::getCurrentInstance()->mSubType) {
             //the scte27 data is section
             ALOGE("[open_dmx] scte27 demux: start section filter");
             memset(&param, 0, sizeof(param));
@@ -326,60 +336,65 @@ bool DemuxSource::start() {
         ALOGE("already stated");
         return false;
     }
-    ALOGE(" DemuxSource start  mPid:%d", mPid);
+    ALOGE(" DemuxSource start  mPid:%d mSecureLevelFlag:%d", mPid, mSecureLevelFlag);
     mState = E_SOURCE_STARTED;
     int total = 0;
     int subtype = 0;
     TVSubtitleData *mDvbContext;
     mSegment = std::shared_ptr<BufferSegment>(new BufferSegment());
     mDemuxContext = new TVSubtitleData();
-    int ret = open_dvb_dmx(mDemuxContext, mDemuxId, mPid );
+    mRenderTimeThread = std::shared_ptr<std::thread>(new std::thread(&DemuxSource::loopRenderTime, this));
+    int ret = open_dvb_dmx(mDemuxContext, mDemuxId, mPid, mSecureLevelFlag);
     if (ret == -1)
       return false;
 
-    mRenderTimeThread = std::shared_ptr<std::thread>(new std::thread(&DemuxSource::loopRenderTime, this));
-
     notifyInfoChange();
-
-    return false;
+    return true;
 }
 
 void DemuxSource::updateParameter(int type, void *data) {
    ALOGE(" in updateParameter type = %d ",type);
    bool restartDemux =false;
-   if (12 == type) {
+   if (TYPE_SUBTITLE_DTVKIT_DVB == type) {
         DtvKitDvbParam *pDvbParam = (DtvKitDvbParam* )data;
         if ((mState == E_SOURCE_STARTED) && (mPid != pDvbParam->pid)) {
               restartDemux = true;
         }
         mDemuxId = pDvbParam->demuxId;
         mPid = pDvbParam->pid;
+        mSecureLevelFlag = pDvbParam->flag;
         mParam1 = pDvbParam->compositionId;
         mParam2 = pDvbParam->ancillaryId;
-    } else if (13 == type) {
-        TeletextParam *pTeleteParam = (TeletextParam* )data;
-        if ((mState == E_SOURCE_STARTED) && (mPid != pTeleteParam->pid)) {
+    } else if (TYPE_SUBTITLE_DTVKIT_TELETEXT == type) {
+        TeletextParam *pTeletextParam = (TeletextParam* )data;
+        if ((mState == E_SOURCE_STARTED) && (mPid != pTeletextParam->pid)) {
              restartDemux = true;
         }
-        mDemuxId = pTeleteParam->demuxId;
-        mPid = pTeleteParam->pid;
-        mParam1 = pTeleteParam->magazine;
-        mParam2 = pTeleteParam->page;
-    } else if (14 == type) {
+        mDemuxId = pTeletextParam->demuxId;
+        mPid = pTeletextParam->pid;
+        mSecureLevelFlag = pTeletextParam->flag;
+        mParam1 = pTeletextParam->magazine;
+        mParam2 = pTeletextParam->page;
+    } else if (TYPE_SUBTITLE_DTVKIT_SCTE27 == type) {
         Scte27Param *pScteParam = (Scte27Param* )data;
         if ((mState == E_SOURCE_STARTED) && (mPid != pScteParam->SCTE27_PID)) {
              restartDemux = true;
         }
         mDemuxId = pScteParam->demuxId;
         mPid = pScteParam->SCTE27_PID;
+        mSecureLevelFlag = pScteParam->flag;
     }
     ALOGE(" in updateParameter restartDemux=%d ",restartDemux);
+    mSubType = type;
     if (restartDemux) {
         close_dvb_dmx(mDemuxContext, mDemuxId);
-        open_dvb_dmx(mDemuxContext, mDemuxId, mPid );
+        int ret =  open_dvb_dmx(mDemuxContext, mDemuxId, mPid, mSecureLevelFlag);
+        if (ret == 0) {
+            mRenderTimeThread = std::shared_ptr<std::thread>(new std::thread(&DemuxSource::loopRenderTime, this));
+            notifyInfoChange();
+        }
      }
-     subType = type;
-    ALOGE(" updateParameter mPid:%d, demuxId = %d", mPid, mDemuxId);
+    ALOGE(" updateParameter mPid:%d, demuxId = %d", mPid, mDemuxId, mSecureLevelFlag);
     return;
 }
 
@@ -404,7 +419,7 @@ void DemuxSource::setPipId (int mode, int id) {
 }
 
 bool DemuxSource::stop() {
-    mState = E_SOURCE_STOPED;
+    mState = E_SOURCE_STOPPED;
 
     // If parser has problem, it read more data than provided
     // then stop cannot stopped. need notify exit here.
@@ -413,7 +428,7 @@ bool DemuxSource::stop() {
     return false;
 }
 
-bool DemuxSource::isFileAvailble() {
+bool DemuxSource::isFileAvailable() {
     //unsigned long firstVpts = sysfsReadInt(SYSFS_VIDEO_FIRSTPTS.c_str(), 16);
     //unsigned long vPts = sysfsReadInt(SYSFS_VIDEO_PTS.c_str(), 16);
     unsigned long firstFrameToggle = sysfsReadInt(SYSFS_VIDEO_FIRSTRRAME.c_str(), 10);
@@ -428,8 +443,8 @@ size_t DemuxSource::availableDataSize() {
 }
 
 size_t DemuxSource::read(void *buffer, size_t size) {
-    size_t readed = 0;
-
+    int read = 0;
+    int isReadItemEnd = 0;
     //Current design of Parser Read, do not need add lock protection.
     // because all the read, is in Parser's parser thread.
     // We only need add lock here, is for protect access the mCurrentItem's
@@ -439,23 +454,23 @@ size_t DemuxSource::read(void *buffer, size_t size) {
     //in case of applied size more than 1024*2, such as dvb subtitle,
     //and data process error for two reads.
     //so add until read applied data then exit.
-    while (readed != size && mState == E_SOURCE_STARTED) {
+    while (read != size && mState == E_SOURCE_STARTED) {
         if (mCurrentItem != nullptr && !mCurrentItem->isEmpty()) {
             if (size == 0xffff)
             {
                 //if size is 0xffff, it means to get all the data of the current item
                 size = mCurrentItem->getSize();
             }
-            readed += mCurrentItem->read_l(((char *)buffer+readed), size-readed);
-            //ALOGD("readed:%d,size:%d", readed, size);
-            if (readed == size) return readed;
+            read += mCurrentItem->read_check(((char *)buffer+read), size-read, &isReadItemEnd, E_SUBTITLE_DEMUX);
+            ALOGD("read:%d,size:%d isReadItemEnd:%d SourceType:%d", read, size, isReadItemEnd, E_SUBTITLE_DEMUX);
+            if (read == size || isReadItemEnd ==-1) return read;
         } else {
             //ALOGD("mCurrentItem null, pop next buffer item");
             mCurrentItem = mSegment->pop();
         }
     }
-    //readed += mCurrentItem->read(((char *)buffer+readed), size-readed);
-    return readed;
+    //read += mCurrentItem->read(((char *)buffer+read), size-read);
+    return read;
 
 }
 
@@ -465,9 +480,9 @@ void DemuxSource::dump(int fd, const char *prefix) {
     {
         std::unique_lock<std::mutex> autolock(mLock);
         for (auto it = mInfoListeners.begin(); it != mInfoListeners.end(); it++) {
-            auto wk_lstner = (*it);
-            if (auto lstn = wk_lstner.lock())
-                dprintf(fd, "%s   InforListener: %p\n", prefix, lstn.get());
+            auto wk_listener = (*it);
+            if (auto lstn = wk_listener.lock())
+                dprintf(fd, "%s   InfoListener: %p\n", prefix, lstn.get());
         }
     }
     dprintf(fd, "%s   state:%d\n\n", prefix, mState);

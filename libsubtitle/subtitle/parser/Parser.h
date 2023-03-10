@@ -87,6 +87,7 @@ enum SubtitleType {
 #define SUB_PLAYING     1
 #define SUB_STOP        2
 #define SUB_EXIT        3
+#define HEADER_SIZE 20
 
 #define VOB_SUB_WIDTH 1920
 #define VOB_SUB_HEIGHT 1280
@@ -96,7 +97,7 @@ enum SubtitleType {
 
 #define INTERNAL_MAX_NUMBER_SPU_ITEM 20
 #define EXTERNAL_MAX_NUMBER_SPU_ITEM 500
-
+#define FILTER_DATA_TIMEROUT 10*1000
 
 
 static const int AML_PARSER_SYNC_WORD = 'AMLU';
@@ -113,6 +114,7 @@ public:
     }
     virtual ~Parser() {
         mState = SUB_EXIT;
+        mPtsRecord = 0;
     };
 
     virtual int parse(/*params*/) = 0;
@@ -136,7 +138,7 @@ public:
         mDecodedSpu.clear();
     }
 
-    bool startParse(ParserEventNotifier *notify, ParserSubdataNotifier *dataNofity) {
+    bool startParser(ParserEventNotifier *notify, ParserSubdataNotifier *dataNofity) {
         mState = SUB_INIT;
         mNotifier = notify;
         mDataNotifier = dataNofity;
@@ -148,12 +150,16 @@ public:
         return mParseType;
     }
 
-    bool stopParse() {
-        mState = SUB_STOP;
-        if (mThreadExitRequested)
-            return false;
+    bool stopParser() {
+        { // narrow the lock scope
+            std::unique_lock<std::mutex> autolock(mMutex);
+            mDecodedSpu.clear();
+            mState = SUB_STOP;
+            if (mThreadExitRequested)
+                return false;
 
-        mThreadExitRequested = true;
+            mThreadExitRequested = true;
+        }
         mThread.join();
         return true;
     }
@@ -179,7 +185,6 @@ public:
         }
         item = mDecodedSpu.front();
         mDecodedSpu.pop_front();
-
         return item;
     }
 
@@ -221,8 +226,8 @@ protected:
     bool mThreadExitRequested;
     int mState;
     int mParseType;
-    unsigned int mMaxSpuItems;
-
+    int mMaxSpuItems;
+    int64_t mPtsRecord = 0;
 
     void dumpCommon(int fd, const char *prefix) {
         dprintf(fd, "%s DataSource=%p\n", prefix, mDataSource.get());

@@ -130,6 +130,7 @@ public:
     Result setSubPid(int32_t sId, int32_t pid) ;
     Result setPageId(int32_t sId, int32_t pageId) ;
     Result setAncPageId(int32_t sId, int32_t ancPageId) ;
+    Result setSecureLevel(int32_t sId, int32_t flag);
     Result setChannelId(int32_t sId, int32_t channelId) ;
     Result setClosedCaptionVfmt(int32_t sId, int32_t vfmt) ;
 
@@ -205,7 +206,7 @@ private:
     private:
         sp<SubtitleServer> mSubtitleServer;
     };
-    sp<AndroidCallbackMessageQueue> mMessagQueue;
+    sp<AndroidCallbackMessageQueue> mMessageQueue;
 
   /*  class DeathRecipient : public android::hardware::hidl_death_recipient  {
     public:
@@ -227,7 +228,7 @@ private:
 
     // avoid CTC or other native impl called in middleware which is used by VideoPlayer
     // then VideoPlayer and middleware both call subtitle, but open related api we want
-    // middleware's, other configureation related can from VideoPlayer.
+    // middleware's, other configuration related can from VideoPlayer.
     bool mOpenCalled;
     OpenType mLastOpenType;
     int64_t mLastOpenTime;
@@ -240,5 +241,5 @@ private:
 //}  // namespace V1_0
 //}  // namespace subtitleserver
 //}  // namespace hardware
-//}  // namespace amlogic/
+//}  // namespace amlogic
 //}  // namespace vendor

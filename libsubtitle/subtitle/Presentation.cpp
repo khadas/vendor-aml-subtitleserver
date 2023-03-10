@@ -59,6 +59,7 @@
 #define TSYNC_32_BIT_PTS 0xFFFFFFFF
 #define HIGH_32_BIT_PTS 0xFFFFFFFF
 
+#define DEFAULT_DELAY_TIME 2 //second
 
 static const int DVB_TIME_MULTI = 90;
 
@@ -66,7 +67,7 @@ static const int64_t FIVE_SECONDS_NS = 5*1000*1000*1000LL;
 static const int64_t ONE_SECONDS_NS = 1*1000*1000*1000LL;
 
 static const int64_t ADDJUST_VERY_SMALL_PTS_MS = 5*1000LL;
-static const int64_t ADDJUST_NO_PTS_MS = 20*1000LL;
+static const int64_t ADDJUST_NO_PTS_MS = 4*1000LL;
 static bool mSubtitlePts32Bit = false;
 static inline int64_t convertDvbTime2Ns(int64_t dvbMillis) {
     return ms2ns(dvbMillis)/DVB_TIME_MULTI; // dvbTime is multi 90.
@@ -106,7 +107,7 @@ static std::shared_ptr<AML_SPUVAR> getShowingSpuFromList(
 
     std::shared_ptr<AML_SPUVAR> spu = list.front();
 
-    // only show the last picture, not conbine!
+    // only show the last picture, not combine!
     if (!spu->isSimpleText) {
         return list.back();
     }
@@ -116,7 +117,7 @@ static std::shared_ptr<AML_SPUVAR> getShowingSpuFromList(
         int totalSize = 0;
         std::for_each(list.begin(), list.end(), [&](std::shared_ptr<AML_SPUVAR> &s) {
             //w.dump(prefix);
-            totalSize += spu->buffer_size +1; // addinital newline.
+            totalSize += spu->buffer_size + 1; // add initial newline.
         });
 
         std::shared_ptr<AML_SPUVAR> newCue =  std::shared_ptr<AML_SPUVAR>(new AML_SPUVAR());
@@ -359,11 +360,11 @@ void Presentation::notifySubdataAdded() {
 
 void Presentation::dump(int fd, const char *prefix) {
     dprintf(fd, "%s Presentation:\n", prefix);
-    dprintf(fd, "%s   CurrentPresentRelativeTime[dvb time]: %d\n",
+    dprintf(fd, "%s   CurrentPresentRelativeTime[dvb time]: %lld\n",
             prefix, convertNs2DvbTime(mCurrentPresentRelativeTime));
-    dprintf(fd, "%s   StartPresentMonoTime[dvb time]: %d\n",
+    dprintf(fd, "%s   StartPresentMonoTime[dvb time]: %lld\n",
             prefix, convertNs2DvbTime(mStartPresentMonoTimeNs));
-    dprintf(fd, "%s   StartTimeModifier[dvb time]: %d\n",
+    dprintf(fd, "%s   StartTimeModifier[dvb time]: %lld\n",
             prefix, convertNs2DvbTime(mStartTimeModifier));
     dprintf(fd, "\n");
     if (mParser != nullptr) {
@@ -541,7 +542,7 @@ void Presentation::MessageProcess::handleStreamSub(const Message& message) {
                     ALOGD("Got  SPU: spu is ptsDiff >= 200s pts:%lld spu->pts:%lld",pts, spu->pts);
                     // we cannot check it's valid or not, so delay 1s(common case) and show
                     spu->pts = convertNs2DvbTime(timestamp+1*1000*1000*1000LL);
-                    spu->m_delay = spu->pts + 10*1000*DVB_TIME_MULTI;
+                    spu->m_delay = spu->pts + DEFAULT_DELAY_TIME*1000*DVB_TIME_MULTI;
                     pts = convertDvbTime2Ns(spu->pts);
                 }
                 ALOGD("Got  SPU: TimeStamp:%lld startAtPts=%lld ItemPts=%lld(%lld) duration:%lld(%lld) data:%p(%p)",
@@ -607,7 +608,7 @@ void Presentation::MessageProcess::handleStreamSub(const Message& message) {
                     // show it ...
                     if ((spu->pts/DVB_TIME_MULTI) <= 0 && !spu->isImmediatePresent) {
                         spu->pts = convertNs2DvbTime(timestamp);
-                        spu->m_delay = spu->pts + 3*1000*DVB_TIME_MULTI; // 3S delay
+                        spu->m_delay = spu->pts + DEFAULT_DELAY_TIME*1000*DVB_TIME_MULTI; // 2S delay
                         pts = convertDvbTime2Ns(spu->pts);
                     }
 
@@ -623,7 +624,7 @@ void Presentation::MessageProcess::handleStreamSub(const Message& message) {
                     if ((ptsDiff >= 200*1000*1000*1000LL) && !(spu->isExtSub)) {
                         // we cannot check it's valid or not, so delay 1s(common case) and show
                         spu->pts = convertNs2DvbTime(timestamp+1*1000*1000*1000LL);
-                        spu->m_delay = spu->pts + 10*1000*DVB_TIME_MULTI;
+                        spu->m_delay = spu->pts + DEFAULT_DELAY_TIME*1000*DVB_TIME_MULTI;
                         pts = convertDvbTime2Ns(spu->pts);
                     }*/
 
@@ -689,7 +690,7 @@ void Presentation::MessageProcess::handleStreamSub(const Message& message) {
                     uint64_t ahead_delay_tor = ((spu->isExtSub)?5:100)*1000*1000*1000LL;
                     if ((delayed <= timestamp) && (delayed*5 > timestamp)) {
                         mPresent->mEmittedFaddingSpu.pop_front();
-                        ALOGD("1 fade SPU: TimeStamp:%lld startAtPts=%lld ItemPts=%lld(%lld) duration:%lld(%lld) data:%p(%p)£¬isKeepShowing:%d, isImmediatePresent:%d, isTtxSubtitle:%d",
+                        ALOGD("1 fade SPU: TimeStamp:%lld startAtPts=%lld ItemPts=%lld(%lld) duration:%lld(%lld) data:%p(%p)，isKeepShowing:%d, isImmediatePresent:%d, isTtxSubtitle:%d",
                                 ns2ms(mPresent->mCurrentPresentRelativeTime),
                                 ns2ms(mPresent->mStartTimeModifier),
                                 spu->pts, spu->pts/DVB_TIME_MULTI,
@@ -723,7 +724,9 @@ void Presentation::MessageProcess::handleStreamSub(const Message& message) {
                     }
 
                    // fire this. can be more than required
-                   mLooper->sendMessageDelayed(ms2ns(100), this, Message(MSG_PTS_TIME_CHECK_SPU));
+                   //set 15ms, because the cc is synize with the video frrame.And the max video fps is 60.
+                   //So there is a cc in the video frame coming up in each 15ms .
+                   mLooper->sendMessageDelayed(ms2ns(15), this, Message(MSG_PTS_TIME_CHECK_SPU));
                 } else {
                     ALOGE("Error! should not nullptr here!");
                 }
@@ -759,7 +762,7 @@ void Presentation::MessageProcess::looperLoop() {
         int32_t ret = mLooper->pollAll(2000);
         switch (ret) {
             case -1:
-                ALOGD("ALOOPER_POLL_WAKE\n");
+                ALOGD("A_LOOPER_POLL_WAKE\n");
                 break;
             case -3: // timeout
                 break;

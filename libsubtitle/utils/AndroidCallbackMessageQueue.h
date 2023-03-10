@@ -37,7 +37,7 @@ public:
 
 };
 
-class AndroidCallbackMessageQueue : public ParserEventNotifier, public ::android::MessageHandler {
+class AndroidCallbackMessageQueue : public ParserEventNotifier, public android::MessageHandler {
 public:
     static sp<AndroidCallbackMessageQueue> Instance();
 

@@ -346,7 +346,7 @@ DvdParser::DvdParser(std::shared_ptr<DataSource> source) {
 
 DvdParser::~DvdParser() {
     LOGI("%s", __func__);
-    stopParse();
+    stopParser();
 }
 
 
@@ -493,7 +493,7 @@ void DvdParser::fillResize(std::shared_ptr<AML_SPUVAR> spu) {
 
     spu->spu_width = spu->resize_width;
     spu->spu_height = spu->resize_height;
-    spu->buffer_size = spu->resize_size * 4; // actuall buffer size.
+    spu->buffer_size = spu->resize_size * 4; // actually buffer size.
 
     fillResizedData(spu->spu_data, internalSubData, spu);
     free(internalSubData);
@@ -580,7 +580,7 @@ unsigned char DvdParser::spuFillPixel(unsigned short *pixelIn, char *pixelOut,
 int DvdParser::getVobSpu(char *spuBuffer, int *bufsize, unsigned length, std::shared_ptr<AML_SPUVAR> spu) {
     int rdOffset = 0, wrOffset;
     unsigned currentLen = length;
-    //int ret = -1;
+    int ret = -1;
     char *pixDataOdd = NULL;
     char *pixDataEven = NULL;
     unsigned short *ptrPXDRead;
@@ -651,12 +651,21 @@ int DvdParser::getVobSpu(char *spuBuffer, int *bufsize, unsigned length, std::sh
     LOGI("spu->frame_rdy is %d, mRestLen=%d, rdOffset=%d", spu->frame_rdy, *bufsize, rdOffset);
     if (spu->frame_rdy == 1) {
         pixDataOdd = (char *)malloc(VOB_SUB_SIZE / 2);
+        if (!pixDataOdd) {
+            LOGE("[%s::%d] malloc error!\n", __FUNCTION__, __LINE__);
+            return 0;
+        }
         ptrPXDRead = (unsigned short *)(spu->spu_data + spu->top_pxd_addr);
 
         LOGI("pixDataOdd is %p ptrPXDRead=%p top_pxd_addr=%d", pixDataOdd, ptrPXDRead, spu->top_pxd_addr);
         spuFillPixel(ptrPXDRead, pixDataOdd, spu, 1);
 
         pixDataEven = (char *)malloc(VOB_SUB_SIZE / 2);
+        if (!pixDataEven) {
+            LOGE("[%s::%d] malloc error!\n", __FUNCTION__, __LINE__);
+            free(pixDataOdd);
+            return 0;
+        }
         ptrPXDRead = (unsigned short *)(spu->spu_data + spu->bottom_pxd_addr);
 
         LOGI("pixDataEven is %p ptrPXDRead=%p bottom_pxd_addr=%d", pixDataEven, ptrPXDRead, spu->bottom_pxd_addr);
@@ -667,7 +676,7 @@ int DvdParser::getVobSpu(char *spuBuffer, int *bufsize, unsigned length, std::sh
 
         memcpy(spu->spu_data, pixDataOdd, VOB_SUB_SIZE / 2);
         memcpy(spu->spu_data + VOB_SUB_SIZE / 2, pixDataEven, VOB_SUB_SIZE / 2);
-        //ret = 0;
+        ret = 0;
     }
 
     if (pixDataOdd) {
@@ -687,7 +696,7 @@ int DvdParser::getSpu(std::shared_ptr<AML_SPUVAR> spu) {
     int ret = -1, size;
     char *spuBuffer = NULL;
     int64_t currentPts;
-    unsigned currentLen, currentType;
+    unsigned currentLen, currentType, durationPts;
 
     if (mState == SUB_INIT) {
         mState = SUB_PLAYING;
@@ -704,6 +713,11 @@ int DvdParser::getSpu(std::shared_ptr<AML_SPUVAR> spu) {
         size += mRestLen;
         currentType = 0;
         spuBuffer = (char *)malloc(size);
+        //for coverity
+        if (!spuBuffer) {
+            ALOGE("[%s::%d] malloc error!\n", __FUNCTION__, __LINE__);
+            return -1;
+        }
     }
 
     unsigned int sizeflag = size;
@@ -711,13 +725,6 @@ int DvdParser::getSpu(std::shared_ptr<AML_SPUVAR> spu) {
 
     while (sizeflag > 30) {
         LOGI("sizeflag =%u  mRestLen=%d,", sizeflag,  mRestLen);
-        if (sizeflag <= 16) {
-            ret = -1;
-            LOGI(" sizeflag is too little ");
-            free(spuBuffer);
-            return -1;
-        }
-
         char *spuBufPiece = tmpSpuBuf;
         if (mRestLen > 0) {
             memcpy(spuBufPiece, mRestbuf, mRestLen);
@@ -726,9 +733,9 @@ int DvdParser::getSpu(std::shared_ptr<AML_SPUVAR> spu) {
         if ((currentType == 0x17000 || currentType == 0x1700a) && mRestLen > 0) {
             LOGI("decode rest data!\n");
         } else {
-            mDataSource->read(spuBufPiece + mRestLen, 16);
-            sizeflag -= 16;
-            tmpSpuBuf += 16;
+            mDataSource->read(spuBufPiece + mRestLen, HEADER_SIZE);
+            sizeflag -= HEADER_SIZE;
+            tmpSpuBuf += HEADER_SIZE;
         }
 
         int rdOffset = 0;
@@ -770,13 +777,13 @@ int DvdParser::getSpu(std::shared_ptr<AML_SPUVAR> spu) {
         }
 
         if (currentType == 0x17000 || currentType == 0x1700a) {
-            mDataSource->read(spuBufPiece + mRestLen + 16, sizeflag - mRestLen);
+            mDataSource->read(spuBufPiece + mRestLen + HEADER_SIZE, sizeflag - mRestLen);
             mRestLen = sizeflag;
             sizeflag = 0;
             tmpSpuBuf += currentLen;
             LOGI("currentType=0x17000 or 0x1700a! mRestLen=%d, sizeflag=%d,\n", mRestLen, sizeflag);
         } else {
-            mDataSource->read(spuBufPiece + 16, currentLen + 4);
+            mDataSource->read(spuBufPiece + HEADER_SIZE, currentLen + 4);
             sizeflag -= (currentLen + 4);
             tmpSpuBuf += (currentLen + 4);
             mRestLen = 0;
@@ -786,11 +793,10 @@ int DvdParser::getSpu(std::shared_ptr<AML_SPUVAR> spu) {
 
         switch (currentType) {
             case 0x1700a:   //mkv internel image
-                //durationPts = subPeekAsInt32(spuBuffer + rdOffset);
-               // subPeekAsInt32(spuBuffer + rdOffset);
+                durationPts = subPeekAsInt32(spuBuffer + rdOffset);
                 rdOffset += 4;
                 mRestLen -= 4;
-                //LOGI("durationPts is %d\n", durationPts);
+                LOGI("durationPts is %d\n", durationPts);
                 [[fallthrough]];
             case 0x17000:   //vob internel image
                 //init
@@ -801,36 +807,36 @@ int DvdParser::getSpu(std::shared_ptr<AML_SPUVAR> spu) {
                 ALOGD("alloc spuData:%p size:%d", spu->spu_data, spu->buffer_size);
                 spu->pts = currentPts;
                 ret = getVobSpu(spuBufPiece + rdOffset, &mRestLen, currentLen, spu);
-                if (currentType == 0x17000 || currentType == 0x1700a) {
-                    LOGI("## ret=%d, mRestLen=%d, sizeflag=%d, mRestbuf=%p, %x, ---\n",
-                            ret, mRestLen, sizeflag, mRestbuf, mRestbuf?mRestbuf[0]:0);
-                    if (mRestLen < 0) {
-                        LOGI("Warning mRestLen <0, set to 0\n");
-                        mRestLen = 0;
-                    }
-                    if (mRestLen) {
-                        if (mRestbuf) {
-                            free(mRestbuf);
-                            mRestbuf = NULL;
-                        }
-
-                        mRestbuf = (char *)malloc(mRestLen);
-                        ALOGD("spuBufPiece: %p, rdoff:%d ret:%d, mRestLen=%d", spuBufPiece, rdOffset, ret, mRestLen);
-                        memcpy(mRestbuf, spuBufPiece + rdOffset + ret, mRestLen);
-
-                        int syncWord = subPeekAsInt32(mRestbuf);
-                        if ((AML_PARSER_SYNC_WORD == syncWord) && ((mRestbuf[4] == 0xaa) || (mRestbuf[4] == 0x77))) {
-                            LOGI("## sub header found ! mRestbuf=%p, %x, ---\n", mRestbuf, mRestbuf[0]);
-                            sizeflag = mRestLen;
-                        } else {
-                            LOGI("## no header found, free mRestbuf! ---\n");
-                            free(mRestbuf);
-                            mRestbuf = NULL;
-                            mRestLen = sizeflag = 0;
-                        }
-                    }
-                } else {
+                LOGI("## ret=%d, mRestLen=%d, sizeflag=%d, mRestbuf=%p, %x, ---\n",
+                        ret, mRestLen, sizeflag, mRestbuf, mRestbuf?mRestbuf[0]:0);
+                if (mRestLen < 0) {
+                    LOGI("Warning mRestLen <0, set to 0\n");
                     mRestLen = 0;
+                }
+                if (mRestLen) {
+                    if (mRestbuf) {
+                        free(mRestbuf);
+                        mRestbuf = NULL;
+                    }
+
+                    mRestbuf = (char *)malloc(mRestLen);
+                    if (!mRestbuf) {
+                        LOGE("[%s::%d] malloc error!\n", __FUNCTION__, __LINE__);
+                        break;
+                    }
+                    ALOGD("spuBufPiece: %p, rdoff:%d ret:%d, mRestLen=%d", spuBufPiece, rdOffset, ret, mRestLen);
+                    memcpy(mRestbuf, spuBufPiece + rdOffset + ret, mRestLen);
+
+                    int syncWord = subPeekAsInt32(mRestbuf);
+                    if ((AML_PARSER_SYNC_WORD == syncWord) && ((mRestbuf[4] == 0xaa) || (mRestbuf[4] == 0x77))) {
+                        LOGI("## sub header found ! mRestbuf=%p, %x, ---\n", mRestbuf, mRestbuf[0]);
+                        sizeflag = mRestLen;
+                    } else {
+                        LOGI("## no header found, free mRestbuf! ---\n");
+                        free(mRestbuf);
+                        mRestbuf = NULL;
+                        mRestLen = sizeflag = 0;
+                    }
                 }
                 break;
             default:

@@ -30,6 +30,7 @@
 #include "SubtitleServer.h"
 #include "MemoryLeakTrackUtil.h"
 #include <utils/CallStack.h>
+#include <SubtitleSignalHandler.h>
 
 using android::CallStack;
 
@@ -42,14 +43,19 @@ SubtitleServer *SubtitleServer::Instance() {
 
 const static int FIRST_SESSION_ID = 0x1F230000;
 const static int LAST_SESSION_ID = 0x7FFFFFFF;
+static pthread_once_t threadFlag = PTHREAD_ONCE_INIT;
 
 SubtitleServer::SubtitleServer() {
+    pthread_once(&threadFlag, []{
+        SubtitleSignalHandler::instance().installSignalHandlers();
+    });
+
     // mDeathRecipient =new DeathRecipient(this);
     // mFallbackPlayStarted = false;
     //  mFallbackCallback = nullptr;
     // Here, we create this messageQueue, it automatically start a thread to pump
     // decoded data/event from parser, and call CallbackHandler to send to remote side.
-    mMessagQueue = new AndroidCallbackMessageQueue(new ClientMessageHandlerImpl(this));
+    mMessageQueue = new AndroidCallbackMessageQueue(new ClientMessageHandlerImpl(this));
 
     mCurSessionId = FIRST_SESSION_ID;
     mOpenCalled = false;
@@ -153,13 +159,19 @@ Result SubtitleServer::open(int32_t sId, int32_t ioType, OpenType openType,
     std::shared_ptr<SubtitleService> ss = getSubtitleServiceLocked(sId);
     ALOGV("%s ss=%p ioType=%d openType:%d", __func__, ss.get(), ioType, openType);
             LOGD("DDDDDDDDDDDDD SubtitleServer  %s, line %d", __FUNCTION__, __LINE__);
-
-    int fd = -1;
-    int dupFd = -1; // fd will auto closed when destruct hidl_handle, dump one.
+    std::vector<int> fds;
+    int idxSubId = -1;
+    //int dupFd = -1; // fd will auto closed when destruct hidl_handle, dump one.
     int demuxId = -1;
     if (handle != nullptr && handle->numFds >= 1) {
-        fd = handle->data[0];
-        dupFd = ::dup(fd);
+        for (int i=0; i<handle->numFds; i++) {
+            int fd = handle->data[i];
+            fds.push_back(::dup(fd));
+        }
+
+        if (handle->numInts > 0) {
+            idxSubId = handle->data[handle->numFds];
+        }
     }
     ALOGD("DDDDDDDDDDDDD SubtitleServer  %s, line %d", __FUNCTION__, __LINE__);
     auto now = systemTime(SYSTEM_TIME_MONOTONIC);
@@ -191,7 +203,7 @@ Result SubtitleServer::open(int32_t sId, int32_t ioType, OpenType openType,
             ss->setDemuxId(demuxId);
         }
                 LOGD("DDDDDDDDDDDDD SubtitleServer  %s, line %d", __FUNCTION__, __LINE__);
-        bool r = ss->startSubtitle(dupFd, (SubtitleIOType) ioType, mMessagQueue.get());
+        bool r = ss->startSubtitle(fds, idxSubId, (SubtitleIOType) ioType, mMessageQueue.get());
                 LOGD("DDDDDDDDDDDDD SubtitleServer  %s, line %d", __FUNCTION__, __LINE__);
         mOpenCalled = true;
         mLastOpenType = openType;
@@ -200,7 +212,7 @@ Result SubtitleServer::open(int32_t sId, int32_t ioType, OpenType openType,
         return (r ? Result::OK : Result::FAIL);
     }
 
-    if (dupFd != -1) close(dupFd);
+    //if (dupFd != -1) close(dupFd);
     ALOGD("no valid ss, Should not enter here!");
     return Result::FAIL;
 }
@@ -410,7 +422,7 @@ Result SubtitleServer::userDataOpen(int32_t sId) {
     if (ss == nullptr) {
         return Result::FAIL;
     }
-    ss->userDataOpen(mMessagQueue.get());
+    ss->userDataOpen(mMessageQueue.get());
     return Result::OK;
 }
 

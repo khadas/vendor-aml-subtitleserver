@@ -54,7 +54,7 @@ ExtSubStreamReader::ExtSubStreamReader(int charset, std::shared_ptr<DataSource> 
     mEncoding = charset;
 
     mBufferSize = 0;
-    mFileReaded = 0;
+    mFileRead = 0;
 
 
     mDataSource->lseek(0, SEEK_SET);
@@ -110,9 +110,9 @@ size_t ExtSubStreamReader::totalStreamSize() {
     Not Thread safe, TODO: fix it.
 */
 bool ExtSubStreamReader::rewindStream() {
-    if (mDataSource != nullptr && mDataSource->lseek(0, SEEK_SET) >= 0) {
+    if (mDataSource != nullptr && mDataSource->lseek(0, SEEK_SET) > 0) {
         mBufferSize = 0;
-        mFileReaded = 0;
+        mFileRead = 0;
         free(mBuffer);
         mBuffer = nullptr;
         return true;
@@ -250,10 +250,10 @@ char *ExtSubStreamReader::getLineFromString(char *source, char **dest) {
     while (!ExtSubtitleEol(*p) && *p != '|') {
         p++, len++;
     }
-    *dest = (char *)malloc(len + 1);
     if (!dest) {
         return (char *)ERR;
     }
+    *dest = (char *)malloc(len + 1);
     strncpy(*dest, source, len);
     (*dest)[len] = 0;
     while (*p == '\r' || *p == '\n' || *p == '|') {
@@ -315,8 +315,8 @@ void ExtSubStreamReader::trimSpace(char *s) {
 
 // TODO: rewrite this part
 char *ExtSubStreamReader::getLine(char *s/*, int fd*/) {
-    int offset = mFileReaded;
-   // int copied;
+    int offset = mFileRead;
+    int copied;
 
     if (!mBuffer) {
         mBuffer = (char *)MALLOC(LINE_LEN*2);
@@ -325,7 +325,7 @@ char *ExtSubStreamReader::getLine(char *s/*, int fd*/) {
             return nullptr;
         }
 
-        mFileReaded = 0;
+        mFileRead = 0;
         offset = 0;
         mBufferSize = mDataSource->read(mBuffer, LINE_LEN);
     }
@@ -349,7 +349,7 @@ char *ExtSubStreamReader::getLine(char *s/*, int fd*/) {
             } else {
                 offset++;
                 if (offset > mBufferSize) {
-                    ALOGE("Error! Cannot find end of line, discarsd following line.");
+                    ALOGE("Error! Cannot find end of line, discard following line.");
                     return nullptr;
                 }
                 continue;
@@ -383,35 +383,35 @@ char *ExtSubStreamReader::getLine(char *s/*, int fd*/) {
 
         // found one line string! copy to outbuffer and translate to utf8!
         if (found) {
-            lineLen = offset - mFileReaded;
-            MEMCPY(s, mBuffer + mFileReaded, lineLen);
+            lineLen = offset - mFileRead;
+            MEMCPY(s, mBuffer + mFileRead, lineLen);
             s[lineLen] = '\0';
-            ALOGD("found: %p %s lineLen=%d [%d %d]", mBuffer + mFileReaded, s, lineLen, offset, mFileReaded);
+            //ALOGD("found: %p %s lineLen=%d [%d %d] \n", mBuffer + mFileRead, s, lineLen, offset, mFileRead);
 
             // eat the last newline!
-            mFileReaded = offset + lineCharLen;
+            mFileRead = offset + lineCharLen;
             break;
         } else {
             // not found end of line. resume reading data and do again.
 
-            if ((mBufferSize -mFileReaded) >= LINE_LEN) {
+            if ((mBufferSize -mFileRead) >= LINE_LEN) {
                 ALOGE("Error! line is too long( > %d byte), ignore", LINE_LEN);
                 free(mBuffer);
-                mBufferSize = mFileReaded = 0;
+                mBufferSize = mFileRead = 0;
                 mBuffer = nullptr;
                 return nullptr;
             }
 
             // copy the remainder to search line again.
-            int remainderSize = mBufferSize -mFileReaded;
-            memmove(mBuffer, mBuffer + mFileReaded, remainderSize);
+            int remainderSize = mBufferSize -mFileRead;
+            memmove(mBuffer, mBuffer + mFileRead, remainderSize);
 
-            int readed = mDataSource->read(mBuffer+remainderSize, LINE_LEN);
-            if (readed > 0) {
+            int read = mDataSource->read(mBuffer+remainderSize, LINE_LEN);
+            if (read > 0) {
                 // resume check again...
-                mBufferSize = remainderSize + readed;
-                mFileReaded = offset = 0;
-                ALOGD("read more: %d", readed);
+                mBufferSize = remainderSize + read;
+                mFileRead = offset = 0;
+                ALOGD("read more: %d", read);
                 continue;
             } else {
                 // no more data, then, then the remainder is the last line in sub file.
@@ -420,7 +420,7 @@ char *ExtSubStreamReader::getLine(char *s/*, int fd*/) {
                     MEMCPY(s, mBuffer, lineLen);
                     s[lineLen] = '\0';
                     free(mBuffer);
-                    mBufferSize = mFileReaded = 0;
+                    mBufferSize = mFileRead = 0;
                     mBuffer = nullptr;
                     ALOGE("End of line found!");
                     break;
@@ -439,7 +439,7 @@ char *ExtSubStreamReader::getLine(char *s/*, int fd*/) {
     } else if (lineLen == 0) { // a blank new line
         return s;
     } else {
-        ALOGE("??? lineLen=%d %d %d", lineLen, offset, mFileReaded);
+        ALOGE("??? lineLen=%d %d %d", lineLen, offset, mFileRead);
         return nullptr;
     }
 }

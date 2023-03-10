@@ -133,11 +133,11 @@ void VbiSource::updateParameter(int type, void *data) {
 bool VbiSource::notifyInfoChange() {
     std::unique_lock<std::mutex> autolock(mLock);
     for (auto it = mInfoListeners.begin(); it != mInfoListeners.end(); it++) {
-        auto wk_lstner = (*it);
+        auto wk_listener = (*it);
         int value = -1;
 
 
-        if (auto lstn = wk_lstner.lock()) {
+        if (auto lstn = wk_listener.lock()) {
             value = DTV_SUB_DTVKIT_TELETEXT;
             if (value > 0) {  //0:no sub
                 lstn->onTypeChanged(value);
@@ -158,9 +158,9 @@ void VbiSource::loopRenderTime() {
     while (!mExitRequested) {
         mLock.lock();
         for (auto it = mInfoListeners.begin(); it != mInfoListeners.end(); it++) {
-            auto wk_lstner = (*it);
+            auto wk_listener = (*it);
 
-            if (wk_lstner.expired()) {
+            if (wk_listener.expired()) {
                 ALOGV("[threadLoop] lstn null.\n");
                 continue;
             }
@@ -172,7 +172,7 @@ void VbiSource::loopRenderTime() {
                 ALOGD("read pts: %ld %lu", value, value);
             }
             if (!mExitRequested) {
-                if (auto lstn = wk_lstner.lock()) {
+                if (auto lstn = wk_listener.lock()) {
                     lstn->onRenderTimeChanged(value);
                 }
             }
@@ -186,38 +186,34 @@ void VbiSource::loopDriverData() {
     struct vbi_data_s vbi;
 
     while (!mExitRequested && mRdFd > 0) {
-        //int ret;
+        int ret;
         if (pollFd(mRdFd, 15)) {
             struct vbi_data_s *pd;
             int ret;
             ret = ::read(mRdFd, &vbi, sizeof(vbi));
-            pd	= &vbi;
+            pd = &vbi;
 
             if (ret >= (int)sizeof(struct vbi_data_s)) {
-                while (ret >= (int)sizeof(struct vbi_data_s)) {
-                    ALOGD("loopDriverData=line:%d data:%s", pd->line_num, pd->b);
-                    unsigned char sub_header[ATV_TELETEXT_SUB_HEADER_LEN] = {0x41, 0x4d, 0x4c, 0x55, 0x41, 0};
-                    sub_header[5] = (pd->line_num >> 24) & 0xff;
-                    sub_header[6] = (pd->line_num >> 16) & 0xff;
-                    sub_header[7] = (pd->line_num >> 8) & 0xff;
-                    sub_header[8] = pd->line_num & 0xff;
+                //ALOGD("loopDriverData=line:%d data:%s", pd->line_num, pd->b);
+                unsigned char sub_header[ATV_TELETEXT_SUB_HEADER_LEN] = {0x41, 0x4d, 0x4c, 0x55, 0x41, 0};
+                sub_header[5] = 0;//line_num 16 bit, for coverity
+                sub_header[6] = 0;//line_num 16 bit, for coverity
+                sub_header[7] = (pd->line_num >> 8) & 0xff;
+                sub_header[8] = pd->line_num & 0xff;
 
-                    int size = ATV_TELETEXT_SUB_HEADER_LEN + 42;
-                    char *rdBuffer = new char[size]();
-                    //int readed = readDriverData(rdBuffer,  size);
-                    memcpy(rdBuffer, sub_header, ATV_TELETEXT_SUB_HEADER_LEN);
-                    memcpy(rdBuffer + ATV_TELETEXT_SUB_HEADER_LEN, (char *)pd->b, 42);
-                    std::shared_ptr<char> spBuf = std::shared_ptr<char>(rdBuffer, [](char *buf) { delete [] buf; });
-                    mSegment->push(spBuf, size);
+                int size = ATV_TELETEXT_SUB_HEADER_LEN + 42;
+                char *rdBuffer = new char[size]();
+                //int read = readDriverData(rdBuffer,  size);
+                memcpy(rdBuffer, sub_header, ATV_TELETEXT_SUB_HEADER_LEN);
+                memcpy(rdBuffer + ATV_TELETEXT_SUB_HEADER_LEN, (char *)pd->b, 42);
+                std::shared_ptr<char> spBuf = std::shared_ptr<char>(rdBuffer, [](char *buf) { delete [] buf; });
+                mSegment->push(spBuf, size);
 #if 0
-                    static char slice_buffer[10*1024];
-                    for (int i=0; i < strlen((char*)pd->b); i++)
-                        sprintf(&slice_buffer[i*3], " %02x", slice_buffer[i]);
-                    ALOGD("line data: %s", slice_buffer);
+                static char slice_buffer[10*1024];
+                for (int i=0; i < strlen((char*)pd->b); i++)
+                    sprintf(&slice_buffer[i*3], " %02x", slice_buffer[i]);
+                ALOGD("line data: %s", slice_buffer);
 #endif
-                    pd ++;
-                    ret -= sizeof(struct vbi_data_s);
-                }
             }
         }
     }
@@ -229,8 +225,8 @@ bool VbiSource::start() {
         return false;
     }
     mState = E_SOURCE_STARTED;
-   // int total = 0;
-   // int subtype = 0;
+    int total = 0;
+    int subtype = 0;
 
 
     mSegment = std::shared_ptr<BufferSegment>(new BufferSegment());
@@ -250,7 +246,7 @@ bool VbiSource::start() {
 
 
 bool VbiSource::stop() {
-    mState = E_SOURCE_STOPED;
+    mState = E_SOURCE_STOPPED;
     ::ioctl(mRdFd, VBI_IOC_STOP);
 
     // If parser has problem, it read more data than provided
@@ -264,7 +260,7 @@ SubtitleIOType VbiSource::type() {
     return E_SUBTITLE_VBI;
 }
 
-bool VbiSource::isFileAvailble() {
+bool VbiSource::isFileAvailable() {
     return false;
 }
 
@@ -275,8 +271,8 @@ size_t VbiSource::availableDataSize() {
 }
 
 size_t VbiSource::readDriverData(void *buffer, size_t size) {
-    int read_done = 0;
-    //char *buf = (char *)buffer;
+    int data_size = size, r, read_done = 0;
+    char *buf = (char *)buffer;
 
 
     if (mNeedDumpSource) {
@@ -294,7 +290,7 @@ size_t VbiSource::readDriverData(void *buffer, size_t size) {
 }
 
 size_t VbiSource::read(void *buffer, size_t size) {
-    size_t readed = 0;
+    int read = 0;
 
     //Current design of Parser Read, do not need add lock protection.
     // because all the read, is in Parser's parser thread.
@@ -305,36 +301,34 @@ size_t VbiSource::read(void *buffer, size_t size) {
     //in case of applied size more than 1024*2, such as dvb subtitle,
     //and data process error for two reads.
     //so add until read applied data then exit.
-    while (readed != size && mState == E_SOURCE_STARTED) {
+    while (read != size && mState == E_SOURCE_STARTED) {
         if (mCurrentItem != nullptr && !mCurrentItem->isEmpty()) {
-            readed += mCurrentItem->read_l(((char *)buffer+readed), size-readed);
-            //ALOGD("readed:%d,size:%d", readed, size);
-            if (readed == size) return readed;
+            read += mCurrentItem->read_l(((char *)buffer+read), size-read);
+            //ALOGD("read:%d,size:%d", read, size);
+            if (read == size) return read;
         } else {
             //ALOGD("mCurrentItem null, pop next buffer item");
             mCurrentItem = mSegment->pop();
         }
     }
-    //readed += mCurrentItem->read(((char *)buffer+readed), size-readed);
-    return readed;
+    //read += mCurrentItem->read(((char *)buffer+read), size-read);
+    return read;
 
 }
 
 
 void VbiSource::dump(int fd, const char *prefix) {
-    dprintf(fd, "%s nDeviceSource:\n", prefix);
+    dprintf(fd, "%s nVBISource:\n", prefix);
     {
         std::unique_lock<std::mutex> autolock(mLock);
         for (auto it = mInfoListeners.begin(); it != mInfoListeners.end(); it++) {
-            auto wk_lstner = (*it);
-            if (auto lstn = wk_lstner.lock())
-                dprintf(fd, "%s   InforListener: %p\n", prefix, lstn.get());
+            auto wk_listener = (*it);
+            if (auto lstn = wk_listener.lock())
+                dprintf(fd, "%s   InfoListener: %p\n", prefix, lstn.get());
         }
     }
     dprintf(fd, "%s   state:%d\n\n", prefix, mState);
 
-    dprintf(fd, "%s   Current Subtitle type: (%s)%ld\n", prefix,
-            DTV_SUB_DTVKIT_TELETEXT, DTV_SUB_DTVKIT_TELETEXT);
 
     dprintf(fd, "\n%s   Current Unconsumed Data Size: %d\n", prefix, availableDataSize());
 }

@@ -83,7 +83,7 @@ public:
 
     /**
      *   helper function to check is h264 or mpeg codec.
-     *   CC decoder process deferently in these 2 codecs
+     *   CC decoder process differently  in these 2 codecs
     */
     virtual int getVideoFormat() {
         int retry = 100; // check 200ms for parser ready
@@ -91,10 +91,11 @@ public:
             int fd = ::open(VIDEO_VDEC_CORE, O_RDONLY);
             int bytes = 0;
             if (fd >= 0) {
-                uint8_t ubuf8[1025];
+                uint8_t ubuf8[1025] = {0};
                 memset(ubuf8, 0, 1025);
                 bytes = read(fd, ubuf8, 1024);
-                //ALOGI("getVideoFormat ubuf8:%s", ubuf8);
+                ubuf8[1024] = 0;
+                ALOGI("getVideoFormat ubuf8:%s", ubuf8);
                 if (strstr((const char*)ubuf8, "amvdec_h264"/*"vdec.h264.00"*/)) {
                     ALOGI("H264_CC_TYPE");
                     close(fd);

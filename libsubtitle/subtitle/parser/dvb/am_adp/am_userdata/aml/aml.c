@@ -31,7 +31,7 @@
 /**\file
  * \brief aml user data driver
  *
- * \author Xia Lei Peng <leipeng.xia@amlogic.com>
+ * \author Amlogic
  * \date 2013-3-13: create the document
  ***************************************************************************/
 #ifdef __cplusplus
@@ -234,7 +234,7 @@ static AM_ErrorCode_t aml_set_mode(AM_USERDATA_Device_t *dev, int mode);
 static AM_ErrorCode_t aml_get_mode(AM_USERDATA_Device_t *dev, int *mode);
 static AM_ErrorCode_t aml_set_param(AM_USERDATA_Device_t *dev, int para);
 
-AM_USERDATA_Driver_t aml_ud_drv = {
+const AM_USERDATA_Driver_t aml_ud_drv = {
 .open  = aml_open,
 .close = aml_close,
 .set_mode = aml_set_mode,

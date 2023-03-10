@@ -54,7 +54,7 @@ enum AM_SCTE27_ErrorCode
 	AM_SCTE27_ERROR_BASE=AM_ERROR_BASE(AM_MOD_SCTE27),
 	AM_SCTE27_ERR_INVALID_PARAM,   /**< Invalid parameter*/
 	AM_SCTE27_ERR_INVALID_HANDLE,  /**< Invalid handle*/
-	AM_SCTE27_ERR_NOT_SUPPORTED,   /**< not surport action*/
+	AM_SCTE27_ERR_NOT_SUPPORTED,   /**< not support action*/
 	AM_SCTE27_ERR_CREATE_DECODE,   /**< open subtitle decode error*/
 	AM_SCTE27_ERR_SET_BUFFER,      /**< set pes buffer error*/
 	AM_SCTE27_ERR_NO_MEM,                  /**< out of memmey*/

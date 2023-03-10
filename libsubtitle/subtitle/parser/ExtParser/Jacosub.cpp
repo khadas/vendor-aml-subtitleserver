@@ -51,9 +51,9 @@ Jacosub::Jacosub(std::shared_ptr<DataSource> source): TextSubtitle(source) {
     mShift = 0;
     mTimerRes = 30;
     parseHeaderInfo();
-   // bool r = mReader->rewindStream();
+    bool r = mReader->rewindStream();
 
-    ALOGD("Jacosub mShift=%d mTimerRes=%d rewind", mShift, mTimerRes);
+    ALOGD("Jacosub mShift=%d mTimerRes=%d rewind:%d", mShift, mTimerRes, r);
 }
 
 Jacosub::~Jacosub() {
@@ -64,7 +64,7 @@ void Jacosub::parseHeaderInfo() {
     char line[LINE_LEN+1];
 
     while (mReader->getLine(line)) {
-        //char *p = triml(line, "\t ");
+        char *p = triml(line, "\t ");
         int hours = 0, minutes = 0, seconds = 0;
         unsigned units = mShift;
         int delta = 0, inverter = 1;
@@ -112,8 +112,8 @@ void Jacosub::parseHeaderInfo() {
                 default:
                     break;
             }
-        } else {
-            continue;
+        }else {//this is need, or else will no subtitle show
+            break;
         }
     }
 
@@ -122,10 +122,28 @@ void Jacosub::parseHeaderInfo() {
 //
 //  Japanese Animation Club of Orlando
 // official size: http://unicorn.us.com/jacosub/
-// deprecated, spec canot access now
+// deprecated, spec cannot access now
 //
 std::shared_ptr<ExtSubItem> Jacosub::decodedItem() {
-    char line1[LINE_LEN], line2[LINE_LEN], directive[LINE_LEN],  *q;
+    char *p, *q;
+    char *line1 = (char *)MALLOC(LINE_LEN);
+    if (!line1) {
+        ALOGE("[%s::%d]line1 malloc error!\n", __FUNCTION__, __LINE__);
+        return nullptr;
+    }
+    char *line2 = (char *)MALLOC(LINE_LEN);
+    if (!line2) {
+        free(line1);
+        ALOGE("[%s::%d]line2 malloc error!\n", __FUNCTION__, __LINE__);
+        return nullptr;
+    }
+    char *directive = (char *)MALLOC(LINE_LEN);
+    if (!directive) {
+        ALOGE("[%s::%d] directive malloc error!\n", __FUNCTION__, __LINE__);
+        free(line1);
+        free(line2);
+        return nullptr;
+    }
     memset(line1, 0, LINE_LEN);
     memset(line2, 0, LINE_LEN);
     memset(directive, 0, LINE_LEN);
@@ -149,7 +167,7 @@ std::shared_ptr<ExtSubItem> Jacosub::decodedItem() {
 
         char *p = triml(line2, "\t ");
 
-        // parse directivies.
+        // parse directives.
         if (isalpha(*p) || *p == '[') {
             int cont, jLength;
             if (sscanf(p, "%s %[^\n\r]", directive, line1) < 2) {
@@ -242,10 +260,13 @@ std::shared_ptr<ExtSubItem> Jacosub::decodedItem() {
                         ++p;
                     } else if (mReader->ExtSubtitleEol(*(p + 1))) {
                         if (!mReader->getLine(directive)) {
+                            free(line1);
+                            free(line2);
+                            free(directive);
                             return nullptr;
                         }
                         mReader->trimSpace(directive);
-                        strncat(line2, directive, (LINE_LEN > 511) ? LINE_LEN : 511);
+                        strncat(line2, directive, (LINE_LEN > 511) ? (LINE_LEN - 1) : 511);
                         break;
                     }
                     [[fallthrough]];
@@ -258,13 +279,21 @@ std::shared_ptr<ExtSubItem> Jacosub::decodedItem() {
             }   //-- switch
         }
         *q = '\0';
-        subStr.append(mReader->strdup(line1));
+        char *dupLine1 = mReader->strdup(line1);
+        subStr.append(dupLine1);
         std::shared_ptr<ExtSubItem> item = std::shared_ptr<ExtSubItem>(new ExtSubItem());
         item->start = start;
         item->end = end;
         item->lines.push_back(subStr);
+        free(line1);
+        free(line2);
+        free(directive);
+        if (dupLine1) free(dupLine1);
         return item;
     }
+    free(line1);
+    free(line2);
+    free(directive);
     return nullptr;
 }
 

@@ -166,6 +166,8 @@ struct TeletextContext {
     bool            resetShowSubtitlePageNumberTimeFlag;
     bool            gotoAtvSubtitleFlg;
     bool            gotoDtvSubtitleFlg;
+    int             subtitlePages[TELETEXT_SUBTITLE_MAX_NUMBER];
+    int             subtitlePageId;
 
     bool            isSubtitle;
 

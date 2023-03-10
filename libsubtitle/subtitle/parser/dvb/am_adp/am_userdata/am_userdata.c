@@ -29,9 +29,9 @@
  * Description:
  */
 /**\file am_userdata.c
- * \brief user data 驱动模块
+ * \brief user data driver模块
  *
- * \author Xia Lei Peng <leipeng.xia@amlogic.com>
+ * \author Amlogic
  * \date 2013-3-13: create the document
  ***************************************************************************/
 
@@ -77,9 +77,9 @@ extern "C" {
 //#define EMU_USERDATA
 
 #ifdef EMU_USERDATA
-extern AM_USERDATA_Driver_t emu_ud_drv;
+extern const AM_USERDATA_Driver_t emu_ud_drv;
 #else
-extern AM_USERDATA_Driver_t aml_ud_drv;
+extern const AM_USERDATA_Driver_t aml_ud_drv;
 #endif
 
 

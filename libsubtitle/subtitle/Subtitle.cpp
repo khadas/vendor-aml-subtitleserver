@@ -43,23 +43,23 @@
 #include "ParserFactory.h"
 
 //#include "BitmapDisplay.h"
-//using namespace std;
 
 Subtitle::Subtitle() :
-    mSubtitleTracks(0),
+    mSubtitleTracks(-1),
     mCurrentSubtitleType(-1),
     mRenderTime(-1),
     mParserNotifier(nullptr),
     mExitRequested(false),
     mThread(nullptr),
     mPendingAction(-1),
-    mFd(-1)
+    mIsExtSub(false),
+    mIdxSubTrack(-1)
  {
     ALOGD("%s", __func__);
 }
 
-Subtitle::Subtitle(int fd, ParserEventNotifier *notifier) :
-        mSubtitleTracks(0),
+Subtitle::Subtitle(bool isExtSub, int trackId, ParserEventNotifier *notifier) :
+        mSubtitleTracks(-1),
         mCurrentSubtitleType(-1),
         mRenderTime(-1),
         mExitRequested(false),
@@ -68,11 +68,16 @@ Subtitle::Subtitle(int fd, ParserEventNotifier *notifier) :
 {
     ALOGD("%s", __func__);
     mParserNotifier = notifier;
-    mFd = fd;
+    mIsExtSub = isExtSub;
+    mIdxSubTrack = trackId;
 }
 
 void Subtitle::init(int renderType) {
     mSubPrams = std::shared_ptr<SubtitleParamType>(new SubtitleParamType());
+    mSubPrams->dtvkitDvbParam.demuxId = 0;
+    mSubPrams->dtvkitDvbParam.pid= 0;
+    mSubPrams->dtvkitDvbParam.ancillaryId = 0;
+    mSubPrams->dtvkitDvbParam.compositionId= 0;
     mPresentation = std::shared_ptr<Presentation>(new Presentation(nullptr, renderType));
 }
 
@@ -92,7 +97,7 @@ Subtitle::~Subtitle() {
     }
 
     if (mParser != nullptr) {
-        mParser->stopParse();
+        mParser->stopParser();
         mPresentation->stopPresent();
         mParser = nullptr;
     }
@@ -106,7 +111,7 @@ void Subtitle::attachDataSource(std::shared_ptr<DataSource> source, std::shared_
 }
 
 void Subtitle::dettachDataSource(std::shared_ptr<InfoChangeListener>listener) {
-    mDataSource->unregisterInfoListener(listener);
+    mDataSource->unregisteredInfoListener(listener);
 }
 
 
@@ -190,7 +195,8 @@ bool Subtitle::setParameter(void *params) {
     mSubPrams->update();// need update before use
 
     //process ttx skip page func.
-    if ((mSubPrams->subType == TYPE_SUBTITLE_DVB_TELETEXT) || (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_TELETEXT)) {
+    if ((mSubPrams->subType == TYPE_SUBTITLE_DVB_TELETEXT) || (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_TELETEXT)
+        || (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_DVB)) {
         mPendingAction = ACTION_SUBTITLE_SET_PARAM;
         mCv.notify_all();
         return true;
@@ -233,6 +239,38 @@ void Subtitle::run() {
         //mCv.wait(autolock);
         mCv.wait_for(autolock, std::chrono::milliseconds(100));
 
+        if (mIsExtSub && mParser == nullptr) {
+            mSubPrams->subType = TYPE_SUBTITLE_EXTERNAL;// if mFd > 0 is Ext sub
+            mSubPrams->idxSubTrackId = mIdxSubTrack;
+            mParser = ParserFactory::create(mSubPrams, mDataSource);
+            if (mParser == nullptr) {
+                ALOGE("Parser creat failed, break!");
+                break;
+            }
+            mParser->startParser(mParserNotifier, mPresentation.get());
+            mPresentation->startPresent(mParser);
+            mPendingAction = -1; // No need handle
+        }else if(mIsExtSub && mParser->getParseType() == TYPE_SUBTITLE_CLOSED_CAPTION){
+            /*
+             * When ccparser is created by default,
+             * it can be changed to the correct parser type
+             * when specifying the parser type subsequently
+             */
+            mParser->stopParser();
+            mPresentation->stopPresent();
+            mParser = nullptr;
+            mSubPrams->subType = TYPE_SUBTITLE_EXTERNAL;// if mFd > 0 is Ext sub
+            mSubPrams->idxSubTrackId = mIdxSubTrack;
+            mParser = ParserFactory::create(mSubPrams, mDataSource);
+            if (mParser == nullptr) {
+                ALOGE("Parser creat failed, break!");
+                break;
+            }
+            mParser->startParser(mParserNotifier, mPresentation.get());
+            mPresentation->startPresent(mParser);
+            mPendingAction = -1; // No need handle
+        }
+
         switch (mPendingAction) {
             case ACTION_SUBTITLE_SET_PARAM: {
                 bool createAndStart = false;
@@ -247,12 +285,13 @@ void Subtitle::run() {
                      * it can be changed to the correct parser type
                      * when specifying the parser type subsequently
                      */
-                    mParser->stopParse();
+                    mParser->stopParser();
                     mPresentation->stopPresent();
                     mParser = nullptr;
                     createAndStart = true;
                     mParser = ParserFactory::create(mSubPrams, mDataSource);
                 }
+                ALOGD("run ACTION_SUBTITLE_SET_PARAM %d %d", mSubPrams->subType, TYPE_SUBTITLE_CLOSED_CAPTION);
                 if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_DVB) {
                     mParser->updateParameter(TYPE_SUBTITLE_DTVKIT_DVB, &mSubPrams->dtvkitDvbParam);
                 } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_TELETEXT
@@ -263,27 +302,32 @@ void Subtitle::run() {
                 } else if (mSubPrams->subType == TYPE_SUBTITLE_CLOSED_CAPTION) {
                     mParser->updateParameter(TYPE_SUBTITLE_CLOSED_CAPTION, &mSubPrams->ccParam);
                 }
+
                 if (createAndStart) {
-                    mParser->startParse(mParserNotifier, mPresentation.get());
+                    mParser->startParser(mParserNotifier, mPresentation.get());
                     mPresentation->startPresent(mParser);
                 }
             }
             break;
             case ACTION_SUBTITLE_RECEIVED_SUBTYPE: {
+                ALOGD("ACTION_SUBTITLE_RECEIVED_SUBTYPE, type:%d", mSubPrams->subType);
                 if (mSubPrams->subType == TYPE_SUBTITLE_CLOSED_CAPTION || mSubPrams->subType == TYPE_SUBTITLE_INVALID) {
                     ALOGD("CC type or invalid type, break, do nothings!");
                     break;
                 } else if (mSubPrams->subType == TYPE_SUBTITLE_DVB_TELETEXT && mParser != nullptr && mParser->getParseType() == TYPE_SUBTITLE_DVB_TELETEXT) {
-                    ALOGD("Already create parser,break do nothing");
+                    ALOGD("Already create TeletextParser,break do nothing");
                     break;
-                }
+                } else if (mSubPrams->subType == TYPE_SUBTITLE_DVB && mParser != nullptr && mParser->getParseType() == TYPE_SUBTITLE_DVB) {
+                    ALOGD("Already create DvbParser,break do nothing");
+                    break;
+                 }
                 if (mParser != nullptr) {
-                    mParser->stopParse();
+                    mParser->stopParser();
                     mPresentation->stopPresent();
                     mParser = nullptr;
                 }
                 mParser = ParserFactory::create(mSubPrams, mDataSource);
-                mParser->startParse(mParserNotifier, mPresentation.get());
+                mParser->startParser(mParserNotifier, mPresentation.get());
                 mPresentation->startPresent(mParser);
                 if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_DVB) {
                     mParser->updateParameter(TYPE_SUBTITLE_DTVKIT_DVB, &mSubPrams->dtvkitDvbParam);
@@ -321,8 +365,7 @@ void Subtitle::run() {
                 ALOGE("Parser creat failed, break!");
                 break;
             }
-
-            mParser->startParse(mParserNotifier, mPresentation.get());
+            mParser->startParser(mParserNotifier, mPresentation.get());
             mPresentation->startPresent(mParser);
         }
 

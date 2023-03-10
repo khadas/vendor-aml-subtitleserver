@@ -99,22 +99,25 @@ Sami::~Sami() {
  *
  */
 std::shared_ptr<ExtSubItem> Sami::decodedItem() {
-    static char line[LINE_LEN + 1];
-    char text[LINE_LEN + 1] = {0, 0};
+    char * line = (char *)MALLOC(LINE_LEN+1);
+    char * text = (char *)MALLOC(LINE_LEN+1);
     int state = 0;
     int mSubSlackTime= 0;
     char *p = NULL, *q;
-
+    memset(line, 0, LINE_LEN+1);
+    memset(text, 0, LINE_LEN+1);
     std::shared_ptr<ExtSubItem> item = std::shared_ptr<ExtSubItem>(new ExtSubItem());
 
     if (!mReader->getLine(line)) {
+        free(line);
+        free(text);
         return nullptr;
     }
     char *s = line;
 
     while (state != 99) {
         //if (s != nullptr) s = triml(s, "\t ");
-        ALOGD("state=%d %s", state, s);
+        //ALOGD("state=%d %s", state, s);
 
         switch (state) {
             case 0: {/* find "START=" or "Slacktime:" */
@@ -134,13 +137,17 @@ std::shared_ptr<ExtSubItem> Sami::decodedItem() {
                 }
                 break;
             }
-            case 1: /* find (optionnal) "<P", skip other TAGs */
+            case 1: /* find (optional) "<P", skip other TAGs */
                 //for (; *s == ' ' || *s == '\t'; s++) ;  /* strip blanks, if any */
                 if (*s == '\0')
                     break;
                 if (*s != '<') {
                     state = 3;
                     p = text;
+/*
+ * memset() function to initialize,for Copies the character 0 to the first n characters of the string pointed to by the argument str.
+ */
+/* coverity[overrun-buffer-arg] */
                     memset(text, 0, LINE_LEN + 1);
                     continue;
                 }
@@ -183,7 +190,7 @@ std::shared_ptr<ExtSubItem> Sami::decodedItem() {
                     state = 5;
                     ++s;
                     continue;
-                } else if (*s == '<') {
+                } else if (*s == '<' && (*(s+1) == 'S' || *(s+1) == 'P' || *(s+1) == 's')){
                     state = 4;
                 } else if (!strncasecmp(s, "&nbsp;", 6)) {
                     *p++ = ' ';
@@ -274,6 +281,8 @@ std::shared_ptr<ExtSubItem> Sami::decodedItem() {
                 if (item->start > 0) {
                      break;  // if it is the last subtitle
                 } else {
+                    free(line);
+                    free(text);
                     return nullptr;
                 }
             }
@@ -287,14 +296,19 @@ std::shared_ptr<ExtSubItem> Sami::decodedItem() {
         if (text[0] != '\0') {
             item->lines.push_back(std::string(text));
         } else {
+            free(line);
+            free(text);
             return nullptr;
         }
     }
-
+/*
     ALOGD("[%lld %lld]", item->start, item->end);
     for (auto s :item->lines) {
         ALOGD("    %s", s.c_str());
     }
+*/
+    free(line);
+    free(text);
     return item;
 }
 

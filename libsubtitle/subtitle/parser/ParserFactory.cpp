@@ -41,7 +41,7 @@ std::shared_ptr<Parser> ParserFactory::create(
     int type = subParam->subType;
 
     ALOGD("ParserFactory::create: type= %d", type);
-    // TODO: unless we can determin CC type, or default start CC parser
+    // TODO: unless we can determine CC type, or default start CC parser
     if (type == TYPE_SUBTITLE_INVALID) {
         type = TYPE_SUBTITLE_CLOSED_CAPTION;
      }
@@ -96,7 +96,7 @@ std::shared_ptr<Parser> ParserFactory::create(
         }
 
         case TYPE_SUBTITLE_EXTERNAL:
-            return std::shared_ptr<Parser>(new ExtParser(source));
+            return std::shared_ptr<Parser>(new ExtParser(source, subParam->idxSubTrackId));
 
     }
 

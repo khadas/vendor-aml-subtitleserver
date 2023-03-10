@@ -28,7 +28,7 @@
 /**\file am_cc.h
  * \brief Close caption parser module
  *
- * \author Xia Lei Peng <leipeng.xia@amlogic.com>
+ * \author Amlogic
  * \date 2011-12-27: create the document
  ***************************************************************************/
 
@@ -91,10 +91,10 @@ typedef enum
 /****************************************************************************
  * Type definitions
  ***************************************************************************/
-/**Isdb handle parser's handle*/
+/**Isdb handle parser handle*/
 typedef void* AM_ISDB_Handle_t;
 
-/**Close caption parser's handle*/
+/**Close caption parser handle*/
 typedef void* AM_CC_Handle_t;
 /**Draw parameter of close caption*/
 typedef struct AM_CC_DrawPara AM_CC_DrawPara_t;
@@ -242,14 +242,14 @@ enum AM_CC_Decoder_Error
 };
 
 
-/**\brief Close caption parser's create parameters*/
+/**\brief Close caption parser create parameters*/
 typedef struct
 {
 	uint8_t            *bmp_buffer;    /**< Drawing buffer*/
 	int                 pitch;         /**< Line pitch of the drawing buffer*/
 	int                 bypass_cc_enable; /**< Bypass CC data flag*/
 	int                 data_timeout;  /**< Data timeout value in ms*/
-	int                 switch_timeout;/**< Caption 1/2 swith timeout in ms.*/
+	int                 switch_timeout;/**< Caption 1/2 switch timeout in ms.*/
 	unsigned int       decoder_param;
 	void               *user_data;     /**< User defined data*/
 	char                lang[10];
@@ -286,14 +286,14 @@ typedef struct
 
 /**\brief Create a new close caption parser
  * \param [in] para Create parameters
- * \param [out] handle Return the parser's handle
+ * \param [out] handle Return the parser handle
  * \retval AM_SUCCESS On success
  * \return Error code
  */
 extern AM_ErrorCode_t AM_CC_Create(AM_CC_CreatePara_t *para, AM_CC_Handle_t *handle);
 
 /**\brief Release a close caption parser
- * \param [out] handle Close caption parser's handle
+ * \param [out] handle Close caption parser handle
  * \retval AM_SUCCESS On success
  * \return Error code
  */
@@ -301,7 +301,7 @@ extern AM_ErrorCode_t AM_CC_Destroy(AM_CC_Handle_t handle);
 
 /**
  * \brief Show close caption.
- * \param handle Close caption parser's handle
+ * \param handle Close caption parser handle
  * \retval AM_SUCCESS On success
  * \return Error code
  */
@@ -309,14 +309,14 @@ extern AM_ErrorCode_t AM_CC_Show(AM_CC_Handle_t handle);
 
 /**
  * \brief Hide close caption.
- * \param handle Close caption parser's handle
+ * \param handle Close caption parser handle
  * \retval AM_SUCCESS On success
  * \return Error code
  */
 extern AM_ErrorCode_t AM_CC_Hide(AM_CC_Handle_t handle);
 
 /**\brief Start parsing the close caption data
- * \param handle Close caption parser's handle
+ * \param handle Close caption parser handle
  * \param [in] para Start parameters
  * \retval AM_SUCCESS On success
  * \return Error code
@@ -324,14 +324,14 @@ extern AM_ErrorCode_t AM_CC_Hide(AM_CC_Handle_t handle);
 extern AM_ErrorCode_t AM_CC_Start(AM_CC_Handle_t handle, AM_CC_StartPara_t *para);
 
 /**\brief Stop close caption parsing
- * \param handle Close caption parser's handle
+ * \param handle Close caption parser handle
  * \retval AM_SUCCESS On success
  * \return Error code
  */
 extern AM_ErrorCode_t AM_CC_Stop(AM_CC_Handle_t handle);
 
 /**\brief Set the user options of the close caption
- * \param handle Close caption parser's handle
+ * \param handle Close caption parser handle
  * \param [in] options User options
  * \retval AM_SUCCESS On success
  * \return Error code
@@ -339,7 +339,7 @@ extern AM_ErrorCode_t AM_CC_Stop(AM_CC_Handle_t handle);
 extern AM_ErrorCode_t AM_CC_SetUserOptions(AM_CC_Handle_t handle, AM_CC_UserOptions_t *options);
 
 /**\brief Get the user defined data of the close caption parser
- * \param handle Close caption parser's handle
+ * \param handle Close caption parser handle
  * \return The user defined data
  */
 extern void *AM_CC_GetUserData(AM_CC_Handle_t handle);

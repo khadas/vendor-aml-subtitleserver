@@ -77,11 +77,11 @@ struct subtitle_s {
 
 class ExtParser: public Parser {
 public:
-    ExtParser(std::shared_ptr<DataSource> source);
+    ExtParser(std::shared_ptr<DataSource> source, int trackId);
     virtual ~ExtParser();
     virtual int parse();
 
-    virtual void dump(int fd, const char *prefix) {};
+    virtual void dump(int fd, const char *prefix);
     void resetForSeek();
 
 
@@ -94,6 +94,8 @@ protected:
     int mNoTextPostProcess = 0;  // 1 => do not apply text post-processing
     /* read one line of string from data source */
     int mSubIndex = 0;
+
+    int mIdxSubTrackId;
 
 private:
     //bool decodeSubtitles();

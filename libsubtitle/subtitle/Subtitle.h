@@ -24,8 +24,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __SUBTILE_SUBTITLE_H__
-#define __SUBTILE_SUBTITLE_H__
+#ifndef __SUBTITLE_SUBTITLE_H__
+#define __SUBTITLE_SUBTITLE_H__
 
 #include <thread>
 #include "InfoChangeListener.h"
@@ -40,7 +40,7 @@ class Subtitle : public InfoChangeListener {
 
 public:
     Subtitle();
-    Subtitle(int fd, ParserEventNotifier *notifier);
+    Subtitle(bool isExtSub, int idxSubId, ParserEventNotifier *notifier);
     virtual ~Subtitle();
 
     void init(int renderType);
@@ -108,7 +108,8 @@ private:
     std::mutex mMutex;
     std::condition_variable mCv;
 
-    int mFd;
+    bool mIsExtSub;
+    int mIdxSubTrack;// TODO: maybe we can use other API for track
 };
 
 #endif

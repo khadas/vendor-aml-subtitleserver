@@ -47,7 +47,7 @@ SubtitleService::SubtitleService() {
     mDumpMaps = 0;
     mSubtiles = nullptr;
     mDataSource = nullptr;
-
+    mUserDataAfd = nullptr;
 	 mSockServ = SubSocketServer::GetInstance();
 
     if (mSockServ) {
@@ -95,7 +95,7 @@ bool SubtitleService::startFmqReceiver(std::unique_ptr<FmqReader> reader) {
 bool SubtitleService::stopFmqReceiver() {
     if (mFmqReceiver != nullptr && mDataSource != nullptr) {
         ALOGD("release :%p", mFmqReceiver.get());
-        mFmqReceiver->unregistClient(mDataSource);
+        mFmqReceiver->unregisterClient(mDataSource);
         mFmqReceiver = nullptr;
         return true;
     }
@@ -103,24 +103,34 @@ bool SubtitleService::stopFmqReceiver() {
     return false;
 }
 #endif
-bool SubtitleService::startSubtitle(int fd, SubtitleIOType type, ParserEventNotifier *notifier) {
-    ALOGD("%s  fd:%d, type:%d", __func__, fd, type);
-        std::unique_lock<std::mutex> autolock(mLock);
-        if (mStarted) {
-            ALOGD("Already started, exit");
-            return false;
-        } else {
-            mStarted = true;
-        }
+bool SubtitleService::startSubtitle(std::vector<int> fds, int trackId, SubtitleIOType type, ParserEventNotifier *notifier) {
+    ALOGD("%s  type:%d", __func__, type);
+    std::unique_lock<std::mutex> autolock(mLock);
+    if (mStarted) {
+        ALOGD("Already started, exit");
+        return false;
+    } else {
+        mStarted = true;
+    }
 
-    std::shared_ptr<Subtitle> subtitle(new Subtitle(fd, notifier));
+    bool hasExtSub = fds.size() > 0;
+    bool hasExtraFd = fds.size() > 1;
+    std::shared_ptr<Subtitle> subtitle(new Subtitle(hasExtSub, trackId, notifier));
     subtitle->init(mSubParam.renderType);
 
-    std::shared_ptr<DataSource> datasource = DataSourceFactory::create(fd, type);
+    std::shared_ptr<DataSource> datasource = DataSourceFactory::create(
+            hasExtSub ? fds[0] : -1,
+            hasExtraFd ? fds[1] : -1,
+            type);
 
     if (mDumpMaps & (1<<SUBTITLE_DUMP_SOURCE)) {
         datasource->enableSourceDump(true);
     }
+    if (nullptr == datasource) {
+        ALOGD("Error, %s data Source is null!", __func__);
+        return false;
+    }
+
     mDataSource = datasource;
     if (TYPE_SUBTITLE_DTVKIT_DVB == mSubParam.subType) {
            mDataSource->updateParameter(mSubParam.subType, &mSubParam.dtvkitDvbParam);
@@ -142,7 +152,12 @@ bool SubtitleService::startSubtitle(int fd, SubtitleIOType type, ParserEventNoti
 //    subtitle->scheduleStart();
     //we only update params for DTV. because we do not wait dtv and
     // CC parser run the same time
-    if (mSubParam.isValidDtvParams()) {
+
+    ALOGD("setParameter on start: %d, dtvSubType=%d",
+        mSubParam.isValidDtvParams(), mSubParam.dtvSubType);
+    // TODO: revise,
+    if (!hasExtSub && (mSubParam.isValidDtvParams() || mSubParam.dtvSubType <= 0)) {
+        ALOGD("setParameter on start");
         subtitle->setParameter(&mSubParam);
     }
 
@@ -169,7 +184,7 @@ bool SubtitleService::resetForSeek() {
 int SubtitleService::updateVideoPosAt(int timeMills) {
     static int test = 0;
     if (test++ %100 == 0)
-        ALOGD("%s： %d(called %d times)", __func__, timeMills, test);
+        ALOGD("%s: %d(called %d times)", __func__, timeMills, test);
 
     if (mSubtiles) {
         return mSubtiles->onMediaCurrentPresentationTime(timeMills);
@@ -212,6 +227,33 @@ void SubtitleService::setDemuxId(int demuxId) {
         mDataSource->updateParameter(mSubParam.subType, &mSubParam.scteParam);
     }
 }
+
+void SubtitleService::setSecureLevel(int flag) {
+    switch (mSubParam.dtvSubType) {
+        case  DTV_SUB_DTVKIT_SCTE27:
+            mSubParam.scteParam.flag = flag;
+        break;
+        case DTV_SUB_DTVKIT_DVB:
+            mSubParam.dtvkitDvbParam.flag = flag;
+        break;
+        case DTV_SUB_DTVKIT_TELETEXT:
+            mSubParam.ttParam.flag = flag;
+        break;
+        break;
+        default:
+        break;
+    }
+    if (NULL == mDataSource )
+      return;
+    if (mSubParam.subType == TYPE_SUBTITLE_DTVKIT_DVB)  {
+        mDataSource->updateParameter(mSubParam.subType, &mSubParam.dtvkitDvbParam);
+    } else if (mSubParam.subType == TYPE_SUBTITLE_DTVKIT_TELETEXT) {
+        mDataSource->updateParameter(mSubParam.subType, &mSubParam.ttParam);
+    } else if (mSubParam.subType == TYPE_SUBTITLE_DTVKIT_SCTE27) {
+        mDataSource->updateParameter(mSubParam.subType, &mSubParam.scteParam);
+    }
+}
+
 void SubtitleService::setSubPid(int pid) {
     switch (mSubParam.dtvSubType) {
         case  DTV_SUB_SCTE27:
@@ -241,6 +283,9 @@ void SubtitleService::setSubPageId(int pageId) {
     switch (mSubParam.dtvSubType) {
         case DTV_SUB_DTVKIT_DVB:
             mSubParam.dtvkitDvbParam.compositionId = pageId;
+            if (mSubtiles != nullptr) {
+                mSubtiles->setParameter(&mSubParam);
+            }
         break;
         case DTV_SUB_DTVKIT_TELETEXT:
             mSubParam.ttParam.magazine = pageId;
@@ -253,6 +298,9 @@ void SubtitleService::setSubAncPageId(int ancPageId) {
     switch (mSubParam.dtvSubType) {
         case DTV_SUB_DTVKIT_DVB:
             mSubParam.dtvkitDvbParam.ancillaryId = ancPageId;
+            if (mSubtiles != nullptr) {
+                mSubtiles->setParameter(&mSubParam);
+            }
         break;
         case DTV_SUB_DTVKIT_TELETEXT:
             mSubParam.ttParam.page = ancPageId;
@@ -280,7 +328,9 @@ void SubtitleService::setPipId(int mode, int id) {
     bool same = true;
     if (PIP_PLAYER_ID== mode) {
         mSubParam.playerId = id;
-        mUserDataAfd->setPlayerId(id);
+        if (mUserDataAfd != nullptr) {
+            mUserDataAfd->setPipId(mode, id);
+        }
     } else if (PIP_MEDIASYNC_ID == mode) {
         if (mSubParam.mediaId == id) {
             same = true;
@@ -288,6 +338,9 @@ void SubtitleService::setPipId(int mode, int id) {
             same = false;
         }
         mSubParam.mediaId = id;
+        if (mUserDataAfd != nullptr) {
+            mUserDataAfd->setPipId(mode, id);
+        }
     }
     if (NULL == mDataSource )
         return;
@@ -398,16 +451,19 @@ bool SubtitleService::stopSubtitle() {
         mFmqReceiver = nullptr;
     }
 */
-
+    mDataSource = nullptr;
+    mSubtiles = nullptr;
     mSubParam.subType = TYPE_SUBTITLE_INVALID;
     mSubParam.dtvSubType = DTV_SUB_INVALID;
+    mSubParam.dtvkitDvbParam.ancillaryId = 0;
+    mSubParam.dtvkitDvbParam.compositionId = 0;
     return true;
 }
 
 int SubtitleService::totalSubtitles() {
     if (mSubtiles == nullptr) {
         ALOGE("Not ready or exited, ignore request!");
-        return 0;
+        return -1;
     }
     // TODO: impl a state of subtitle, throw error when call in wrong state
     // currently we simply wait a while and return
@@ -421,7 +477,7 @@ int SubtitleService::totalSubtitles() {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     mIsInfoRetrieved = true;
-    return 0;
+    return -1;
 }
 
 int SubtitleService::subtitleType() {
@@ -437,6 +493,11 @@ std::string SubtitleService::currentLanguage() {
     return std::string("N/A");
 }
 
+void SubtitleService::setLanguage(std::string lang) {
+       if (mSubtiles != nullptr) {
+        mSubtiles->onGetLanguage(lang);
+    }
+}
 
 void SubtitleService::dump(int fd) {
     dprintf(fd, "\n\n SubtitleService:\n");

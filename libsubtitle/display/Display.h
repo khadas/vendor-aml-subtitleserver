@@ -52,8 +52,8 @@ public:
     virtual std::shared_ptr<SurfaceHandle> createLayer(int width, int height, int format) =0;
     virtual int destroySurface(std::shared_ptr<SurfaceHandle> handle) =0;
 
-    virtual void *lockDisplayBuffer(int *width, int *height, int *stride, int *bpp)=0;
-    virtual bool unlockAndPostDisplayBuffer(void *width)=0;
+    virtual void *lockDisplayBuffer(int *width, int *height, int *stride, int *bpp);
+    virtual bool unlockAndPostDisplayBuffer(void *width);
 
 };
 #endif

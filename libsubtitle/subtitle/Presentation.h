@@ -29,9 +29,11 @@
 #include <thread>
 #include <mutex>
 // maybe we can use std::chrono::steady_clock
+// how to program it with longlong time?
 #include <utils/Timers.h>
 //#include "AmlLooper.h"
- #include <utils/Looper.h>
+#include <utils/Mutex.h>
+#include <utils/Looper.h>
 #include <binder/Binder.h>
 #include "Parser.h"
 
@@ -41,6 +43,7 @@
 using android::sp;
 using android::Looper;
 using android::Message;
+using android::Mutex;
 
 class Presentation  : public ParserSubdataNotifier{
 
@@ -107,7 +110,7 @@ private:
     sp<MessageProcess> mMsgProcess;
 
     // since mMsgProcess is a pointer here
-    // we need a mutext to protect it
+    // we need a mutex to protect it
     std::mutex mMutex;
 
 

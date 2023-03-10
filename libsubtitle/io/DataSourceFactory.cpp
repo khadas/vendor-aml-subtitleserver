@@ -41,7 +41,6 @@ std::shared_ptr<DataSource> DataSourceFactory::create(SubtitleIOType type) {
         case SubtitleIOType::E_SUBTITLE_FMQ:
             //return std::shared_ptr<DataSource>(new ExternalDataSource());
         case SubtitleIOType::E_SUBTITLE_SOCK:
-
             return std::shared_ptr<DataSource>(new SocketSource());
 
         case SubtitleIOType::E_SUBTITLE_DEV:
@@ -59,7 +58,7 @@ std::shared_ptr<DataSource> DataSourceFactory::create(SubtitleIOType type) {
     return nullptr;
 }
 
-std::shared_ptr<DataSource> DataSourceFactory::create(int fd, SubtitleIOType type) {
+std::shared_ptr<DataSource> DataSourceFactory::create(int fd, int fdExtra, SubtitleIOType type) {
     // TODO: check external subtitle
     // maybe we can impl a misc-IO impl for support both internal/ext subtitles
     switch (type) {
@@ -72,7 +71,7 @@ std::shared_ptr<DataSource> DataSourceFactory::create(int fd, SubtitleIOType typ
         case SubtitleIOType::E_SUBTITLE_DEV:
             return create(type);
         case SubtitleIOType::E_SUBTITLE_FILE:
-            return std::shared_ptr<DataSource>(new FileSource(fd));
+            return std::shared_ptr<DataSource>(new FileSource(fd, fdExtra));
         case SubtitleIOType::E_SUBTITLE_VBI:
             return std::shared_ptr<DataSource>(new VbiSource());
         default:

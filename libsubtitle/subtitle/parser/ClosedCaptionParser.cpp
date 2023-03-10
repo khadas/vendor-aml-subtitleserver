@@ -221,7 +221,7 @@ ClosedCaptionParser::~ClosedCaptionParser() {
     }
     stopAmlCC();
     // call back may call parser, parser later destroy
-    stopParse();
+    stopParser();
     if (mLang) free(mLang);
     delete mCcContext;
 }

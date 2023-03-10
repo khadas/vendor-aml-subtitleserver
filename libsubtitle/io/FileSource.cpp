@@ -37,11 +37,15 @@
 //#include "trace_support.h"
 
 
-FileSource::FileSource(int fd) {
+FileSource::FileSource(int fd, int extFd) {
     ALOGD("%s fd:%d", __func__, fd);
     mFd = fd;
     if (mFd > 0) {
         ::lseek(mFd, 0, SEEK_SET);
+    }
+
+    if (extFd > 0) {
+        mExtraFd = extFd;
     }
 }
 
@@ -52,6 +56,9 @@ FileSource::~FileSource() {
         mFd = -1;
     }
 
+    if (mExtraFd > 0) {
+        ::close(mExtraFd);
+    }
 }
 
 bool FileSource::start() {
@@ -67,7 +74,7 @@ bool FileSource::stop() {
 SubtitleIOType FileSource::type() {
     return E_SUBTITLE_FILE;
 }
-bool FileSource::isFileAvailble() {
+bool FileSource::isFileAvailable() {
     ALOGD("%s", __func__);
     return (mDumpFd > 0);
 }
@@ -99,7 +106,7 @@ size_t FileSource::read(void *buffer, size_t size) {
         errno = 0;
         r = ::read(mFd, buf + read_done, data_size);
     } while (r <= 0 && (errno == EINTR || errno == EAGAIN));
-    ALOGD("have readed r=%d, mRdFd:%d, size:%d errno:%d(%s)", r, mFd, size, errno,strerror(errno));
+    ALOGD("have read r=%d, mRdFd:%d, size:%d errno:%d(%s)", r, mFd, size, errno, strerror(errno));
     return r;
 }
 

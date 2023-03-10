@@ -38,8 +38,8 @@ SubViewer::~SubViewer() {
 
 std::shared_ptr<ExtSubItem> SubViewer::decodedItem() {
     char line[LINE_LEN + 1];
-    //  char *p = NULL;
-    int i;
+    char *p = NULL;
+    int i, len;
 
     while (mReader->getLine(line)) {
 

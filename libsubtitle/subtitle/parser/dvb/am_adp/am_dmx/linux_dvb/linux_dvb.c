@@ -29,7 +29,7 @@
  * Description:
  */
 /**\file
- * \brief Linux DVB demux 驱动
+ * \brief Linux DVB demux driver
  *
  * \author Gong Ke <ke.gong@amlogic.com>
  * \date 2010-07-21: create the document
@@ -101,7 +101,7 @@ static AM_ErrorCode_t dvb_poll(AM_DMX_Device_t *dev, AM_DMX_FilterMask_t *mask, 
 static AM_ErrorCode_t dvb_read(AM_DMX_Device_t *dev, AM_DMX_Filter_t *filter, uint8_t *buf, int *size);
 static AM_ErrorCode_t dvb_set_source(AM_DMX_Device_t *dev, AM_DMX_Source_t src);
 
-AM_DMX_Driver_t linux_dvb_dmx_drv = {
+const AM_DMX_Driver_t linux_dvb_dmx_drv = {
 .open  = dvb_open,
 .close = dvb_close,
 .alloc_filter = dvb_alloc_filter,

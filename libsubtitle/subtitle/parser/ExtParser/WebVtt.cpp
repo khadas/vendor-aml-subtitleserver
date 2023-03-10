@@ -84,7 +84,7 @@ std::shared_ptr<ExtSubItem> SimpleWebVtt::decodedItem() {
                     p++, len++);
 
             if (len) {
-             //   int skip = 0;
+                int skip = 0;
 
                 std::string s;
                 p = line;

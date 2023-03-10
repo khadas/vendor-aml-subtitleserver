@@ -47,7 +47,7 @@ extern "C"
 #define FFMAX(a,b) ((a) > (b) ? (a) : (b))
 
 /**
- * @ingroup lavc_decoding
+ * @group lavc_decoding
  * Required number of additionally allocated bytes at the end of the input bitstream for decoding.
  * This is mainly needed because some optimized bitstream readers read
  * 32 or 64 bit at once and could read over the end.<br>
@@ -144,9 +144,9 @@ void av_fast_padded_malloc(void *ptr, unsigned int *size, size_t min_size);
 void av_bprint_init(AVBPrint *buf, unsigned size_init, unsigned size_max);
 
 #ifdef __GNUC__
-#    define av_printf_format(fmtpos, attrpos) __attribute__((__format__(__printf__, fmtpos, attrpos)))
+#    define av_printf_format(fmtpos, atropos) __attribute__((__format__(__printf__, fmtpos, atropos)))
 #else
-#    define av_printf_format(fmtpos, attrpos)
+#    define av_printf_format(fmtpos, atropos)
 #endif
 
 

@@ -28,7 +28,7 @@
 /**\file
  * \brief USER DATA module
  *
- * \author Xia Lei Peng <leipeng.xia@amlogic.com>
+ * \author Amlogic
  * \date 2013-3-13: create the document
  ***************************************************************************/
 

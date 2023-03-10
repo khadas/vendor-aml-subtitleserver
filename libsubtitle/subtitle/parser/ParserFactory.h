@@ -129,11 +129,13 @@ typedef struct {
 typedef struct {
     int SCTE27_PID = 0;
     int demuxId = 0;
+    int flag = 0;
 } Scte27Param;
 
 typedef struct {
    int demuxId = 0;
    int pid = 0;
+   int flag = 0;
    int compositionId = 0;
    int ancillaryId = 0;
 }DtvKitDvbParam;
@@ -141,6 +143,7 @@ typedef struct {
 typedef struct {
    int demuxId = 0;
    int pid = 0;
+   int flag = 0;
    int magazine = 0;
    int page = 0;
 }DtvKitTeletextParam;
@@ -212,6 +215,7 @@ class TeletextParam {
 public:
     int demuxId;
     int pid;
+    int flag;
     int magazine;
     int page;
     int pageNo;
@@ -227,6 +231,7 @@ public:
     TeletextParam() {
         demuxId = pid = magazine = page = pageNo = subPageNo = pageDir
             = subPageDir = regionId = -1;
+        flag = 0;
         ctrlCmd = CMD_INVALID;
         event = TT_EVENT_INVALID;
         onid = tsid = -1;
@@ -249,7 +254,7 @@ struct SubtitleParamType {
 
     int idxSubTrackId; // only for idxsub
     DtvKitDvbParam dtvkitDvbParam; //the pes pid for filter subtitle data from demux
-    SubtitleParamType() : playerId(0), mediaId(0) {
+    SubtitleParamType() : playerId(0), mediaId(-1), idxSubTrackId(0) {
         subType = TYPE_SUBTITLE_INVALID;
         memset(&ccParam, 0, sizeof(ccParam));
     }

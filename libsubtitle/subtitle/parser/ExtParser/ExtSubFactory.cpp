@@ -184,6 +184,7 @@ int ExtSubFactory::detect(std::shared_ptr<DataSource> source) {
 
 }
 
+// TODO: more....
 std::shared_ptr<TextSubtitle> ExtSubFactory::create(std::shared_ptr<DataSource> source) {
     int format = detect(source);
     ALOGD("detect ext subtitle format = %d", format);
@@ -254,7 +255,7 @@ std::shared_ptr<TextSubtitle> ExtSubFactory::create(std::shared_ptr<DataSource> 
             return std::shared_ptr<TextSubtitle>(new SimpleWebVtt(source));
 
         default:
-            ALOGD("ext subtitle format is invaild! format = %d", format);
+            ALOGD("ext subtitle format is invalid! format = %d", format);
             return NULL;
     }
     return NULL;

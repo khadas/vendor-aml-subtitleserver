@@ -43,7 +43,7 @@
 #define  UTF16          unsigned short
 #define  UTF32          unsigned int
 #define ERR ((void *) -1)
-#define LINE_LEN                    1024*5//10
+#define LINE_LEN                    1024*512
 
 enum {
     AML_ENCODING_NONE = 0,
@@ -126,7 +126,7 @@ private:
 
     char *mBuffer;
     int mBufferSize;
-    unsigned mFileReaded;
+    unsigned mFileRead;
     std::shared_ptr<DataSource> mDataSource;
     int mEncoding;
     size_t mStreamSize;

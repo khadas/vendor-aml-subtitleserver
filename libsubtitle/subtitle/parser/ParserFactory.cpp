@@ -26,6 +26,8 @@
 
 #include "ParserFactory.h"
 
+#include "AribB24Parser.h"
+#include "TtmlParser.h"
 #include "AssParser.h"
 #include "DvbParser.h"
 #include "DvdParser.h"
@@ -66,6 +68,14 @@ std::shared_ptr<Parser> ParserFactory::create(
         case TYPE_SUBTITLE_DTVKIT_DVB:
             return std::shared_ptr<Parser>(new DvbParser(source));
 
+        case TYPE_SUBTITLE_ARIB_B24:
+        case TYPE_SUBTITLE_DTVKIT_ARIB_B24:
+            return std::shared_ptr<Parser>(new AribB24Parser(source));
+
+        case TYPE_SUBTITLE_TTML:
+        case TYPE_SUBTITLE_DTVKIT_TTML:
+            return std::shared_ptr<Parser>(new TtmlParser(source));
+
         case TYPE_SUBTITLE_TMD_TXT:
             return std::shared_ptr<Parser>(new AssParser(source));
 
@@ -75,6 +85,7 @@ std::shared_ptr<Parser> ParserFactory::create(
         case TYPE_SUBTITLE_DVB_TELETEXT:
         case TYPE_SUBTITLE_DTVKIT_TELETEXT:
             return std::shared_ptr<Parser>(new TeletextParser(source));
+
         case TYPE_SUBTITLE_CLOSED_CAPTION: {
             std::shared_ptr<Parser> p = std::shared_ptr<Parser>(new ClosedCaptionParser(source));
             if (p != nullptr) {
@@ -117,6 +128,8 @@ DisplayType ParserFactory::getDisplayType(int type)
           return SUBTITLE_IMAGE_DISPLAY;
         case TYPE_SUBTITLE_MKV_STR:
         case TYPE_SUBTITLE_TMD_TXT:
+        case TYPE_SUBTITLE_ARIB_B24:
+        case TYPE_SUBTITLE_TTML:
         case  TYPE_SUBTITLE_SSA:
             return SUBTITLE_TEXT_DISPLAY;
 

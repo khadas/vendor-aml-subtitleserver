@@ -302,6 +302,24 @@ static int open_dvb_dmx(TVSubtitleData *data, int dmx_id, int pid, int flag)
             if (ret != AM_SUCCESS) {
                 goto error;
             }
+        } else if (TYPE_SUBTITLE_DTVKIT_ARIB_B24 == DemuxSource::getCurrentInstance()->mSubType) {
+            //the arib data is section
+            ALOGE("[open_dmx] arib24 demux");
+            pesp.pes_type = DMX_PES_SUBTITLE;
+            pesp.input = DMX_IN_FRONTEND;
+            ret = AM_DMX_SetPesFilter(dmx_id, data->filter_handle, &pesp);
+            if (ret != AM_SUCCESS)
+                goto error;
+            ALOGE("[open_dmx]AM_DMX_SetPesFilter");
+        } else if (TYPE_SUBTITLE_DTVKIT_TTML == DemuxSource::getCurrentInstance()->mSubType) {
+            //the ttml data is section
+            ALOGE("[open_dmx] ttml demux");
+            pesp.pes_type = DMX_PES_SUBTITLE;
+            pesp.input = DMX_IN_FRONTEND;
+            ret = AM_DMX_SetPesFilter(dmx_id, data->filter_handle, &pesp);
+            if (ret != AM_SUCCESS)
+                goto error;
+            ALOGE("[open_dmx]AM_DMX_SetPesFilter");
         }
 
         ret = AM_DMX_SetCallback(dmx_id, data->filter_handle, pes_data_cb, data);
@@ -383,6 +401,23 @@ void DemuxSource::updateParameter(int type, void *data) {
         mDemuxId = pScteParam->demuxId;
         mPid = pScteParam->SCTE27_PID;
         mSecureLevelFlag = pScteParam->flag;
+    } else if (TYPE_SUBTITLE_DTVKIT_ARIB_B24 == type) {
+        DtvKitArib24Param *pArib24Param = (DtvKitArib24Param* )data;
+        if ((mState == E_SOURCE_STARTED) && (mPid != pArib24Param->pid)) {
+              restartDemux = true;
+        }
+        mDemuxId = pArib24Param->demuxId;
+        mPid = pArib24Param->pid;
+        mSecureLevelFlag = pArib24Param->flag;
+        mParam1 = pArib24Param->languageCodeId;
+    } else if (TYPE_SUBTITLE_DTVKIT_TTML == type) {
+        DtvKitTtmlParam *pTtmlParam = (DtvKitTtmlParam* )data;
+        if ((mState == E_SOURCE_STARTED) && (mPid != pTtmlParam->pid)) {
+              restartDemux = true;
+        }
+        mDemuxId = pTtmlParam->demuxId;
+        mPid = pTtmlParam->pid;
+        mSecureLevelFlag = pTtmlParam->flag;
     }
     ALOGE(" in updateParameter restartDemux=%d ",restartDemux);
     mSubType = type;

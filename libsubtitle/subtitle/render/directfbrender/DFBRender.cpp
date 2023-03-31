@@ -238,7 +238,11 @@ bool DFBRender::isText(std::shared_ptr<AML_SPUVAR> &spu) {
     return spu->isSimpleText
            || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_CLOSED_CAPTION
            || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_SCTE27
-           || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_DTVKIT_SCTE27;
+           || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_DTVKIT_SCTE27
+           || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_ARIB_B24
+           || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_DTVKIT_ARIB_B24
+           || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_TTML
+           || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_DTVKIT_TTML;
 }
 
 void DFBRender::onThreadExit() {

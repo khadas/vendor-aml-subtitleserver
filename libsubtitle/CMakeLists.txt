@@ -61,11 +61,13 @@ if (USE_WAYLAND)
             subtitle/Presentation.cpp
             subtitle/parser/bprint.c
             subtitle/parser/ParserFactory.cpp
+            subtitle/parser/AribB24Parser.cpp
             subtitle/parser/AssParser.cpp
             subtitle/parser/PgsParser.cpp
             subtitle/parser/DvbParser.cpp
             subtitle/parser/DvdParser.cpp
             subtitle/parser/TeletextParser.cpp
+            subtitle/parser/TtmlParser.cpp
             subtitle/parser/ClosedCaptionParser.cpp
             subtitle/parser/Scte27Parser.cpp
             subtitle/parser/UserDataAfd.cpp
@@ -135,11 +137,13 @@ if (USE_DFB)
             subtitle/Presentation.cpp
             subtitle/parser/bprint.c
             subtitle/parser/ParserFactory.cpp
+            subtitle/parser/AribB24Parser.cpp
             subtitle/parser/AssParser.cpp
             subtitle/parser/PgsParser.cpp
             subtitle/parser/DvbParser.cpp
             subtitle/parser/DvdParser.cpp
             subtitle/parser/TeletextParser.cpp
+            subtitle/parser/TtmlParser.cpp
             subtitle/parser/ClosedCaptionParser.cpp
             subtitle/parser/Scte27Parser.cpp
             subtitle/parser/UserDataAfd.cpp
@@ -203,6 +207,7 @@ target_link_libraries(${TARGET} PUBLIC log)
 target_link_libraries(${TARGET} PUBLIC zvbi)
 target_link_libraries(${TARGET} PUBLIC pthread)
 target_link_libraries(${TARGET} PUBLIC cairo)
+target_link_libraries(${TARGET} PUBLIC tinyxml2)
 
 if (USE_WAYLAND)
     target_link_libraries(${TARGET} PUBLIC wayland-client)

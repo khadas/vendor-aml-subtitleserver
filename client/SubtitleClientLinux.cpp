@@ -180,7 +180,7 @@ bool SubtitleClientLinux::open(const char *path, int ioType) {
 }
 
 bool SubtitleClientLinux::open(int fd, int ioType) {
-    ALOGD(" SubtitleClientLinux  %s, line %d fd=%d,ioType=%d", __FUNCTION__, __LINE__, fd, ioType);
+    ALOGD(" SubtitleClientLinux  %s, line %d fd=%d,ioType=%d mOpenType=%d", __FUNCTION__, __LINE__, fd, ioType, mOpenType);
     char buf[32] = {0};
     //int param = (demuxId << 16 | iotType);
     native_handle_t *nativeHandle = nullptr;

@@ -152,7 +152,7 @@ SocketSource::~SocketSource() {
     #endif
 
     // TODO: no ring ref?
-    SubSocketServer::unregistClient(this);
+    SubSocketServer::unregisterClient(this);
 }
 
 void SocketSource::loopRenderTime() {

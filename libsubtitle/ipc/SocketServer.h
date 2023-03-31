@@ -61,7 +61,7 @@ public:
     static const int  QUEUE_SIZE = 10;
 
     static bool registClient(DataListener *client);
-    static bool unregistClient(DataListener *client);
+    static bool unregisterClient(DataListener *client);
 
     typedef struct DataObj {
         void * obj1 = nullptr;

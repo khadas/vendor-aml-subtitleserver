@@ -343,7 +343,7 @@ bool SubSocketServer::registClient(DataListener *client) {
     return true;
 }
 
-bool SubSocketServer::unregistClient(DataListener *client) {
+bool SubSocketServer::unregisterClient(DataListener *client) {
     // obviously, BUG here! impl later, support multi-client.
     // TODO: revise the whole mClient, if we want to support multi subtitle
 
@@ -359,7 +359,7 @@ bool SubSocketServer::unregistClient(DataListener *client) {
         }
 
         //GetInstance()->mClients.pop_back();
-        ALOGD("unregistClient: %p size=%d", client, GetInstance()->mClients.size());
+        ALOGD("unregisterClient: %p size=%d", client, GetInstance()->mClients.size());
     }
     return true;
 }

@@ -205,6 +205,7 @@ static IDirectFBSurface *load_image(std::string filename)
 
 static void apply_surface(int x, int y, IDirectFBSurface *source, IDirectFBSurface *destination, int type)
 {
+    destination->Clear ( destination, 255, 255, 255, 0 );
     destination->SetBlittingFlags(destination, DSBLIT_SRC_COLORKEY);
     source->SetSrcColorKey(source, 0xFF, 0x0, 0xFF);
     destination->DisableAcceleration(destination, DFXL_BLIT);
@@ -394,6 +395,14 @@ void DFBDevice::clear(DFBRect * rect) {
         screen->Release( screen );
         dfb->Release( dfb );//CLear all screen
     }
+}
+
+void DFBDevice::clearSurface() {
+    if (screen == NULL) {
+        return;
+    }
+    screen->Clear(screen, 0, 0, 0, 0);
+    screen->Flip(screen, NULL, DSFLIP_WAITFORSYNC);
 }
 
 static BoundingBox getFontBox(const char *content, DFBRect &surfaceRect, Font& font) {

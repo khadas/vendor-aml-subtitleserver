@@ -385,6 +385,7 @@ bool DFBDevice::drawImage(int type, unsigned char *img, int64_t pts, int buffer_
     //apply_surface( 240, 190, image, screen );
     screen->Flip (screen, NULL, DSFLIP_WAITFORSYNC);
     //screen->StretchBlit(screen, image, NULL, NULL);
+    image->Release(image);
     ALOGD("DFBDevice %s end", __FUNCTION__);
     return true;
 }

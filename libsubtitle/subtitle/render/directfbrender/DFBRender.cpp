@@ -248,6 +248,7 @@ void DFBRender::onThreadExit() {
 
 void DFBRender::clearScreen() {
     ALOGD("clearScreen");
+    mDFBDevice->clearSurface();
     mDFBDevice->drawColor(0, 0, 0, 0);
 }
 

@@ -106,6 +106,7 @@ public:
     bool init();
 
     void clear(DFBRect *rect = nullptr) ;
+    void clearSurface();
     void drawColor(float r, float g, float b, float a, bool flush = true);
     void drawColor(float r, float g, float b, float a, DFBRect& rect, bool flush = true);
     bool drawImage(int type, unsigned char *img, int64_t pts, int buffer_size, unsigned short spu_width, unsigned short spu_height, DFBRect &videoOriginRect, DFBRect &src, DFBRect &dst);

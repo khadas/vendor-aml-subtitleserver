@@ -45,32 +45,6 @@ void UserDataAfd::notifyCallerAfdChange(int afd) {
     }
 }
 
-void UserDataAfd:: setPipId(int mode, int id) {
-    LOGI("setPipId mode = %d, id = %d\n", mode, id);
-
-    if (sInstance == nullptr) {
-       LOGI("Error: setPlayerId sInstance is null");
-       return;
-    }
-
-    if (PIP_PLAYER_ID== mode) {
-        if (id == mPlayerId) {
-            return;
-        }
-        if (-1 == id) return;
-
-        mPlayerId = id;
-        start(mNotifier);
-    } else if (PIP_MEDIASYNC_ID == mode) {
-        if (id >= 0 && id != mMediasyncId) {
-            mMediasyncId = id;
-
-            AM_USERDATA_SetParameters(USERDATA_DEVICE_NUM, id);
-        }
-    }
-
-}
-
 UserDataAfd *UserDataAfd::getCurrentInstance() {
     return UserDataAfd::sInstance;
 }
@@ -95,8 +69,6 @@ void afd_evt_callback(long devno, int eventType, void *param, void *userdata) {
 UserDataAfd::UserDataAfd() {
     mNotifier = nullptr;
     mPlayerId = -1;
-    mMediasyncId = -1;
-    mMode = -1;
     LOGI("creat UserDataAfd");
     sInstance = this;
     mThread = nullptr;
@@ -104,12 +76,16 @@ UserDataAfd::UserDataAfd() {
 }
 
 UserDataAfd::~UserDataAfd() {
-    LOGI("~UserDataAfd");
+    ALOGI("~UserDataAfd");
     sInstance = nullptr;
     mPlayerId = -1;
-    stop();
-
+    if (mThread != nullptr) {
+        stop();
+        mThread->join();
+        mThread = nullptr;
+    }
 }
+
 int UserDataAfd::start(ParserEventNotifier *notify)
 {
     LOGI("startUserData mPlayerId = %d", mPlayerId);
@@ -134,7 +110,6 @@ void UserDataAfd::run() {
     if (mPlayerId != -1) {
         para.playerid = mPlayerId;
     }
-    para.mediasyncid = mMediasyncId;
     UserDataAfd::sNewAfdValue = -1;
     if (AM_USERDATA_Open(USERDATA_DEVICE_NUM, &para) != AM_SUCCESS) {
          LOGI("Cannot open userdata device %d", USERDATA_DEVICE_NUM);
@@ -153,12 +128,11 @@ int UserDataAfd::stop() {
     LOGI("stopUserData");
     // TODO: should impl a real status/notify manner
     // this is too simple...
-    std::unique_lock<std::mutex> autolock(mMutex);
-    if (mThread != nullptr) {
-        mThread->join();
-        mThread = nullptr;
-    } else {
-        return -1;
+    {
+        std::unique_lock<std::mutex> autolock(mMutex);
+        if (mThread == nullptr) {
+            return -1;
+        }
     }
     AM_EVT_Unsubscribe(USERDATA_DEVICE_NUM, AM_USERDATA_EVT_AFD, afd_evt_callback, NULL);
     if ((mMode & AM_USERDATA_MODE_CC) ==  AM_USERDATA_MODE_CC)

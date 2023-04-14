@@ -57,7 +57,6 @@ private:
     static UserDataAfd *sInstance;
     ParserEventNotifier *mNotifier;
     int mPlayerId;
-    int mMediasyncId;
     int mMode;
     std::mutex mMutex;
     std::shared_ptr<std::thread> mThread;

@@ -86,7 +86,7 @@
 #define CHANGE_CHARACTER_TABLE_FALSE 0
 #define BS_REGIONID                  88
 #define ARABIC_REGIONID              64
-#define NEED_CACHE_ZVBI_STATUS 1
+//#define NEED_CACHE_ZVBI_STATUS 1
 #define DUMP_SUB false
 
 #define TELETEXT_MAX_PAGE_NUMBER     900
@@ -2368,7 +2368,7 @@ int TeletextParser::initContext() {
     mContext->subPageNum = AM_TT2_ANY_SUBNO;
     mContext->pageState = TT2_DISPLAY_STATE;
     mContext->searchDir = 1;
-    mContext->gotoPage = 0;
+    mContext->gotoPage = 100;
     //1:transparent 0:black default transparent
     mContext->transparentBackground = 0;
     //display backGround, page not full Green, need add prop define non-page display backGround

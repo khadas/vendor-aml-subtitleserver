@@ -65,6 +65,8 @@ static IDirectFBDataBuffer       *buffer       = NULL;
 static IDirectFBSurface          *image        = NULL;
 static DFBDataBufferDescription  ddsc;
 static DFBSurfaceDescription     sdsc;
+static DFBRectangle              sourceRect;
+static DFBRectangle              destinationRect;
 
 static const char       *filename = NULL;
 static int screen_width, screen_height;

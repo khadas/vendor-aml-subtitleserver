@@ -203,7 +203,7 @@ static IDirectFBSurface *load_image(std::string filename)
     return surf;
 }
 
-static void apply_surface(int x, int y, IDirectFBSurface *source, IDirectFBSurface *destination, int type)
+static void apply_surface(int x, int y, IDirectFBSurface *source, IDirectFBSurface *destination, int type, unsigned short spu_width , unsigned short spu_height)
 {
     destination->Clear ( destination, 255, 255, 255, 0 );
     destination->SetBlittingFlags(destination, DSBLIT_SRC_COLORKEY);
@@ -212,7 +212,11 @@ static void apply_surface(int x, int y, IDirectFBSurface *source, IDirectFBSurfa
     if (type ==TYPE_SUBTITLE_DVB_TELETEXT) {
         destination->StretchBlit(screen, image, NULL, NULL);
     } else {
-        destination->Blit(destination, source, NULL, x, y);
+        destinationRect.x= x;
+        destinationRect.y= y;
+        destinationRect.w=spu_width * 0.6;
+        destinationRect.h=spu_height * 0.6;
+        destination->StretchBlit(destination, image, NULL, &destinationRect);
     }
 }
 
@@ -262,9 +266,9 @@ bool DFBDevice::initDisplay() {
     DFBResult ret;
     /* disable mouse icon,init directfb command line parsing.*/
     int argx = 2;
-    char *argData[] = {"self","--dfb:system=fbdev,no-cursor-updates",0};
+    char *argData[] = {"self", "--dfb:system=fbdev,fbdev=/dev/fb1,mode=640x360,depth=8,pixelformat=ARGB,no-hardware", 0};
     char **argPointer = argData;
-    ret = DirectFBInit( &argx, &argPointer );
+    ret = DirectFBInit(&argx, &argPointer);
     if (ret != DFB_OK) {
         ALOGD("DirectFBInit DirectFB Fail!");
         return  false;
@@ -382,7 +386,7 @@ bool DFBDevice::drawImage(int type, unsigned char *img, int64_t pts, int buffer_
 //    save2BitmapFile(filename, (uint32_t *)img, spu_width, spu_height);
     DFBResult             ret;
     image = load_image(std::string(filename));
-    apply_surface((screen_width/10)*3,(screen_height/10)*8 , image, screen, type);
+    apply_surface(screen_width*0.2,screen_height*0.8  , image, screen, type, spu_width, spu_height);
     //apply_surface( 240, 190, image, screen );
     screen->Flip (screen, NULL, DSFLIP_WAITFORSYNC);
     //screen->StretchBlit(screen, image, NULL, NULL);

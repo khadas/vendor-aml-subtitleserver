@@ -33,6 +33,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <stdio.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -48,6 +49,10 @@
 #include "EventsTracker.h"
 #include "IpcBuffer.h"
 #include "../SubtitleServer.h"
+#define USE_UN true
+#if USE_UN
+#define UN_BASE_PATH "/tmp/subtitlesocketserver.sock."
+#endif
 
 /**
     payload is:
@@ -131,14 +136,9 @@ void SubSocketServer::__threadLoop() {
 }
 
 bool SubSocketServer::threadLoop() {
-    struct sockaddr_in addr;
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(LISTEN_PORT);
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
-
+    ALOGD("%s", __FUNCTION__);
     int flag = 1;
-
-    int sockFd = socket(AF_INET, SOCK_STREAM, 0);
+    int sockFd = socket(USE_UN ? AF_UNIX : AF_INET, SOCK_STREAM, 0);
     if (sockFd < 0) return true;
 
     if ((setsockopt(sockFd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag))) < 0) {
@@ -147,11 +147,34 @@ bool SubSocketServer::threadLoop() {
         return true;
     }
 
-    if (::bind(sockFd, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
-        ALOGE("bind fail. error=%d, err:%s\n", errno, strerror(errno));
+#if USE_UN
+    std::string unPath = std::string(UN_BASE_PATH);
+
+    struct sockaddr_un un{};
+    bzero(&un, sizeof(un));
+    un.sun_family = AF_UNIX;
+    strcpy(un.sun_path, unPath.c_str());
+
+    unlink(unPath.c_str());
+    size_t sockLen = offsetof(struct sockaddr_un, sun_path) + unPath.size();
+
+    if (::bind(sockFd, (struct sockaddr *) &un, (socklen_t) sockLen) == -1) {
+        ALOGE("bind as UN fail. error=%d, err:%s\n", errno, strerror(errno));
         close(sockFd);
-        return errno != EADDRINUSE;
+        return false;
     }
+#else
+    struct sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    if (::bind(sockFd, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
+        ALOGE("bind as INET fail. error=%d, err:%s\n", errno, strerror(errno));
+        close(sockFd);
+        return false;
+    }
+#endif
 
     if (::listen(sockFd, QUEUE_SIZE) == -1) {
         ALOGE("listen fail.error=%d, err:%s\n", errno, strerror(errno));

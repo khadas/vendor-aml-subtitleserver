@@ -75,6 +75,12 @@ public:
         executeCmd(__FUNCTION__, cmdStr);
     }
 
+    void moveToFront(const char* displayName) {
+        char cmdStr[CMD_SIZE];
+        sprintf(cmdStr, mCmdMoveToFront.c_str(), displayName);
+        executeCmd(__FUNCTION__, cmdStr);
+    }
+
 private:
     void executeCmd(const char* method, const char *cmd) {
         FILE* pFile = popen(cmd, "r");
@@ -90,6 +96,9 @@ private:
 
     std::string mCmdMoveToBack = R"(curl 'http://127.0.0.1:9998/jsonrpc' -d '{"jsonrpc": "2.0","id": 4,"method":
     "org.rdk.RDKShell.1.moveToBack", "params": { "client": "%s" }}';)";
+
+    std::string mCmdMoveToFront = R"(curl 'http://127.0.0.1:9998/jsonrpc' -d '{"jsonrpc": "2.0","id": 4,"method":
+    "org.rdk.RDKShell.1.moveToFront", "params": { "client": "%s" }}';)";
 };
 
 static struct DisplayEnv {
@@ -183,7 +192,8 @@ bool WLGLDevice::createSubtitleOverlay() {
 
     if (rdkShellCmd.createDisplay(SUBTITLE_OVERLAY_NAME, SUBTITLE_OVERLAY_NAME)) {
         ALOGD("createSubtitleOverlay OK");
-        rdkShellCmd.moveToBack(SUBTITLE_OVERLAY_NAME);
+//        rdkShellCmd.moveToBack(SUBTITLE_OVERLAY_NAME);
+//        rdkShellCmd.moveToFront(SUBTITLE_OVERLAY_NAME);
         return true;
     }
 
@@ -349,7 +359,7 @@ bool WLGLDevice::initEGL() {
     surface = wl_compositor_create_surface(compositor);
     shellSurface = wl_shell_get_shell_surface(shell, surface);
     wl_shell_surface_add_listener(shellSurface, &shell_surface_listener, this);
-    wl_shell_surface_set_toplevel(shellSurface);
+    //wl_shell_surface_set_toplevel(shellSurface);
 
     wlEglWindow = wl_egl_window_create (surface, width, height);
     eglSurface = eglCreateWindowSurface(eglDisplay, config, wlEglWindow, NULL);

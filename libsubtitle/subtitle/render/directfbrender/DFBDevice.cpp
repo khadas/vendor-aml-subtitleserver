@@ -279,21 +279,8 @@ bool DFBDevice::initDisplay() {
         return  false;
     }
 
-    ret = dfb->SetCooperativeLevel (dfb, DFSCL_NORMAL);
-    if (ret != DFB_OK) {
-        ALOGD("SetCooperativeLevel Fail!");
-        return  false;
-    }
-
-    //default fullscreen
-    /*ret = dfb->SetVideoMode(dfb, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP);
-    if (ret != DFB_OK) {
-        ALOGD("SetVideoMode Fail!");
-        return  false;
-    }*/
-
     sdsc.flags = DSDESC_CAPS;
-    sdsc.caps = (DFBSurfaceCapabilities)(DSCAPS_PRIMARY | DSCAPS_FLIPPING);
+    sdsc.caps = DSCAPS_PRIMARY;
     ret = dfb->CreateSurface(dfb, &sdsc, &screen);
     if (ret != DFB_OK) {
         ALOGD("CreateSurface Fail!");
@@ -386,7 +373,7 @@ bool DFBDevice::drawImage(int type, unsigned char *img, int64_t pts, int buffer_
 //    save2BitmapFile(filename, (uint32_t *)img, spu_width, spu_height);
     DFBResult             ret;
     image = load_image(std::string(filename));
-    apply_surface(screen_width*0.2,screen_height*0.8  , image, screen, type, spu_width, spu_height);
+    apply_surface(screen_width*0.2,screen_height*0.8, image, screen, type, spu_width, spu_height);
     //apply_surface( 240, 190, image, screen );
     screen->Flip (screen, NULL, DSFLIP_WAITFORSYNC);
     //screen->StretchBlit(screen, image, NULL, NULL);

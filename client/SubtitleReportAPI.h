@@ -26,15 +26,8 @@
 
 #ifndef __SUBTITLE_SOCKET_CLIENT_API_H__
 #define __SUBTITLE_SOCKET_CLIENT_API_H__
-#include <map>
-#include <memory>
+
 #include "SubtitleAPICommon.h"
-
-#include <binder/Binder.h>
-#include <binder/Parcel.h>
-#include <binder/IServiceManager.h>
-
-using namespace android;
 
 #ifdef __cplusplus
 extern "C" {
@@ -95,7 +88,7 @@ SubSourceStatus SubSource_ReportLauguageString(SubSourceHandle handle, const cha
 
 //SubSourceStatus SubSource_SendData(SubSourceHandle handle, const char *data, int size);
 SubSourceStatus SubSource_SendData(SubSourceHandle handle, const char *mbuf, int length, int64_t pts,
-        enum CodecID sub_type = CODEC_ID_DVB_SUBTITLE) ;
+        enum CodecID sub_type) ;
 
 
 #ifdef __cplusplus

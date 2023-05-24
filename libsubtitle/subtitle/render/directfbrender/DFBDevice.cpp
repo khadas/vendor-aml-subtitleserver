@@ -203,8 +203,16 @@ static IDirectFBSurface *load_image(std::string filename)
     return surf;
 }
 
-static void apply_surface(int x, int y, IDirectFBSurface *source, IDirectFBSurface *destination, int type, unsigned short spu_width , unsigned short spu_height)
+static void apply_surface(int x, int y, DFBRect &videoOriginRect, IDirectFBSurface *source, IDirectFBSurface *destination, int type, unsigned short spu_width , unsigned short spu_height)
 {
+    //Calculate scaling factor
+    float factor_x;
+    float factor_y;
+    factor_x = (float)screen_width / videoOriginRect.width();
+    factor_y = (float)screen_height / videoOriginRect.height();
+    spu_width = (int)(factor_x * spu_width);
+    spu_height = (int)(factor_y * spu_height);
+
     destination->Clear ( destination, 255, 255, 255, 0 );
     destination->SetBlittingFlags(destination, DSBLIT_SRC_COLORKEY);
     source->SetSrcColorKey(source, 0xFF, 0x0, 0xFF);
@@ -212,10 +220,10 @@ static void apply_surface(int x, int y, IDirectFBSurface *source, IDirectFBSurfa
     if (type ==TYPE_SUBTITLE_DVB_TELETEXT) {
         destination->StretchBlit(screen, image, NULL, NULL);
     } else {
-        destinationRect.x= x;
-        destinationRect.y= y;
-        destinationRect.w=spu_width * 0.6;
-        destinationRect.h=spu_height * 0.6;
+        destinationRect.x= (int)(0.1*factor_x*x);
+        destinationRect.y= 0.8*y;
+        destinationRect.w=spu_width;
+        destinationRect.h=spu_height;
         destination->StretchBlit(destination, image, NULL, &destinationRect);
     }
 }
@@ -266,7 +274,7 @@ bool DFBDevice::initDisplay() {
     DFBResult ret;
     /* disable mouse icon,init directfb command line parsing.*/
     int argx = 2;
-    char *argData[] = {"self", "--dfb:system=fbdev,fbdev=/dev/fb1,mode=640x360,depth=8,pixelformat=ARGB,no-hardware", 0};
+    char *argData[] = {"self", "--dfb:system=fbdev,fbdev=/dev/fb1,mode=640x360,depth=8,pixelformat=ARGB,no-hardware,no-cursor", 0};
     char **argPointer = argData;
     ret = DirectFBInit(&argx, &argPointer);
     if (ret != DFB_OK) {
@@ -362,10 +370,13 @@ void DFBDevice::drawColor(float r, float g, float b, float a, DFBRect &rect, boo
 }
 
 bool DFBDevice::drawImage(int type, unsigned char *img, int64_t pts, int buffer_size, unsigned short spu_width , unsigned short spu_height, DFBRect &videoOriginRect, DFBRect &src, DFBRect &dst) {
+/*
     if (!initTexture(img, videoOriginRect, src)) {
         ALOGE("%s: initTexture failed", __FUNCTION__ );
         return false;
     }
+*/
+
     char *filename;
     ALOGD("DFBDevice %s img:%p buffer_size:%d pts:%lld, spu_width:%d spu_height:%d src.x():%d ,src.y():%d ,src.width():%d ,src.height():%d start", __FUNCTION__, img, buffer_size, pts, spu_width, spu_height, src.x(),src.y(),src.width(),src.height());
     filename = "/tmp/subtitle_dfb";
@@ -373,7 +384,7 @@ bool DFBDevice::drawImage(int type, unsigned char *img, int64_t pts, int buffer_
 //    save2BitmapFile(filename, (uint32_t *)img, spu_width, spu_height);
     DFBResult             ret;
     image = load_image(std::string(filename));
-    apply_surface(screen_width*0.2,screen_height*0.8, image, screen, type, spu_width, spu_height);
+    apply_surface(screen_width, screen_height, videoOriginRect, image, screen, type, spu_width, spu_height);
     //apply_surface( 240, 190, image, screen );
     screen->Flip (screen, NULL, DSFLIP_WAITFORSYNC);
     //screen->StretchBlit(screen, image, NULL, NULL);

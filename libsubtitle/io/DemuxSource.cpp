@@ -70,6 +70,7 @@ static const std::string SUBTITLE_READ_DEVICE = "/dev/amstream_sub_read";
 #define SECTION_DEMUX_INDEX 2
 #define DMX_SUBTITLE_NO_SEC 0
 #define DMX_SUBTITLE_SEC   (2 << 10)
+#define DMX_SUBTITLE_BUFFER_SIZE 0x20000
 //#define DUMP_SUB_DATA
 DemuxSource *DemuxSource::sInstance = nullptr;
 DemuxSource *DemuxSource::getCurrentInstance() {
@@ -262,7 +263,7 @@ static int open_dvb_dmx(TVSubtitleData *data, int dmx_id, int pid, int flag)
             goto error;
         ALOGE("[open_dmx]AM_DMX_AllocateFilter data->filter_handle:%d,mSubType:%d",data->filter_handle,DemuxSource::getCurrentInstance()->mSubType);
 
-        ret = AM_DMX_SetBufferSize(dmx_id, data->filter_handle, 0x80000);
+        ret = AM_DMX_SetBufferSize(dmx_id, data->filter_handle, DMX_SUBTITLE_BUFFER_SIZE);
         if (ret != AM_SUCCESS)
             goto error;
         ALOGE("[open_dmx]AM_DMX_SetBufferSize");

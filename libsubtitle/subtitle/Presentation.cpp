@@ -50,6 +50,10 @@
     #include "render/directfbrender/DFBRender.h"
 #endif
 
+#ifdef USE_FB
+    #include "render/framebufferrender/FBRender.h"
+#endif
+
 //using namespace amlogic;
 
 #define MAX_ALLOWED_EXT_SPU_NUM 1000
@@ -178,6 +182,11 @@ Presentation::Presentation(std::shared_ptr<Display> disp, int renderType) :
     } else /*Render::DFB RENDER*/ {
         ALOGD("Create DFB RENDER");
         mRender = std::make_shared<DFBRenderWrapper>();
+    #endif
+    #ifdef USE_FB
+    } else /*Render::FB RENDER*/ {
+        ALOGD("Create FB RENDER");
+        mRender = std::make_shared<FBRenderWrapper>();
     #endif
     }
     mMsgProcess = nullptr; // only access in threadloop.

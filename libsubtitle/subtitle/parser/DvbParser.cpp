@@ -905,7 +905,7 @@ int DvbParser::init() {
 
 void DvbParser::checkDebug() {
     //dump dvb subtitle bitmap
-    mDumpSub = true;
+    mDumpSub = false;
 }
 
 void DvbParser::notifySubtitleDimension(int width, int height) {
@@ -1427,7 +1427,7 @@ void DvbParser::saveResult2Spu(std::shared_ptr<AML_SPUVAR> spu) {
         }
 
        if (mDumpSub) {
-           snprintf(filename, sizeof(filename), "./tmp/subtitleDump/dvb(%lld)", spu->pts);
+           snprintf(filename, sizeof(filename), "/tmp/dvb(%lld)", spu->pts);
            save2BitmapFile(filename, pbuf, width, height);
        }
 

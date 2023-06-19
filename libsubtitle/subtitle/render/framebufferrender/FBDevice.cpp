@@ -67,24 +67,12 @@ class RdkShellCmd {
 public:
     const int CMD_SIZE = 256;
 
-    bool createDisplay(const char* client, const char* displayName) {
-        char cmdStr[CMD_SIZE];
-        sprintf(cmdStr, mCmdCreateDisplay.c_str(), client, displayName);
-        executeCmd(__FUNCTION__, cmdStr);
-        return isDisplayExists("/run/", displayName);
-    }
-
     bool isDisplayExists(const char* displayDir, const char* displayName) {
         std::string path(displayDir);
         path += displayName;
         return access(path.c_str(), F_OK | R_OK) == 0;
     }
 
-    void moveToBack(const char* displayName) {
-        char cmdStr[CMD_SIZE];
-        sprintf(cmdStr, mCmdMoveToBack.c_str(), displayName);
-        executeCmd(__FUNCTION__, cmdStr);
-    }
 
 private:
     void executeCmd(const char* method, const char *cmd) {
@@ -94,13 +82,6 @@ private:
         ALOGD("[%s] ret= %s", method, retStr);
         pclose(pFile);
     }
-
-private:
-    std::string mCmdCreateDisplay = R"(curl 'http://127.0.0.1:9998/jsonrpc' -d '{"jsonrpc": "2.0","id": 4,"method":
-    "org.rdk.RDKShell.1.createDisplay","params": { "client": "%s", "displayName": "%s" }}';)";
-
-    std::string mCmdMoveToBack = R"(curl 'http://127.0.0.1:9998/jsonrpc' -d '{"jsonrpc": "2.0","id": 4,"method":
-    "org.rdk.RDKShell.1.moveToBack", "params": { "client": "%s" }}';)";
 };
 
 static struct DisplayEnv {
@@ -131,21 +112,6 @@ bool FBDevice::init() {
 }
 
 bool FBDevice::connectDisplay() {
-    auto funcConnectFromSubOverlay = [&]()->bool {
-        if (createSubtitleOverlay()) {
-            setupEnv("/run", SUBTITLE_OVERLAY_NAME);
-            ALOGD("createDisplay from shell cmd");
-            if (createDisplay()) {
-                ALOGV("createDisplay success for {%s, %s}", "/run", SUBTITLE_OVERLAY_NAME);
-                return true;
-            } else {
-                ALOGE("createDisplay failed for {%s, %s}", "/run", SUBTITLE_OVERLAY_NAME);
-            }
-        }
-
-        return false;
-    };
-
     auto funcConnectFromPresetEnv = [&]()->bool {
         const char *runtimeDir = getenv(ENV_XDG_RUNTIME_DIR);
         const char *waylandDisplay = getenv(ENV_WAYLAND_DISPLAY);
@@ -182,7 +148,7 @@ bool FBDevice::connectDisplay() {
         return false;
     };
 
-    return funcConnectFromSubOverlay() || funcConnectFromPresetEnv() || funcConnectFromCandidatesEnvs();
+    return funcConnectFromPresetEnv() || funcConnectFromCandidatesEnvs();
 }
 
 static void save2BitmapFile(const char *filename, uint32_t *bitmap, int w, int h) {
@@ -205,25 +171,6 @@ static void save2BitmapFile(const char *filename, uint32_t *bitmap, int w, int h
         }
     }
     fclose(f);
-}
-
-bool FBDevice::createSubtitleOverlay() {
-    RdkShellCmd rdkShellCmd;
-
-    if (rdkShellCmd.isDisplayExists("/run/", SUBTITLE_OVERLAY_NAME)) {
-        ALOGD("createSubtitleOverlay, %s has already exist", "/run/" SUBTITLE_OVERLAY_NAME);
-        return true;
-    }
-
-    if (rdkShellCmd.createDisplay(SUBTITLE_OVERLAY_NAME, SUBTITLE_OVERLAY_NAME)) {
-        ALOGD("createSubtitleOverlay OK");
-        rdkShellCmd.moveToBack(SUBTITLE_OVERLAY_NAME);
-        return true;
-    }
-
-    ALOGE("Create Subtitle overlay failed");
-
-    return false;
 }
 
 bool FBDevice::initDisplay() {

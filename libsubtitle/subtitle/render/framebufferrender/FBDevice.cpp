@@ -1,0 +1,697 @@
+/*
+ * Copyright (C) 2014-2019 Amlogic, Inc. All rights reserved.
+ *
+ * All information contained herein is Amlogic confidential.
+ *
+ * This software is provided to you pursuant to Software License Agreement
+ * (SLA) with Amlogic Inc ("Amlogic"). This software may be used
+ * only in accordance with the terms of this agreement.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification is strictly prohibited without prior written permission from
+ * Amlogic.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+#ifdef USE_FB
+
+#define LOG_TAG "FBDevice"
+#include "FBDevice.h"
+#include "FBRender.h"
+#include <Parser.h>
+
+#include <cstdlib>
+#include <utils/Log.h>
+#include <cstring>
+#include <vector>
+#include <string>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <linux/fb.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <pthread.h>
+#include <png.h>
+
+#include "../textrender/text.h"
+#include "../textrender/round_rectangle.h"
+using namespace Cairo;
+
+#define ENV_XDG_RUNTIME_DIR "XDG_RUNTIME_DIR"
+#define ENV_WAYLAND_DISPLAY "WAYLAND_DISPLAY"
+#define SUBTITLE_OVERLAY_NAME "subtitle-overlay"
+#define FRAMEBUFFER_DEV "/dev/fb1"
+
+#ifdef ALOGD
+#undef ALOGD
+#endif
+#define ALOGD(...) ALOGI(__VA_ARGS__)
+
+class RdkShellCmd {
+public:
+    const int CMD_SIZE = 256;
+
+    bool createDisplay(const char* client, const char* displayName) {
+        char cmdStr[CMD_SIZE];
+        sprintf(cmdStr, mCmdCreateDisplay.c_str(), client, displayName);
+        executeCmd(__FUNCTION__, cmdStr);
+        return isDisplayExists("/run/", displayName);
+    }
+
+    bool isDisplayExists(const char* displayDir, const char* displayName) {
+        std::string path(displayDir);
+        path += displayName;
+        return access(path.c_str(), F_OK | R_OK) == 0;
+    }
+
+    void moveToBack(const char* displayName) {
+        char cmdStr[CMD_SIZE];
+        sprintf(cmdStr, mCmdMoveToBack.c_str(), displayName);
+        executeCmd(__FUNCTION__, cmdStr);
+    }
+
+private:
+    void executeCmd(const char* method, const char *cmd) {
+        FILE* pFile = popen(cmd, "r");
+        char buf[128];
+        char* retStr = fgets(buf, sizeof(buf), pFile);
+        ALOGD("[%s] ret= %s", method, retStr);
+        pclose(pFile);
+    }
+
+private:
+    std::string mCmdCreateDisplay = R"(curl 'http://127.0.0.1:9998/jsonrpc' -d '{"jsonrpc": "2.0","id": 4,"method":
+    "org.rdk.RDKShell.1.createDisplay","params": { "client": "%s", "displayName": "%s" }}';)";
+
+    std::string mCmdMoveToBack = R"(curl 'http://127.0.0.1:9998/jsonrpc' -d '{"jsonrpc": "2.0","id": 4,"method":
+    "org.rdk.RDKShell.1.moveToBack", "params": { "client": "%s" }}';)";
+};
+
+static struct DisplayEnv {
+    const char* xdg_runtime_dir;
+    const char* wayland_display;
+} sCandidateEnvs[] = {
+        {"/run/user/0", "wayland-0"},
+        {"/run", "wst-launcher"},
+        {"/run", "wst-ResidentApp"},
+        {"/run", "sub_overlay"},
+        {"/run/HtmlApp", "wst-HtmlApp"},
+};
+
+FBDevice::FBDevice() {
+    ALOGD("FBDevice +++");
+    mInited = init();
+}
+
+FBDevice::~FBDevice() {
+    /* release our interfaces to shutdown DirectFB */
+    //font->Release( font );
+    ALOGD("FBDevice ---");
+}
+
+bool FBDevice::init() {
+    ALOGD("FBDevice %s", __FUNCTION__);
+    return initDisplay();
+}
+
+bool FBDevice::connectDisplay() {
+    auto funcConnectFromSubOverlay = [&]()->bool {
+        if (createSubtitleOverlay()) {
+            setupEnv("/run", SUBTITLE_OVERLAY_NAME);
+            ALOGD("createDisplay from shell cmd");
+            if (createDisplay()) {
+                ALOGV("createDisplay success for {%s, %s}", "/run", SUBTITLE_OVERLAY_NAME);
+                return true;
+            } else {
+                ALOGE("createDisplay failed for {%s, %s}", "/run", SUBTITLE_OVERLAY_NAME);
+            }
+        }
+
+        return false;
+    };
+
+    auto funcConnectFromPresetEnv = [&]()->bool {
+        const char *runtimeDir = getenv(ENV_XDG_RUNTIME_DIR);
+        const char *waylandDisplay = getenv(ENV_WAYLAND_DISPLAY);
+        ALOGD("connectDisplay, current env= {%s, %s}", runtimeDir, waylandDisplay);
+        if (runtimeDir != nullptr && strlen(runtimeDir) > 0
+            && waylandDisplay != nullptr && strlen(waylandDisplay) > 0) {
+            ALOGD("createDisplay with preset env");
+            if (createDisplay()) {
+                ALOGD("createDisplay success for {%s, %s}", runtimeDir, waylandDisplay);
+                return true;
+            } else {
+                ALOGE("createDisplay failed for {%s, %s}", runtimeDir, waylandDisplay);
+            }
+        }
+
+        return false;
+    };
+
+    auto funcConnectFromCandidatesEnvs = [&]()->bool {
+        ALOGD("createDisplay with candidate envs");
+        int n = sizeof(sCandidateEnvs) / sizeof(sCandidateEnvs[0]);
+        for (int i = 0; i < n; ++i) {
+            struct DisplayEnv& env = sCandidateEnvs[i];
+            setupEnv(env.xdg_runtime_dir, env.wayland_display);
+
+            if (createDisplay()) {
+                ALOGD("createDisplay success for {%s, %s}", env.xdg_runtime_dir, env.wayland_display);
+                return true;
+            } else {
+                ALOGE("createDisplay failed for {%s, %s}", env.xdg_runtime_dir, env.wayland_display);
+            }
+        }
+
+        return false;
+    };
+
+    return funcConnectFromSubOverlay() || funcConnectFromPresetEnv() || funcConnectFromCandidatesEnvs();
+}
+
+static void save2BitmapFile(const char *filename, uint32_t *bitmap, int w, int h) {
+    FILE *f;
+    char fname[40];
+    snprintf(fname, sizeof(fname), "%s.png", filename);
+    f = fopen(fname, "w");
+    ALOGD("%s start", __FUNCTION__);
+    if (!f) {
+        ALOGE("Error cannot open file %s!", fname);
+        return;
+    }
+    fprintf(f, "P6\n" "%d %d\n" "%d\n", w, h, 255);
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            int v = bitmap[y * w + x];
+            putc((v >> 16) & 0xff, f);
+            putc((v >> 8) & 0xff, f);
+            putc((v >> 0) & 0xff, f);
+        }
+    }
+    fclose(f);
+}
+
+bool FBDevice::createSubtitleOverlay() {
+    RdkShellCmd rdkShellCmd;
+
+    if (rdkShellCmd.isDisplayExists("/run/", SUBTITLE_OVERLAY_NAME)) {
+        ALOGD("createSubtitleOverlay, %s has already exist", "/run/" SUBTITLE_OVERLAY_NAME);
+        return true;
+    }
+
+    if (rdkShellCmd.createDisplay(SUBTITLE_OVERLAY_NAME, SUBTITLE_OVERLAY_NAME)) {
+        ALOGD("createSubtitleOverlay OK");
+        rdkShellCmd.moveToBack(SUBTITLE_OVERLAY_NAME);
+        return true;
+    }
+
+    ALOGE("Create Subtitle overlay failed");
+
+    return false;
+}
+
+bool FBDevice::initDisplay() {
+    ALOGD("FBDevice  initDisplay start!");
+    return true;
+}
+
+void FBDevice::setupEnv(const char* runtimeDir, const char* waylandDisplay) {
+    ALOGD("setupEnv, ENV_XDG_RUNTIME_DIR= %s, ENV_WAYLAND_DISPLAY= %s",
+            runtimeDir, waylandDisplay);
+
+    setenv(ENV_XDG_RUNTIME_DIR, runtimeDir, 1);
+    setenv(ENV_WAYLAND_DISPLAY, waylandDisplay, 1);
+}
+
+bool FBDevice::createDisplay() {
+    ALOGD("dfb_display_roundtrip 222");
+    return true;
+}
+
+void FBDevice::getScreenSize(size_t *width, size_t *height) {
+    // From env WESTEROS_GL_GRAPHICS_MAX_SIZE
+    const char *env = getenv("WESTEROS_GL_GRAPHICS_MAX_SIZE");
+    if (env) {
+        int w = 0, h = 0;
+        if (sscanf(env, "%dx%d", &w, &h) == 2) {
+            ALOGD("getScreenSize, from env WESTEROS_GL_GRAPHICS_MAX_SIZE: [%dx%d]", w, h);
+            if ((w > 0) && (h > 0)) {
+                *width = w;
+                *height = h;
+                return;
+            }
+        }
+    }
+
+    ALOGD("getScreenSize, from defult: [%dx%d]", WIDTH, HEIGHT);
+    *width = WIDTH;
+    *height = HEIGHT;
+}
+
+bool FBDevice::initTexture(void* data, FBRect &videoOriginRect, FBRect &cropRect) {
+    ALOGD("sourceCrop glRect= [%d, %d, %d, %d]", cropRect.x(), cropRect.y(),
+            cropRect.width(), cropRect.height());
+    if (data == nullptr || cropRect.isEmpty())
+        return false;
+
+    if (!isTextMultiPart) {
+    }
+    //mTexture.crop.set(videoOriginRect);
+
+    //Video original crop
+
+    // Avoid data is out of display frame
+    FBRect subCrop;
+    if (!videoOriginRect.intersect(cropRect, &subCrop)) {
+        ALOGE("Final subCrop is empty, return");
+        return false;
+    }
+    subCrop.log("Final subCrop");
+    return true;
+}
+
+void FBDevice::drawColor(float r, float g, float b, float a, bool flush) {
+}
+
+void FBDevice::drawColor(float r, float g, float b, float a, FBRect &rect, bool flush) {
+    FBRect intersectRect = FBRect();
+    if (rect.isEmpty() || !mScreenRect.intersect(rect, &intersectRect)) {
+        ALOGW("%s, Rect checked failed", __FUNCTION__ );
+        return;
+    }
+}
+
+// init Framebuffer
+bool initFramebuffer() {
+    // open Framebuffer dev
+    fbfd = open(FRAMEBUFFER_DEV, O_RDWR);
+    if (fbfd == -1) {
+        ALOGD("Error: cannot open framebuffer device");
+        return false;
+    }
+
+    // get screen information
+    if (ioctl(fbfd, FBIOGET_VSCREENINFO, &vinfo) == -1) {
+        ALOGD("Error: failed to get framebuffer information");
+        close(fbfd);
+        return false;
+    }
+
+    // Set virtual screen size and virtual resolution
+    vinfo.bits_per_pixel = 32;
+    vinfo.xres_virtual = vinfo.xres;
+    vinfo.yres_virtual = vinfo.yres * 2;  // double buffering
+
+    if (ioctl(fbfd, FBIOPUT_VSCREENINFO, &vinfo) == -1) {
+        ALOGD("Error: failed to put framebuffer information");
+        close(fbfd);
+        return false;
+    }
+
+    // mapping framebuffer memory
+    size_t fbSize = vinfo.xres_virtual * vinfo.yres_virtual * (vinfo.bits_per_pixel / 8);
+    framebuffer = (unsigned char*)mmap(NULL, fbSize, PROT_READ | PROT_WRITE, MAP_SHARED, fbfd, 0);
+    if (framebuffer == MAP_FAILED) {
+        ALOGD("Error: failed to map framebuffer memory");
+        close(fbfd);
+        return false;
+    }
+
+    return true;
+}
+
+// clean Framebuffer
+void FBDevice::cleanupFramebuffer() {
+    if (framebuffer == NULL) {
+        return;
+    }
+    munmap(framebuffer, vinfo.xres_virtual * vinfo.yres_virtual * (vinfo.bits_per_pixel / 8));
+    close(fbfd);
+}
+
+void FBDevice::clearFramebufferScreen() {
+    // Check for null pointer
+    if (framebuffer == NULL) {
+        ALOGD("clearFramebufferScreen framebuffer == NULL");
+        return;
+    }
+
+    size_t bufferSize = vinfo.xres_virtual * vinfo.yres_virtual * (vinfo.bits_per_pixel / 8);
+    if (bufferSize == 0) {
+        return;
+    }
+
+    try {
+        memset(framebuffer, 0, bufferSize);
+    } catch (const std::exception& e) {
+        return;
+    }
+}
+
+//draw Image To Framebuffer
+void FBDevice::drawImageToFramebuffer(unsigned char* imgBuffer, unsigned short spu_width, unsigned short spu_height,
+                                FBRect& videoOriginRect, int type, float scale_factor) {
+    if (type == TYPE_SUBTITLE_DVB_TELETEXT) {
+        // Calculate scaling factors
+        float scale_factor_width = static_cast<float>(videoOriginRect.width()) / spu_width;
+        float scale_factor_height = static_cast<float>(videoOriginRect.height()) / spu_height;
+    //    scale_factor = std::min(scale_factor_width, scale_factor_height);
+
+        // Calculate scaled image dimensions
+        int scaled_width = static_cast<int>(spu_width * scale_factor_width);
+        int scaled_height = static_cast<int>(spu_height * scale_factor_height);
+
+        ALOGD("drawImageToFramebuffer, scale_factor_width = %f, scale_factor_height = %f,scaled_width = %d,scaled_height = %d",
+                                                scale_factor_width, scale_factor_height, scaled_width, scaled_height);
+        // Calculate image offset
+        int x_offset = (videoOriginRect.width() - scaled_width) / 2;
+        int y_offset = (videoOriginRect.height() - scaled_height) / 2;
+
+        // Copy and scale image data to framebuffer with position offset
+        for (int y = 0; y < scaled_height; ++y) {
+            for (int x = 0; x < scaled_width; ++x) {
+                // Calculate corresponding coordinates in the original image
+                int img_x = static_cast<int>(x / scale_factor_width);
+                int img_y = static_cast<int>(y / scale_factor_height);
+
+                // Calculate image and framebuffer offsets
+                int imgOffset = (img_y * spu_width + img_x) * 4;  // 4 bytes per pixel
+                int fbOffset = ((y + y_offset) * vinfo.xres_virtual + (x + x_offset)) * 4;
+
+                // Copy pixel data from the image buffer to the framebuffer
+                *((unsigned int*)(framebuffer + fbOffset)) = *((unsigned int*)(imgBuffer + imgOffset));
+            }
+        }
+    } else {
+            clearFramebufferScreen();
+            int x_offset = 0;
+            int y_offset = 0;
+
+            #ifdef SUBTITLE_ZAPPER_2K
+            ALOGD("subtitletest SUBTITLE_ZAPPER_2K");
+            if (scale_factor == 1) {
+                x_offset = 0.4 * videoOriginRect.width();
+                y_offset = 0.9 * videoOriginRect.height();
+            } else {
+                x_offset = 0.1 * videoOriginRect.width();
+                y_offset = 0.5 * videoOriginRect.height();
+            }
+            #elif defined(SUBTITLE_ZAPPER_4K)
+            ALOGD("subtitletest SUBTITLE_ZAPPER_4K");
+            if (scale_factor == 1.5) {
+                x_offset = 0.5 * videoOriginRect.width();
+                y_offset = 1.5 * videoOriginRect.height();
+            } else {
+                x_offset = 0 * videoOriginRect.width();
+                y_offset = 0.8 * videoOriginRect.height();
+            }
+            #endif
+
+        int scaled_width = static_cast<int>(spu_width * scale_factor);
+        int scaled_height = static_cast<int>(spu_height * scale_factor);
+
+        // Copy and scale image data to framebuffer with position offset
+        for (int y = 0; y < scaled_height; ++y) {
+            for (int x = 0; x < scaled_width; ++x) {
+                int img_x = static_cast<int>(x / scale_factor);
+                int img_y = static_cast<int>(y / scale_factor);
+
+                int imgOffset = (img_y * spu_width + img_x) * 4;  // 4 bytes per pixel
+                int fbOffset = ((y + y_offset) * vinfo.xres_virtual + (x + x_offset)) * 4;
+                *((unsigned int*)(framebuffer + fbOffset)) = *((unsigned int*)(imgBuffer + imgOffset));
+            }
+        }
+    }
+}
+
+float setScaleFactor(FBRect& videoOriginRect) {
+    float result = 1.0f;
+    if (720.0f/videoOriginRect.width() < 1) {
+        result = (720.0f/videoOriginRect.width())*1.5;
+    }
+    #ifdef SUBTITLE_ZAPPER_2K
+    return result;
+    #elif defined(SUBTITLE_ZAPPER_4K)
+    return result*1.5;
+    #endif
+}
+
+bool FBDevice::drawImage(int type, unsigned char* img, int64_t pts, int buffer_size,
+                         unsigned short spu_width, unsigned short spu_height,
+                         FBRect& videoOriginRect, FBRect& src, FBRect& dst) {
+    ALOGD("%s start",__FUNCTION__);
+    ALOGD("videoOriginRect.width() = %d, videoOriginRect.height() = %d, spu_width = %d,spu_height = %d",
+                         videoOriginRect.width(), videoOriginRect.height(), spu_width, spu_height);
+
+    int image_size  = (spu_width * spu_height * 4);  // 4 bytes per pixel
+    float scale_factor = setScaleFactor(videoOriginRect);
+    ALOGD("scale_factor = %f",scale_factor);
+
+    // Check if image size is compatible with framebuffer
+    // if (src.width() != IMAGE_WIDTH || src.height() != IMAGE_HEIGHT) {
+    //     ALOGD("Error: image size does not match framebuffer size\n");
+    //     return false;
+    // }
+
+    // init framebuffer
+    if (!initFramebuffer()) {
+        ALOGD( "Error: failed to initialize framebuffer\n");
+        return false;
+    }
+
+    // draw image to framebuffer
+    drawImageToFramebuffer(img, spu_width, spu_height,videoOriginRect, type, scale_factor);
+
+    // refresh framebuffer
+    if (ioctl(fbfd, FBIOPAN_DISPLAY, &vinfo) == -1) {
+        ALOGD("Error: failed to pan display");
+    }
+
+    // clean up resources
+    cleanupFramebuffer();
+
+    return true;
+}
+
+void FBDevice::clear(FBRect * rect) {
+    // if (rect == nullptr) {
+    //     screen->Release( screen );
+    //     dfb->Release( dfb );//CLear all screen
+    // }
+}
+
+void FBDevice::clearSurface() {
+    // if (screen == NULL) {
+    //     return;
+    // }
+    // screen->Clear(screen, 0, 0, 0, 0);
+    // screen->Flip(screen, NULL, DSFLIP_WAITFORSYNC);
+}
+
+static BoundingBox getFontBox(const char *content, FBRect &surfaceRect, Font& font) {
+    Surface textSurface(surfaceRect.width(), surfaceRect.height());
+    DrawContext drawContext(&textSurface);
+    Text tmp(&drawContext, 0, 0, content, font);
+    BoundingBox fontBox = tmp.calculateBounds(Pen(Colors::White));
+    return fontBox;
+}
+
+void FBDevice::drawMultiText(int type, TextParams &textParams, int64_t pts, int buffer_size, unsigned short spu_width, unsigned short spu_height,
+                                  FBRect &videoOriginRect, FBRect &src, FBRect &dst) {
+    const char* content = textParams.content;
+    auto funcSplitStr = [](std::string str, std::string pattern)->std::vector<std::string> {
+        std::string::size_type pos;
+        std::vector<std::string> result;
+        str += pattern;
+        size_t size = str.size();
+        for (size_t i = 0; i < size; i++)
+        {
+            pos = str.find(pattern, i);
+            if (pos < size)
+            {
+                std::string s = str.substr(i, pos - i);
+                result.push_back(s);
+                i = pos + pattern.size() - 1;
+            }
+        }
+        return result;
+    };
+
+    std::vector<std::string> contents;
+
+    if (strstr(content, "\n") != nullptr) {
+        contents = funcSplitStr(content, "\n");
+    } else if (strstr(content, "|") != nullptr) {
+        contents = funcSplitStr(content, "|");
+    } else {
+        contents.emplace_back(content);
+    }
+
+    isTextMultiPart = false;
+    int textPart = contents.size();
+    ALOGD("[%s], contents, size= %d", __FUNCTION__, textPart);
+
+    if (!contents.empty()) {
+        int marginBottom = MIN_TEXT_MARGIN_BOTTOM;
+        for (auto it = contents.rbegin(); it != contents.rend(); it++) {
+            ALOGD("[%s], content= %s", __FUNCTION__, it->c_str());
+            bool flush = (it + 1) == contents.rend();
+            textParams.content = it->c_str();
+
+            bool isNextEnd = (it + 2) == contents.rend();
+            bool endIsEmpty = isNextEnd && ((strlen((it + 1)->c_str()) <= 0));
+            if (endIsEmpty) {
+                // For avoid first '\n' tag
+                // We need flush on this part when end(next part) is empty
+                flush = true;
+            }
+
+            FBRect textRect = drawText(type, textParams, pts, buffer_size, spu_width, spu_height, videoOriginRect, src, dst,
+                    marginBottom, flush);
+
+            if (endIsEmpty) {
+                // We need finish when end is empty
+                break;
+            }
+
+            isTextMultiPart =  textPart > 1;
+            marginBottom += textRect.height();
+        }
+    }
+}
+
+FBRect FBDevice::drawText(int type, TextParams& textParams, int64_t pts, int buffer_size, unsigned short spu_width, unsigned short spu_height,
+                                FBRect &videoOriginRect, FBRect &/*src*/, FBRect &dst, int marginBottom, bool flush) {
+
+    const char* content = textParams.content;
+    if (content == nullptr || strlen(content) <= 0) {
+        ALOGE("Empty text, do not render");
+        if (flush) clear();
+        return FBRect::empty();
+    }
+
+    Font font;
+    font.family = textParams.fontFamily;
+    font.size = textParams.fontSize;
+
+    BoundingBox fontBox = getFontBox(content, videoOriginRect, font);
+    ALOGD("fontBox= [%f, %f, %f, %f]", fontBox.x, fontBox.y, fontBox.x2, fontBox.y2);
+    if (fontBox.isEmpty()) {
+        if (flush) clear();
+        ALOGE_IF(strlen(content) > 0, "No support text type rendering");
+        return FBRect::empty();
+    }
+
+    int padding = textParams.bgPadding;
+    fontBox.move(padding, padding);
+    fontBox.x -= padding;
+    fontBox.y -= padding;
+    fontBox.x2 += padding;
+    fontBox.y2 += padding;
+
+    Surface textSurface((int)fontBox.getWidth(), (int)fontBox.getHeight());
+    DrawContext drawContext(&textSurface);
+
+    Text text(&drawContext, 0, 0, content, font);
+
+    if (textParams.usingBg) {
+        // Background
+        if (textParams.bgRoundRadius > 0) {
+            RoundRectangle roundRect(&drawContext, fontBox.x, fontBox.y, fontBox.getWidth(),
+                                     fontBox.getHeight(), textParams.bgRoundRadius);
+            roundRect.draw(Colors::Transparent, textParams.bgColor);
+        } else {
+            Rectangle rectangle(&drawContext, fontBox.x, fontBox.y, fontBox.getWidth(), fontBox.getHeight());
+            rectangle.draw(Colors::Transparent, textParams.bgColor);
+        }
+    }
+
+    text.drawCenter(fontBox, textParams.textLineColor, textParams.textFillColor);
+
+    //Move to center-bottom
+    double moveX = (videoOriginRect.width() - fontBox.getWidth()) / 2;
+    double moveY = videoOriginRect.height() - fontBox.getHeight() - marginBottom;
+    fontBox.move(moveX, moveY);
+    FBRect srcRect{(int)fontBox.x, (int)fontBox.y, (int)fontBox.x2, (int)fontBox.y2};
+
+    unsigned char * data = textSurface.data();
+    if (!data || !drawImage(type, data, pts, buffer_size, spu_width, spu_height, videoOriginRect, srcRect, dst)) {
+        ALOGE("%s, No valid data will to be drew", __FUNCTION__);
+        if (flush) clear();
+        return FBRect::empty();
+    }
+
+    return srcRect;
+}
+
+// save png picture
+void FBDevice::saveAsPNG(const char *filename, uint32_t *data, int width, int height) {
+    FILE *fp = fopen(filename, "wb");
+    if (!fp) {
+        printf("Error: failed to open file %s\n", filename);
+        return;
+    }
+
+    // init png_struct and png_info
+    png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    if (!png_ptr) {
+        printf("Error: failed to create png struct\n");
+        fclose(fp);
+        return;
+    }
+    png_infop info_ptr = png_create_info_struct(png_ptr);
+    if (!info_ptr) {
+        printf("Error: failed to create png info struct\n");
+        png_destroy_write_struct(&png_ptr, NULL);
+        fclose(fp);
+        return;
+    }
+
+    // Set the error callback function of png_ptr
+    if (setjmp(png_jmpbuf(png_ptr))) {
+        printf("Error: failed to write png\n");
+        png_destroy_write_struct(&png_ptr, &info_ptr);
+        fclose(fp);
+        return;
+    }
+
+    // Initialize PNG I/O
+    png_init_io(png_ptr, fp);
+
+    // Write PNG file header
+    png_set_IHDR(png_ptr, info_ptr, width, height, 8, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+    png_write_info(png_ptr, info_ptr);
+
+    // write image data
+    png_bytep row_pointers[height];
+    for (int y = 0; y < height; y++) {
+        row_pointers[y] = (png_bytep)&data[y * width];
+    }
+    png_write_image(png_ptr, row_pointers);
+
+    // write end-of-file marker
+    png_write_end(png_ptr, NULL);
+
+    // clear memory
+    png_destroy_write_struct(&png_ptr, &info_ptr);
+    fclose(fp);
+}
+
+
+#endif // USE_FB

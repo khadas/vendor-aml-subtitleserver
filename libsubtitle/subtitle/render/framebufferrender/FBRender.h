@@ -34,8 +34,6 @@
 #include <utils/StrongPointer.h>
 #include <utils/Mutex.h>
 
-#define SUBTITLE_ZAPPER_2K
-//#define SUBTITLE_ZAPPER_4K
 using AMLooper = android::sp<android::Looper>;
 using AMLMessage = android::Message;
 
@@ -67,7 +65,7 @@ private:
 
     void sendMessage(const AMLMessage &message, nsecs_t nsecs = 0);
 
-    void dfbInit();
+    void fbInit();
 
     void drawItems();
 

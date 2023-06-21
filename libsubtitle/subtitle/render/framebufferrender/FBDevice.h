@@ -57,10 +57,6 @@ static const uint32_t kBlue8    = 0x000000ff;
 const int SCREEN_WIDTH =  1280;
 const int SCREEN_HEIGHT = 720;
 const int SCREEN_BPP = 32;
-// Framebuffer 变量
-static int fbfd;
-static struct fb_var_screeninfo vinfo;
-static unsigned char* framebuffer;
 
 // static const char       *filename = NULL;
 //static size_t screen_width, screen_height;
@@ -100,6 +96,7 @@ public:
 
     bool initCheck() { return mInited; }
     bool init();
+    bool initFramebuffer();
 
     void clear(FBRect *rect = nullptr) ;
     void clearSurface();
@@ -138,6 +135,9 @@ private:
 
     bool isTextMultiPart = false;
     bool mInited = false;
+    int mFbfd;
+    struct fb_var_screeninfo mVinfo;
+    unsigned char* mFramebuffer;
 };
 
 #endif //_FBDEVICE_H

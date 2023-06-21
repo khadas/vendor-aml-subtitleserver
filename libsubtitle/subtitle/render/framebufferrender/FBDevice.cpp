@@ -27,7 +27,6 @@
 
 #define LOG_TAG "FBDevice"
 #include "FBDevice.h"
-#include "FBRender.h"
 #include <Parser.h>
 
 #include <cstdlib>
@@ -245,38 +244,39 @@ void FBDevice::drawColor(float r, float g, float b, float a, FBRect &rect, bool 
 }
 
 // init Framebuffer
-bool initFramebuffer() {
+bool FBDevice::initFramebuffer() {
+    ALOGD("initFramebuffer ");
     // open Framebuffer dev
-    fbfd = open(FRAMEBUFFER_DEV, O_RDWR);
-    if (fbfd == -1) {
+    mFbfd = open(FRAMEBUFFER_DEV, O_RDWR);
+    if (mFbfd == -1) {
         ALOGD("Error: cannot open framebuffer device");
         return false;
     }
 
     // get screen information
-    if (ioctl(fbfd, FBIOGET_VSCREENINFO, &vinfo) == -1) {
+    if (ioctl(mFbfd, FBIOGET_VSCREENINFO, &mVinfo) == -1) {
         ALOGD("Error: failed to get framebuffer information");
-        close(fbfd);
+        close(mFbfd);
         return false;
     }
 
     // Set virtual screen size and virtual resolution
-    vinfo.bits_per_pixel = 32;
-    vinfo.xres_virtual = vinfo.xres;
-    vinfo.yres_virtual = vinfo.yres * 2;  // double buffering
+    mVinfo.bits_per_pixel = 32;
+    mVinfo.xres_virtual = mVinfo.xres;
+    mVinfo.yres_virtual = mVinfo.yres * 2;  // double buffering
 
-    if (ioctl(fbfd, FBIOPUT_VSCREENINFO, &vinfo) == -1) {
+    if (ioctl(mFbfd, FBIOPUT_VSCREENINFO, &mVinfo) == -1) {
         ALOGD("Error: failed to put framebuffer information");
-        close(fbfd);
+        close(mFbfd);
         return false;
     }
 
     // mapping framebuffer memory
-    size_t fbSize = vinfo.xres_virtual * vinfo.yres_virtual * (vinfo.bits_per_pixel / 8);
-    framebuffer = (unsigned char*)mmap(NULL, fbSize, PROT_READ | PROT_WRITE, MAP_SHARED, fbfd, 0);
-    if (framebuffer == MAP_FAILED) {
+    size_t fbSize = mVinfo.xres_virtual * mVinfo.yres_virtual * (mVinfo.bits_per_pixel / 8);
+    mFramebuffer = (unsigned char*)mmap(NULL, fbSize, PROT_READ | PROT_WRITE, MAP_SHARED, mFbfd, 0);
+    if (mFramebuffer == MAP_FAILED) {
         ALOGD("Error: failed to map framebuffer memory");
-        close(fbfd);
+        close(mFbfd);
         return false;
     }
 
@@ -285,27 +285,34 @@ bool initFramebuffer() {
 
 // clean Framebuffer
 void FBDevice::cleanupFramebuffer() {
-    if (framebuffer == NULL) {
+    if (mFramebuffer == NULL) {
         return;
     }
-    munmap(framebuffer, vinfo.xres_virtual * vinfo.yres_virtual * (vinfo.bits_per_pixel / 8));
-    close(fbfd);
+    // Unmap framebuffer memory
+    if (munmap(mFramebuffer, mVinfo.xres_virtual * mVinfo.yres_virtual * (mVinfo.bits_per_pixel / 8)) == -1) {
+        ALOGD("Error: failed to unmap framebuffer memory");
+    }
+    mFramebuffer = NULL;
+    if (mFbfd != -1) {
+        close(mFbfd);
+        mFbfd = -1;
+    }
 }
 
 void FBDevice::clearFramebufferScreen() {
     // Check for null pointer
-    if (framebuffer == NULL) {
-        ALOGD("clearFramebufferScreen framebuffer == NULL");
+    if (mFramebuffer == NULL) {
+        ALOGD("clearFramebufferScreen framebuffer is NULL");
         return;
     }
 
-    size_t bufferSize = vinfo.xres_virtual * vinfo.yres_virtual * (vinfo.bits_per_pixel / 8);
+    size_t bufferSize = mVinfo.xres_virtual * mVinfo.yres_virtual * (mVinfo.bits_per_pixel / 8);
     if (bufferSize == 0) {
         return;
     }
 
     try {
-        memset(framebuffer, 0, bufferSize);
+        memset(mFramebuffer, 0, bufferSize);
     } catch (const std::exception& e) {
         return;
     }
@@ -316,8 +323,8 @@ void FBDevice::drawImageToFramebuffer(unsigned char* imgBuffer, unsigned short s
                                 FBRect& videoOriginRect, int type, float scale_factor) {
     if (type == TYPE_SUBTITLE_DVB_TELETEXT) {
         // Calculate scaling factors
-        float scale_factor_width = static_cast<float>(videoOriginRect.width()) / spu_width;
-        float scale_factor_height = static_cast<float>(videoOriginRect.height()) / spu_height;
+        float scale_factor_width = static_cast<float>(mVinfo.xres) / spu_width;
+        float scale_factor_height = static_cast<float>(mVinfo.yres) / spu_height;
     //    scale_factor = std::min(scale_factor_width, scale_factor_height);
 
         // Calculate scaled image dimensions
@@ -327,8 +334,8 @@ void FBDevice::drawImageToFramebuffer(unsigned char* imgBuffer, unsigned short s
         ALOGD("drawImageToFramebuffer, scale_factor_width = %f, scale_factor_height = %f,scaled_width = %d,scaled_height = %d",
                                                 scale_factor_width, scale_factor_height, scaled_width, scaled_height);
         // Calculate image offset
-        int x_offset = (videoOriginRect.width() - scaled_width) / 2;
-        int y_offset = (videoOriginRect.height() - scaled_height) / 2;
+        int x_offset = (mVinfo.xres - scaled_width) / 2;
+        int y_offset = (mVinfo.yres - scaled_height) / 2;
 
         // Copy and scale image data to framebuffer with position offset
         for (int y = 0; y < scaled_height; ++y) {
@@ -339,51 +346,33 @@ void FBDevice::drawImageToFramebuffer(unsigned char* imgBuffer, unsigned short s
 
                 // Calculate image and framebuffer offsets
                 int imgOffset = (img_y * spu_width + img_x) * 4;  // 4 bytes per pixel
-                int fbOffset = ((y + y_offset) * vinfo.xres_virtual + (x + x_offset)) * 4;
+                int fbOffset = ((y + y_offset) * mVinfo.xres_virtual + (x + x_offset)) * 4;
 
                 // Copy pixel data from the image buffer to the framebuffer
-                *((unsigned int*)(framebuffer + fbOffset)) = *((unsigned int*)(imgBuffer + imgOffset));
+                *((unsigned int*)(mFramebuffer + fbOffset)) = *((unsigned int*)(imgBuffer + imgOffset));
             }
         }
     } else {
             clearFramebufferScreen();
             int x_offset = 0;
             int y_offset = 0;
+            x_offset = 0.2 * mVinfo.xres;
+            y_offset = 0.8 * mVinfo.yres;
 
-            #ifdef SUBTITLE_ZAPPER_2K
-            ALOGD("subtitletest SUBTITLE_ZAPPER_2K");
-            if (scale_factor == 1) {
-                x_offset = 0.4 * videoOriginRect.width();
-                y_offset = 0.9 * videoOriginRect.height();
-            } else {
-                x_offset = 0.1 * videoOriginRect.width();
-                y_offset = 0.5 * videoOriginRect.height();
+            int scaled_width = static_cast<int>(spu_width * scale_factor);
+            int scaled_height = static_cast<int>(spu_height * scale_factor);
+
+            // Copy and scale image data to framebuffer with position offset
+            for (int y = 0; y < scaled_height; ++y) {
+                for (int x = 0; x < scaled_width; ++x) {
+                    int img_x = static_cast<int>(x / scale_factor);
+                    int img_y = static_cast<int>(y / scale_factor);
+
+                    int imgOffset = (img_y * spu_width + img_x) * 4;  // 4 bytes per pixel
+                    int fbOffset = ((y + y_offset) * mVinfo.xres_virtual + (x + x_offset)) * 4;
+                    *((unsigned int*)(mFramebuffer + fbOffset)) = *((unsigned int*)(imgBuffer + imgOffset));
+                }
             }
-            #elif defined(SUBTITLE_ZAPPER_4K)
-            ALOGD("subtitletest SUBTITLE_ZAPPER_4K");
-            if (scale_factor == 1.5) {
-                x_offset = 0.5 * videoOriginRect.width();
-                y_offset = 1.5 * videoOriginRect.height();
-            } else {
-                x_offset = 0 * videoOriginRect.width();
-                y_offset = 0.8 * videoOriginRect.height();
-            }
-            #endif
-
-        int scaled_width = static_cast<int>(spu_width * scale_factor);
-        int scaled_height = static_cast<int>(spu_height * scale_factor);
-
-        // Copy and scale image data to framebuffer with position offset
-        for (int y = 0; y < scaled_height; ++y) {
-            for (int x = 0; x < scaled_width; ++x) {
-                int img_x = static_cast<int>(x / scale_factor);
-                int img_y = static_cast<int>(y / scale_factor);
-
-                int imgOffset = (img_y * spu_width + img_x) * 4;  // 4 bytes per pixel
-                int fbOffset = ((y + y_offset) * vinfo.xres_virtual + (x + x_offset)) * 4;
-                *((unsigned int*)(framebuffer + fbOffset)) = *((unsigned int*)(imgBuffer + imgOffset));
-            }
-        }
     }
 }
 
@@ -392,16 +381,19 @@ float setScaleFactor(FBRect& videoOriginRect) {
     if (720.0f/videoOriginRect.width() < 1) {
         result = (720.0f/videoOriginRect.width())*1.5;
     }
-    #ifdef SUBTITLE_ZAPPER_2K
     return result;
-    #elif defined(SUBTITLE_ZAPPER_4K)
-    return result*1.5;
-    #endif
 }
 
 bool FBDevice::drawImage(int type, unsigned char* img, int64_t pts, int buffer_size,
                          unsigned short spu_width, unsigned short spu_height,
                          FBRect& videoOriginRect, FBRect& src, FBRect& dst) {
+    // init framebuffer
+    if (!initFramebuffer()) {
+        ALOGD( "Error: failed to initialize framebuffer\n");
+        return false;
+    }
+
+    ALOGD(" mVinfo.xres = %d,mVinfo.yres = %d",mVinfo.xres,mVinfo.yres);
     ALOGD("%s start",__FUNCTION__);
     ALOGD("videoOriginRect.width() = %d, videoOriginRect.height() = %d, spu_width = %d,spu_height = %d",
                          videoOriginRect.width(), videoOriginRect.height(), spu_width, spu_height);
@@ -410,28 +402,16 @@ bool FBDevice::drawImage(int type, unsigned char* img, int64_t pts, int buffer_s
     float scale_factor = setScaleFactor(videoOriginRect);
     ALOGD("scale_factor = %f",scale_factor);
 
-    // Check if image size is compatible with framebuffer
-    // if (src.width() != IMAGE_WIDTH || src.height() != IMAGE_HEIGHT) {
-    //     ALOGD("Error: image size does not match framebuffer size\n");
-    //     return false;
-    // }
-
-    // init framebuffer
-    if (!initFramebuffer()) {
-        ALOGD( "Error: failed to initialize framebuffer\n");
-        return false;
-    }
-
     // draw image to framebuffer
     drawImageToFramebuffer(img, spu_width, spu_height,videoOriginRect, type, scale_factor);
 
     // refresh framebuffer
-    if (ioctl(fbfd, FBIOPAN_DISPLAY, &vinfo) == -1) {
+    if (ioctl(mFbfd, FBIOPAN_DISPLAY, &mVinfo) == -1) {
         ALOGD("Error: failed to pan display");
     }
 
     // clean up resources
-    cleanupFramebuffer();
+//    cleanupFramebuffer();
 
     return true;
 }

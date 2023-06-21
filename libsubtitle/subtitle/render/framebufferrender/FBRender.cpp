@@ -90,7 +90,7 @@ void FBRender::AMLHandler::handleMessage(const AMLMessage &message) {
 
     switch (message.what) {
         case kWhat_thread_init:
-            render->dfbInit();
+            render->fbInit();
             break;
         case kWhat_show_subtitle_item:
             render->drawItems();
@@ -112,10 +112,10 @@ void FBRender::requestExit() {
     }
 }
 
-void FBRender::dfbInit() {
+void FBRender::fbInit() {
     mFBDevice = std::make_shared<FBDevice>();
     if (!mFBDevice->initCheck()) {
-        ALOGE("dfbInit, initCheck failed");
+        ALOGE("fbInit, initCheck failed");
         mLooper->removeMessages(mHandler);
         requestExit();
         return;
@@ -227,18 +227,6 @@ void FBRender::drawItems() {
                     (*it)->subtitle_type == SubtitleType::TYPE_SUBTITLE_DTVKIT_TELETEXT
                     || (*it)->subtitle_type == SubtitleType::TYPE_SUBTITLE_DVB_TELETEXT;
 
-            #ifdef SUBTITLE_ZAPPER_2K
-            if (showFullScreen) {
-                originDisplayRect.set(0, 0, 1280, 720);
-            }
-            #elif defined(SUBTITLE_ZAPPER_4K)
-            if (showFullScreen) {
-                ALOGD("showFullScreen == true");
-                originDisplayRect.set(0, 0, 1920, 1080);
-            }
-            #endif
-
-
 //            mFBDevice->drawImage((*it)->subtitle_type, (*it)->spu_data, (*it)->pts, (*it)->buffer_size, (*it)->spu_width, (*it)->spu_height, showFullScreen ? rect : originDisplayRect, rect, screenRect);
             mFBDevice->drawImage((*it)->subtitle_type, (*it)->spu_data, (*it)->pts, (*it)->buffer_size, (*it)->spu_width, (*it)->spu_height, originDisplayRect, rect, screenRect);
         }
@@ -265,9 +253,9 @@ void FBRender::onThreadExit() {
 
 void FBRender::clearScreen() {
     ALOGD("clearScreen");
-    mFBDevice->clearSurface();
-    mFBDevice->drawColor(0, 0, 0, 0);
-//    mFBDevice->clearFramebufferScreen();
+    // mFBDevice->clearSurface();
+    // mFBDevice->drawColor(0, 0, 0, 0);
+    mFBDevice->clearFramebufferScreen();
     mFBDevice->cleanupFramebuffer();
 }
 

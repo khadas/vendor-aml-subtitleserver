@@ -163,7 +163,7 @@ static AM_ErrorCode_t am_cc_calc_caption_size(int *w, int *h)
 	else if (rows > 42)
 		rows = 42;
 
-	AM_DEBUG(4, "Video size: %d X %d, rows %d", vw, vh, rows);
+	//AM_DEBUG(4, "Video size: %d X %d, rows %d", vw, vh, rows);
 
 	*w = rows * ROW_W;
 	*h = SAFE_TITLE_AREA_HEIGHT;
@@ -695,7 +695,7 @@ CLEAN_NODE:
 
 	//if (cc->cpara.draw_end)
 	//	cc->cpara.draw_end(cc, &draw_para);
-	AM_DEBUG(AM_DEBUG_LEVEL, "render_thread render exit, has_data %d chain_left %d", has_data_to_render,json_chain_head->count);
+	//AM_DEBUG(AM_DEBUG_LEVEL, "render_thread render exit, has_data %d chain_left %d", has_data_to_render,json_chain_head->count);
 	return has_data_to_render;
 }
 
@@ -1101,7 +1101,7 @@ static void *am_cc_render_thread(void *arg)
 		}
 		else
 		{
-			AM_DEBUG(AM_DEBUG_LEVEL, "render_thread no node in chain, timeout set to 1000");
+			//AM_DEBUG(AM_DEBUG_LEVEL, "render_thread no node in chain, timeout set to 1000");
 			timeout = 10;
 		}
 

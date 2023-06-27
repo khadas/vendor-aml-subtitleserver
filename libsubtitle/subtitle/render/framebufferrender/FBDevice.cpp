@@ -153,7 +153,7 @@ bool FBDevice::connectDisplay() {
 static void save2BitmapFile(const char *filename, uint32_t *bitmap, int w, int h) {
     FILE *f;
     char fname[40];
-    snprintf(fname, sizeof(fname), "%s.png", filename);
+    snprintf(fname, sizeof(fname), "%s.ppm", filename);
     f = fopen(fname, "w");
     ALOGD("%s start", __FUNCTION__);
     if (!f) {
@@ -558,7 +558,7 @@ FBRect FBDevice::drawText(int type, TextParams& textParams, int64_t pts, int buf
     FBRect srcRect{(int)fontBox.x, (int)fontBox.y, (int)fontBox.x2, (int)fontBox.y2};
 
     unsigned char * data = textSurface.data();
-    if (!data || !drawImage(type, data, pts, buffer_size, spu_width, spu_height, videoOriginRect, srcRect, dst)) {
+    if (!data || !drawImage(type, data, pts, buffer_size, fontBox.getWidth(), fontBox.getHeight(), videoOriginRect, srcRect, dst)) {
         ALOGE("%s, No valid data will to be drew", __FUNCTION__);
         if (flush) clear();
         return FBRect::empty();

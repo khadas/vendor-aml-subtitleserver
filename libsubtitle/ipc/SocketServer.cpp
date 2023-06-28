@@ -51,7 +51,7 @@
 #include "../SubtitleServer.h"
 #define USE_UN true
 #if USE_UN
-#define UN_BASE_PATH "/tmp/subtitlesocketserver.sock."
+#define UN_BASE_PATH "/tmp/subtitlesocketserver.sock"
 #endif
 
 /**

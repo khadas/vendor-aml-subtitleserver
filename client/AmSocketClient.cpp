@@ -40,7 +40,7 @@
 //#include <media/stagefright/foundation/ALooper.h>
 #include <netinet/in.h>
 #include <stdio.h>
-#include <string.h>
+#include <string>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <stdlib.h>
@@ -51,8 +51,18 @@
 #include "cutils/properties.h"
 //#include "utils/AmlMpLog.h"
 
+#define USE_UN true
+#if USE_UN
+#define UN_BASE_PATH "/tmp/subtitlesocketserver.sock"
+#endif
 
 static const char* mName = "AmSocketClient";
+
+static double now(int clockId = CLOCK_MONOTONIC) {
+    struct timespec spec;
+    clock_gettime(clockId, &spec);
+    return spec.tv_sec;
+}
 
 //namespace aml_mp {
 
@@ -71,38 +81,63 @@ int64_t AmSocketClient::GetNowUs() {
 
 int AmSocketClient::socketConnect() {
     ALOGD("socketConnect");
+#if USE_UN
+    mSockFd = socket(AF_UNIX, SOCK_STREAM, 0);
+    std::string unPath = std::string(UN_BASE_PATH);
 
-    struct sockaddr_in addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    //inet_aton("127.0.0.1", (struct in_addr *)&addr.sin_addr);
-    addr.sin_port = htons(SERVER_PORT);
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    mSockFd = socket(AF_INET, SOCK_STREAM, 0);
-    if (mSockFd < 0) {
-        //MLOGI("%s:%d, create socket failed!mSockFd:%d, error=%d, err:%s\n", __FILE__, __LINE__, mSockFd, errno, strerror(errno));
-        ALOGE("%s:%d, create socket failed!mSockFd:%d, error=%d, err:%s\n", __FILE__, __LINE__, mSockFd, errno, strerror(errno));
-        return -1;
-    }
-    //MLOGI("%s:%d, create socket success!mSockFd:%d\n", __FILE__, __LINE__, mSockFd);
+    struct sockaddr_un un{};
+    bzero(&un, sizeof(un));
+    un.sun_family = AF_UNIX;
+    strcpy(un.sun_path, UN_BASE_PATH);
 
-    //fix upgrade first play connect fail because of early conntect ,add while strategy for 40ms.
-    int64_t startTime = GetNowUs();
+    size_t sockLen = offsetof(struct sockaddr_un, sun_path) + unPath.size();
+
+    int64_t startTime = now();
     while (true) {
-        if (::connect(mSockFd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        if (::connect(mSockFd, (struct sockaddr *) &un, (socklen_t) sockLen) < 0) {
             //load dvb so need time since add close caption subtitle, add to 120ms.
             //only has subtitle to connect socket
-            if ( GetNowUs() - startTime > 120000ll) {//systemTime(SYSTEM_TIME_MONOTONIC) / 1000LL;
-                //MLOGI("%s:%d, connect socket failed!, error=%d, err:%s\n", __FILE__, __LINE__, errno, strerror(errno));
-                ALOGE("%s:%d, connect socket failed!, error=%d, err:%s\n", __FILE__, __LINE__, errno, strerror(errno));
+            if (now() - startTime > 120000ll) {
+                ALOGE("%s:%d, connect socket failed!, error=%d, err:%s\n", __FILE__, __LINE__,
+                      errno, strerror(errno));
                 close(mSockFd);
                 mSockFd = -1;
-                return -1;
+                return false;
             }
         } else {
-           break;
+            break;
         }
     }
+#else
+    mSockFd = socket(AF_INET, SOCK_STREAM, 0);
+    struct sockaddr_in addr{};
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    if (mSockFd < 0) {
+        ALOGE("%s:%d, create socket failed!mSockFd:%d, error=%d, err:%s\n", __FILE__, __LINE__,
+              mSockFd, errno, strerror(errno));
+        return false;
+    }
+
+    int64_t startTime = now();
+    while (true) {
+        if (::connect(mSockFd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+            //load dvb so need time since add close caption subtitle, add to 120ms.
+            //only has subtitle to connect socket
+            if (now() - startTime > 120000ll) {
+                ALOGE("%s:%d, connect socket failed!, error=%d, err:%s\n", __FILE__, __LINE__,
+                      errno, strerror(errno));
+                close(mSockFd);
+                mSockFd = -1;
+                return false;
+            }
+        } else {
+            break;
+        }
+    }
+#endif
 
     ALOGI("%s:%d, connect socket success!mSockFd:%d\n", __FILE__, __LINE__, mSockFd);
 

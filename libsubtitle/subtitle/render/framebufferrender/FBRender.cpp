@@ -211,8 +211,8 @@ void FBRender::drawItems() {
 
             FBDevice::TextParams textParams;
             textParams.content = text;
-            textParams.fontFamily = "Liberation Sans";
-            textParams.fontSize = 20;
+            textParams.fontFamily = "";
+            textParams.fontSize = 30;
             textParams.textFillColor = Cairo::Colors::White;
             textParams.textLineColor = Cairo::Colors::White;
             textParams.bgPadding = 10;
@@ -256,7 +256,7 @@ void FBRender::clearScreen() {
     // mFBDevice->clearSurface();
     // mFBDevice->drawColor(0, 0, 0, 0);
     mFBDevice->clearFramebufferScreen();
-    mFBDevice->cleanupFramebuffer();
+    //mFBDevice->cleanupFramebuffer();
 }
 
 void FBRender::sendMessage(const AMLMessage &message, nsecs_t nsecs) {

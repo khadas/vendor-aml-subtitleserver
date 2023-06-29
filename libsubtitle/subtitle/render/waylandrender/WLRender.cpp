@@ -212,7 +212,7 @@ void WLRender::drawItems() {
             WLGLDevice::TextParams textParams;
             textParams.content = text;
             textParams.fontFamily = "Liberation Sans";
-            textParams.fontSize = 20;
+            textParams.fontSize = 30;
             textParams.textFillColor = Cairo::Colors::White;
             textParams.textLineColor = Cairo::Colors::White;
             textParams.bgPadding = 10;

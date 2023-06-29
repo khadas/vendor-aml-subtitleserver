@@ -56,6 +56,7 @@ using namespace Cairo;
 #define ENV_WAYLAND_DISPLAY "WAYLAND_DISPLAY"
 #define SUBTITLE_OVERLAY_NAME "subtitle-overlay"
 #define FRAMEBUFFER_DEV "/dev/fb1"
+//#define SUBTITLE_ZAPPER_4K
 
 #ifdef ALOGD
 #undef ALOGD
@@ -173,6 +174,11 @@ static void save2BitmapFile(const char *filename, uint32_t *bitmap, int w, int h
 }
 
 bool FBDevice::initDisplay() {
+    // init framebuffer
+    if (!initFramebuffer()) {
+        ALOGD( "Error: failed to initialize framebuffer\n");
+        return false;
+    }
     ALOGD("FBDevice  initDisplay start!");
     return true;
 }
@@ -323,8 +329,13 @@ void FBDevice::drawImageToFramebuffer(unsigned char* imgBuffer, unsigned short s
                                 FBRect& videoOriginRect, int type, float scale_factor) {
     if (type == TYPE_SUBTITLE_DVB_TELETEXT) {
         // Calculate scaling factors
+        #ifdef SUBTITLE_ZAPPER_4K
+        float scale_factor_width = static_cast<float>(mVinfo.xres * 0.8) / spu_width;
+        float scale_factor_height = static_cast<float>(mVinfo.yres * 0.8) / spu_height;
+        #else
         float scale_factor_width = static_cast<float>(mVinfo.xres) / spu_width;
         float scale_factor_height = static_cast<float>(mVinfo.yres) / spu_height;
+        #endif
     //    scale_factor = std::min(scale_factor_width, scale_factor_height);
 
         // Calculate scaled image dimensions
@@ -356,7 +367,7 @@ void FBDevice::drawImageToFramebuffer(unsigned char* imgBuffer, unsigned short s
             clearFramebufferScreen();
             int x_offset = 0;
             int y_offset = 0;
-            x_offset = 0.2 * mVinfo.xres;
+            x_offset = 0.15 * mVinfo.xres;
             y_offset = 0.8 * mVinfo.yres;
 
             int scaled_width = static_cast<int>(spu_width * scale_factor);
@@ -388,10 +399,10 @@ bool FBDevice::drawImage(int type, unsigned char* img, int64_t pts, int buffer_s
                          unsigned short spu_width, unsigned short spu_height,
                          FBRect& videoOriginRect, FBRect& src, FBRect& dst) {
     // init framebuffer
-    if (!initFramebuffer()) {
-        ALOGD( "Error: failed to initialize framebuffer\n");
-        return false;
-    }
+    // if (!initFramebuffer()) {
+    //     ALOGD( "Error: failed to initialize framebuffer\n");
+    //     return false;
+    // }
 
     ALOGD(" mVinfo.xres = %d,mVinfo.yres = %d",mVinfo.xres,mVinfo.yres);
     ALOGD("%s start",__FUNCTION__);
@@ -411,7 +422,7 @@ bool FBDevice::drawImage(int type, unsigned char* img, int64_t pts, int buffer_s
     }
 
     // clean up resources
-//    cleanupFramebuffer();
+    //cleanupFramebuffer();
 
     return true;
 }

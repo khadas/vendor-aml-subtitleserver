@@ -194,7 +194,7 @@ static inline int generateNormalDisplay(AVSubtitleRect *subRect, unsigned char *
  */
 bool AribB24Parser::updateParameter(int type, void *data) {
     if (TYPE_SUBTITLE_ARIB_B24 == type) {
-        DtvKitArib24Param *pAribParam = (DtvKitArib24Param* )data;
+        Arib24Param *pAribParam = (Arib24Param* )data;
         mContext->languageCode = pAribParam->languageCodeId;
     }
     return true;

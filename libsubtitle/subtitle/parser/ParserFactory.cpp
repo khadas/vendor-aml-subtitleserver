@@ -27,15 +27,17 @@
 #include "ParserFactory.h"
 
 #include "AribB24Parser.h"
-#include "TtmlParser.h"
 #include "AssParser.h"
+#include "ClosedCaptionParser.h"
 #include "DvbParser.h"
 #include "DvdParser.h"
-#include "PgsParser.h"
-#include "TeletextParser.h"
-#include "ClosedCaptionParser.h"
-#include "Scte27Parser.h"
 #include "ExtParser.h"
+#include "PgsParser.h"
+#include "Scte27Parser.h"
+#include "SmpteTtmlParser.h"
+#include "TeletextParser.h"
+#include "TtmlParser.h"
+
 
 std::shared_ptr<Parser> ParserFactory::create(
             std::shared_ptr<SubtitleParamType> subParam,
@@ -75,6 +77,10 @@ std::shared_ptr<Parser> ParserFactory::create(
         case TYPE_SUBTITLE_TTML:
         case TYPE_SUBTITLE_DTVKIT_TTML:
             return std::shared_ptr<Parser>(new TtmlParser(source));
+
+        case TYPE_SUBTITLE_SMPTE_TTML:
+        case TYPE_SUBTITLE_DTVKIT_SMPTE_TTML:
+            return std::shared_ptr<Parser>(new SmpteTtmlParser(source));
 
         case TYPE_SUBTITLE_TMD_TXT:
             return std::shared_ptr<Parser>(new AssParser(source));
@@ -124,6 +130,7 @@ DisplayType ParserFactory::getDisplayType(int type)
         case TYPE_SUBTITLE_DVB:
         case TYPE_SUBTITLE_DVB_TELETEXT:
         case TYPE_SUBTITLE_SCTE27:
+        case TYPE_SUBTITLE_SMPTE_TTML:
         case TYPE_SUBTITLE_IDX_SUB:
           return SUBTITLE_IMAGE_DISPLAY;
         case TYPE_SUBTITLE_MKV_STR:

@@ -67,6 +67,7 @@ set(subtitle_common_srcs
         subtitle/parser/DvdParser.cpp
         subtitle/parser/TeletextParser.cpp
         subtitle/parser/TtmlParser.cpp
+        subtitle/parser/SmpteTtmlParser.cpp
         subtitle/parser/ClosedCaptionParser.cpp
         subtitle/parser/Scte27Parser.cpp
         subtitle/parser/UserDataAfd.cpp

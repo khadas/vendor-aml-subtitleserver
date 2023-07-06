@@ -395,8 +395,12 @@ SubSourceStatus SubSource_SendData(SubSourceHandle handle, const char *mbuf, int
         mSubType = 5;
     } else if (sub_type == CODEC_ID_MOV_TEXT) {
         mSubType = 7;
-    }  else if (sub_type == CODEC_ID_DVB_TELETEXT) {
+    } else if (sub_type == CODEC_ID_DVB_TELETEXT) {
         mSubType = 9; //SUBTITLE_DVB_TELETEXT
+    } else if (sub_type == CODEC_ID_TTML_SUBTITLE) {
+        mSubType = 18; //SUBTITLE_TTML
+    } else if (sub_type == CODEC_ID_SMPTE_TTML_SUBTITLE) {
+        mSubType = 20; //SUBTITLE_SMPTE_TTML
     } else {
         mSubType = 4;
     }

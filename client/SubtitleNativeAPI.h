@@ -47,17 +47,19 @@ typedef void *AmlSubtitleHnd;
 */
 // must keep sync with SubtitleServer.
 typedef enum {
-    DTV_SUB_INVALID         = -1,
-    DTV_SUB_CC              = 2,
-    DTV_SUB_SCTE27          = 3,
-    DTV_SUB_DVB             = 4,
-    DTV_SUB_DTVKIT_DVB      = 5,
-    DTV_SUB_DTVKIT_TELETEXT = 6,
-    DTV_SUB_DTVKIT_SCTE27   = 7,
-    DTV_SUB_ARIB24          = 8,
-    DTV_SUB_DTVKIT_ARIB24   = 9,
-    DTV_SUB_TTML            = 10,
-    DTV_SUB_DTVKIT_TTML     = 11,
+    DTV_SUB_INVALID                 = -1,
+    DTV_SUB_CC                      = 2,
+    DTV_SUB_SCTE27                  = 3,
+    DTV_SUB_DVB                     = 4,
+    DTV_SUB_DTVKIT_DVB              = 5,
+    DTV_SUB_DTVKIT_TELETEXT         = 6,
+    DTV_SUB_DTVKIT_SCTE27           = 7,
+    DTV_SUB_ARIB24                  = 8,
+    DTV_SUB_DTVKIT_ARIB24           = 9,
+    DTV_SUB_TTML                    = 10,
+    DTV_SUB_DTVKIT_TTML             = 11,
+    DTV_SUB_SMPTE_TTML              = 12,
+    DTV_SUB_DTVKIT_SMPTE_TTML       = 13,
 } DtvSubtitleType;
 
 typedef enum {
@@ -98,11 +100,13 @@ typedef enum {
     TYPE_SUBTITLE_DTVKIT_DVB, //12
     TYPE_SUBTITLE_DTVKIT_TELETEXT,
     TYPE_SUBTITLE_DTVKIT_SCTE27,
-    TYPE_SUBTITLE_EXTERNAL,
+    TYPE_SUBTITLE_EXTERNAL, //15
     TYPE_SUBTITLE_ARIB_B24,
     TYPE_SUBTITLE_DTVKIT_ARIB_B24,
     TYPE_SUBTITLE_TTML,
     TYPE_SUBTITLE_DTVKIT_TTML,
+    TYPE_SUBTITLE_SMPTE_TTML, //20
+    TYPE_SUBTITLE_DTVKIT_SMPTE_TTML,
     TYPE_SUBTITLE_MAX,
 } AmlSubtitletype;
 

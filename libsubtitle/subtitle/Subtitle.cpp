@@ -78,11 +78,13 @@ void Subtitle::init(int renderType) {
     mSubPrams->dtvkitDvbParam.pid= 0;
     mSubPrams->dtvkitDvbParam.ancillaryId = 0;
     mSubPrams->dtvkitDvbParam.compositionId= 0;
-    mSubPrams->dtvkitArib24Param.demuxId = 0;
-    mSubPrams->dtvkitArib24Param.pid= 0;
-    mSubPrams->dtvkitArib24Param.languageCodeId = 0;
-    mSubPrams->dtvkitTtmlParam.demuxId = 0;
-    mSubPrams->dtvkitTtmlParam.pid= 0;
+    mSubPrams->arib24Param.demuxId = 0;
+    mSubPrams->arib24Param.pid= 0;
+    mSubPrams->arib24Param.languageCodeId = 0;
+    mSubPrams->ttmlParam.demuxId = 0;
+    mSubPrams->ttmlParam.pid= 0;
+    mSubPrams->smpteTtmlParam.demuxId = 0;
+    mSubPrams->smpteTtmlParam.pid= 0;
     mPresentation = std::shared_ptr<Presentation>(new Presentation(nullptr, renderType));
 }
 
@@ -304,10 +306,13 @@ void Subtitle::run() {
                     mParser->updateParameter(TYPE_SUBTITLE_DVB_TELETEXT, &mSubPrams->ttParam);
                 } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_ARIB_B24
                          || mSubPrams->subType == TYPE_SUBTITLE_ARIB_B24) {
-                    mParser->updateParameter(TYPE_SUBTITLE_ARIB_B24, &mSubPrams->ttParam);
+                    mParser->updateParameter(TYPE_SUBTITLE_ARIB_B24, &mSubPrams->arib24Param);
                 } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_TTML
                          || mSubPrams->subType == TYPE_SUBTITLE_TTML) {
-                    mParser->updateParameter(TYPE_SUBTITLE_TTML, &mSubPrams->ttParam);
+                    mParser->updateParameter(TYPE_SUBTITLE_TTML, &mSubPrams->ttmlParam);
+                } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_SMPTE_TTML
+                         || mSubPrams->subType == TYPE_SUBTITLE_SMPTE_TTML) {
+                    mParser->updateParameter(TYPE_SUBTITLE_SMPTE_TTML, &mSubPrams->smpteTtmlParam);
                 } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_SCTE27) {
                     mParser->updateParameter(TYPE_SUBTITLE_DTVKIT_SCTE27, &mSubPrams->scteParam);
                 } else if (mSubPrams->subType == TYPE_SUBTITLE_CLOSED_CAPTION) {
@@ -347,9 +352,9 @@ void Subtitle::run() {
                 } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_SCTE27) {
                     mParser->updateParameter(TYPE_SUBTITLE_DTVKIT_SCTE27, &mSubPrams->scteParam);
                 } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_ARIB_B24) {
-                    mParser->updateParameter(TYPE_SUBTITLE_DTVKIT_ARIB_B24, &mSubPrams->dtvkitArib24Param);
+                    mParser->updateParameter(TYPE_SUBTITLE_DTVKIT_ARIB_B24, &mSubPrams->arib24Param);
                 } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_TTML) {
-                    mParser->updateParameter(TYPE_SUBTITLE_DTVKIT_TTML, &mSubPrams->dtvkitTtmlParam);
+                    mParser->updateParameter(TYPE_SUBTITLE_DTVKIT_TTML, &mSubPrams->ttmlParam);
                 }
             }
             break;

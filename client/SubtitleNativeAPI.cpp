@@ -49,6 +49,7 @@ static AmlSubDataType __mapServerType2ApiType(int type) {
     switch (type) {
         case TYPE_SUBTITLE_DVB:
         case TYPE_SUBTITLE_PGS:
+        case TYPE_SUBTITLE_SMPTE_TTML:
             return SUB_DATA_TYPE_POSITION_BITMAP;
 
         case TYPE_SUBTITLE_EXTERNAL:
@@ -85,6 +86,8 @@ static int __mapApiType2SubtitleType(int type) {
             return DTV_SUB_DTVKIT_ARIB24;
         case TYPE_SUBTITLE_TTML:
             return DTV_SUB_DTVKIT_TTML;
+        case TYPE_SUBTITLE_SMPTE_TTML:
+            return DTV_SUB_DTVKIT_SMPTE_TTML;
     }
     //default:
     return type;

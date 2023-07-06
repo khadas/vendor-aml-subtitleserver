@@ -102,17 +102,19 @@ enum DisplayType {
 };
 
 typedef enum {
-    DTV_SUB_INVALID = -1,
-    DTV_SUB_CC              = 2,
-    DTV_SUB_SCTE27          = 3,
+    DTV_SUB_INVALID                 = -1,
+    DTV_SUB_CC                      = 2,
+    DTV_SUB_SCTE27                  = 3,
     DTV_SUB_DVB                     = 4,
-    DTV_SUB_DTVKIT_DVB         =5,
-    DTV_SUB_DTVKIT_TELETEXT = 6,
-    DTV_SUB_DTVKIT_SCTE27    = 7,
-    DTV_SUB_ARIB24    = 8,
-    DTV_SUB_DTVKIT_ARIB24    = 9,
-    DTV_SUB_TTML    = 10,
-    DTV_SUB_DTVKIT_TTML    = 11,
+    DTV_SUB_DTVKIT_DVB              =5,
+    DTV_SUB_DTVKIT_TELETEXT         = 6,
+    DTV_SUB_DTVKIT_SCTE27           = 7,
+    DTV_SUB_ARIB24                  = 8,
+    DTV_SUB_DTVKIT_ARIB24           = 9,
+    DTV_SUB_TTML                    = 10,
+    DTV_SUB_DTVKIT_TTML             = 11,
+    DTV_SUB_SMPTE_TTML              = 12,
+    DTV_SUB_DTVKIT_SMPTE_TTML       = 13,
 } DtvSubtitleType;
 
 enum VideoFormat {
@@ -142,20 +144,26 @@ typedef struct {
    int flag = 0;
    int compositionId = 0;
    int ancillaryId = 0;
-}DtvKitDvbParam;
+} DtvKitDvbParam;
 
 typedef struct {
    int demuxId = 0;
    int pid = 0;
    int flag = 0;
    int languageCodeId = 0;
-}DtvKitArib24Param;
+} Arib24Param;
 
 typedef struct {
    int demuxId = 0;
    int pid = 0;
    int flag = 0;
-}DtvKitTtmlParam;
+}TtmlParam;
+
+typedef struct {
+   int demuxId = 0;
+   int pid = 0;
+   int flag = 0;
+} SmpteTtmlParam;
 
 typedef struct {
    int demuxId = 0;
@@ -163,7 +171,8 @@ typedef struct {
    int flag = 0;
    int magazine = 0;
    int page = 0;
-}DtvKitTeletextParam;
+} DtvKitTeletextParam;
+
 typedef enum {
     CMD_INVALID        = -1,
     CMD_GO_HOME        = 1,
@@ -270,8 +279,9 @@ struct SubtitleParamType {
     int mediaId;
 
     int idxSubTrackId; // only for idxsub
-    DtvKitArib24Param dtvkitArib24Param; //the pes pid for filter subtitle data from demux
-    DtvKitTtmlParam dtvkitTtmlParam; //the pes pid for filter subtitle data from demux
+    Arib24Param arib24Param; //the pes pid for filter subtitle data from demux
+    TtmlParam ttmlParam; //the pes pid for filter subtitle data from demux
+    SmpteTtmlParam smpteTtmlParam; //the pes pid for filter subtitle data from demux
     DtvKitDvbParam dtvkitDvbParam; //the pes pid for filter subtitle data from demux
     SubtitleParamType() : playerId(0), mediaId(-1), idxSubTrackId(0) {
         subType = TYPE_SUBTITLE_INVALID;
@@ -300,6 +310,9 @@ struct SubtitleParamType {
                 break;
             case DTV_SUB_DTVKIT_TTML:
                 subType = TYPE_SUBTITLE_DTVKIT_TTML;
+                break;
+            case DTV_SUB_DTVKIT_SMPTE_TTML:
+                subType = TYPE_SUBTITLE_DTVKIT_SMPTE_TTML;
                 break;
             default:
                 break;

@@ -78,7 +78,7 @@ private:
         int videoHeight;
         int size;
         int isShow;
-	  int shmid;
+        int shmid;
         char *lang;
     };
 

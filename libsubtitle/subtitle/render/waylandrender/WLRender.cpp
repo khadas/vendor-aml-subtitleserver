@@ -226,8 +226,9 @@ void WLRender::drawItems() {
             bool showFullScreen =
                     (*it)->subtitle_type == SubtitleType::TYPE_SUBTITLE_DTVKIT_TELETEXT
                     || (*it)->subtitle_type == SubtitleType::TYPE_SUBTITLE_DVB_TELETEXT;
-
+            //mWLDevice->drawColor(0, 0, 0, 0);
             mWLDevice->drawImage((*it)->spu_data, showFullScreen ? rect : originDisplayRect, rect, screenRect);
+            std::this_thread::sleep_for(std::chrono::milliseconds(15));
         }
     }
 

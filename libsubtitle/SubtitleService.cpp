@@ -139,9 +139,11 @@ bool SubtitleService::startSubtitle(std::vector<int> fds, int trackId, SubtitleI
     } else if (TYPE_SUBTITLE_DTVKIT_SCTE27== mSubParam.subType) {
            mDataSource->updateParameter(mSubParam.subType, &mSubParam.scteParam);
     } else if (TYPE_SUBTITLE_DTVKIT_ARIB_B24== mSubParam.subType) {
-           mDataSource->updateParameter(mSubParam.subType, &mSubParam.dtvkitArib24Param);
+           mDataSource->updateParameter(mSubParam.subType, &mSubParam.arib24Param);
     } else if (TYPE_SUBTITLE_DTVKIT_TTML== mSubParam.subType) {
-           mDataSource->updateParameter(mSubParam.subType, &mSubParam.dtvkitTtmlParam);
+           mDataSource->updateParameter(mSubParam.subType, &mSubParam.ttmlParam);
+    } else if (TYPE_SUBTITLE_DTVKIT_SMPTE_TTML== mSubParam.subType) {
+           mDataSource->updateParameter(mSubParam.subType, &mSubParam.smpteTtmlParam);
     }
    // schedule subtitle
     subtitle->scheduleStart();
@@ -219,10 +221,13 @@ void SubtitleService::setDemuxId(int demuxId) {
             mSubParam.ttParam.demuxId = demuxId;
         break;
         case DTV_SUB_DTVKIT_ARIB24:
-            mSubParam.dtvkitArib24Param.demuxId = demuxId;
+            mSubParam.arib24Param.demuxId = demuxId;
         break;
         case DTV_SUB_DTVKIT_TTML:
-            mSubParam.dtvkitTtmlParam.demuxId = demuxId;
+            mSubParam.ttmlParam.demuxId = demuxId;
+        break;
+        case DTV_SUB_DTVKIT_SMPTE_TTML:
+            mSubParam.smpteTtmlParam.demuxId = demuxId;
         break;
         default:
         break;
@@ -236,9 +241,11 @@ void SubtitleService::setDemuxId(int demuxId) {
     } else if (mSubParam.subType == TYPE_SUBTITLE_DTVKIT_SCTE27) {
         mDataSource->updateParameter(mSubParam.subType, &mSubParam.scteParam);
     } else if (mSubParam.subType == TYPE_SUBTITLE_DTVKIT_ARIB_B24) {
-           mDataSource->updateParameter(mSubParam.subType, &mSubParam.dtvkitArib24Param);
+           mDataSource->updateParameter(mSubParam.subType, &mSubParam.arib24Param);
     } else if (mSubParam.subType == TYPE_SUBTITLE_DTVKIT_TTML) {
-           mDataSource->updateParameter(mSubParam.subType, &mSubParam.dtvkitTtmlParam);
+           mDataSource->updateParameter(mSubParam.subType, &mSubParam.ttmlParam);
+    } else if (mSubParam.subType == TYPE_SUBTITLE_DTVKIT_SMPTE_TTML) {
+           mDataSource->updateParameter(mSubParam.subType, &mSubParam.smpteTtmlParam);
     }
 }
 
@@ -254,10 +261,13 @@ void SubtitleService::setSecureLevel(int flag) {
             mSubParam.ttParam.flag = flag;
         break;
         case DTV_SUB_DTVKIT_ARIB24:
-            mSubParam.dtvkitArib24Param.flag = flag;
+            mSubParam.arib24Param.flag = flag;
         break;
         case DTV_SUB_DTVKIT_TTML:
-            mSubParam.dtvkitTtmlParam.flag = flag;
+            mSubParam.ttmlParam.flag = flag;
+        break;
+        case DTV_SUB_DTVKIT_SMPTE_TTML:
+            mSubParam.smpteTtmlParam.flag = flag;
         break;
         default:
         break;
@@ -271,9 +281,11 @@ void SubtitleService::setSecureLevel(int flag) {
     } else if (mSubParam.subType == TYPE_SUBTITLE_DTVKIT_SCTE27) {
         mDataSource->updateParameter(mSubParam.subType, &mSubParam.scteParam);
     } else if (mSubParam.subType == TYPE_SUBTITLE_DTVKIT_ARIB_B24) {
-           mDataSource->updateParameter(mSubParam.subType, &mSubParam.dtvkitArib24Param);
+           mDataSource->updateParameter(mSubParam.subType, &mSubParam.arib24Param);
     } else if (mSubParam.subType == TYPE_SUBTITLE_DTVKIT_TTML) {
-           mDataSource->updateParameter(mSubParam.subType, &mSubParam.dtvkitTtmlParam);
+           mDataSource->updateParameter(mSubParam.subType, &mSubParam.ttmlParam);
+    } else if (mSubParam.subType == TYPE_SUBTITLE_DTVKIT_SMPTE_TTML) {
+           mDataSource->updateParameter(mSubParam.subType, &mSubParam.smpteTtmlParam);
     }
 }
 
@@ -290,10 +302,13 @@ void SubtitleService::setSubPid(int pid) {
         case DTV_SUB_DTVKIT_TELETEXT:
             mSubParam.ttParam.pid = pid;
         case DTV_SUB_DTVKIT_ARIB24:
-            mSubParam.dtvkitArib24Param.pid = pid;
+            mSubParam.arib24Param.pid = pid;
         break;
         case DTV_SUB_DTVKIT_TTML:
-            mSubParam.dtvkitTtmlParam.pid = pid;
+            mSubParam.ttmlParam.pid = pid;
+        break;
+        case DTV_SUB_DTVKIT_SMPTE_TTML:
+            mSubParam.smpteTtmlParam.pid = pid;
         break;
         default:
         break;
@@ -305,9 +320,11 @@ void SubtitleService::setSubPid(int pid) {
     } else if (mSubParam.subType == TYPE_SUBTITLE_DTVKIT_TELETEXT) {
            mDataSource->updateParameter(mSubParam.subType, &mSubParam.ttParam);
     } else if (mSubParam.subType == TYPE_SUBTITLE_DTVKIT_ARIB_B24) {
-           mDataSource->updateParameter(mSubParam.subType, &mSubParam.dtvkitArib24Param);
+           mDataSource->updateParameter(mSubParam.subType, &mSubParam.arib24Param);
     } else if (mSubParam.subType == TYPE_SUBTITLE_DTVKIT_TTML) {
-           mDataSource->updateParameter(mSubParam.subType, &mSubParam.dtvkitTtmlParam);
+           mDataSource->updateParameter(mSubParam.subType, &mSubParam.ttmlParam);
+    } else if (mSubParam.subType == TYPE_SUBTITLE_DTVKIT_SMPTE_TTML) {
+           mDataSource->updateParameter(mSubParam.subType, &mSubParam.smpteTtmlParam);
     }
 }
 
@@ -483,7 +500,7 @@ bool SubtitleService::stopSubtitle() {
     mSubParam.dtvSubType = DTV_SUB_INVALID;
     mSubParam.dtvkitDvbParam.ancillaryId = 0;
     mSubParam.dtvkitDvbParam.compositionId = 0;
-    mSubParam.dtvkitArib24Param.languageCodeId = 0;
+    mSubParam.arib24Param.languageCodeId = 0;
     return true;
 }
 

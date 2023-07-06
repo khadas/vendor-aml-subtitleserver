@@ -325,8 +325,8 @@ bool AndroidCallbackMessageQueue::postDisplayData(const char *data,  int type,
         subtitleData->videoHeight = videoHeight;
         subtitleData->size = size;
         subtitleData->isShow = cmd;
-       // subtitleData->mem = mMemBase;
-       subtitleData->shmid = shmid;
+        // subtitleData->mem = mMemBase;
+        subtitleData->shmid = shmid;
         mSubtitleData.push_back(std::move(subtitleData));
         mLooper->sendMessage(this, Message(MSG_CHECK_SUBDATA));
 

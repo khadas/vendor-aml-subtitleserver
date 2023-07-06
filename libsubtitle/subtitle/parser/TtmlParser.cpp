@@ -195,7 +195,7 @@ static inline int generateNormalDisplay(AVSubtitleRect *subRect, unsigned char *
  */
 bool TtmlParser::updateParameter(int type, void *data) {
     if (TYPE_SUBTITLE_TTML == type) {
-        DtvKitTtmlParam *pTtmlParam = (DtvKitTtmlParam* )data;
+        TtmlParam *pTtmlParam = (TtmlParam* )data;
     }
     return true;
 }

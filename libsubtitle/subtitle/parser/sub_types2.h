@@ -62,7 +62,7 @@ typedef struct {
     int              filter_handle;
     //jobject        obj;
     //SkBitmap       *bitmap;
-	//jobject        obj_bitmap;
+    //jobject        obj_bitmap;
     int              bmp_w;
     int              bmp_h;
     int              bmp_pitch;

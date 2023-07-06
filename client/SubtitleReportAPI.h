@@ -68,6 +68,8 @@ enum CodecID {
     CODEC_ID_PJS,
     CODEC_ID_ASS,
     CODEC_ID_HDMV_TEXT_SUBTITLE,
+    CODEC_ID_TTML_SUBTITLE,
+    CODEC_ID_SMPTE_TTML_SUBTITLE,
 };
 
 SubSourceHandle SubSource_Create(int sId);

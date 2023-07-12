@@ -103,10 +103,13 @@ public:
     void drawColor(float r, float g, float b, float a, bool flush = true);
     void drawColor(float r, float g, float b, float a, FBRect& rect, bool flush = true);
     void cleanupFramebuffer();
-    void clearFramebufferScreen();
-    void drawImageToFramebuffer(unsigned char* imgBuffer, unsigned short IMAGE_WIDTH, unsigned short IMAGE_HEIGHT,
+    void clearFullFramebufferScreen();
+    void clearFramebufferScreen(unsigned char* fbuffer, int buffer_len);
+    void drawImageToFramebuffer(unsigned char* fbuffer, unsigned char* imgBuffer, unsigned short IMAGE_WIDTH, unsigned short IMAGE_HEIGHT,
                                 FBRect& videoOriginRect, int type, float scale_factor);
-    bool drawImage(int type, unsigned char *img, int64_t pts, int buffer_size, unsigned short spu_width, unsigned short spu_height, FBRect &videoOriginRect, FBRect &src, FBRect &dst);
+    void  print_screen_info(struct fb_var_screeninfo* varInfo, struct fb_fix_screeninfo* fixInfo );
+    void  drawColorToImage(unsigned char* img, unsigned short width, unsigned short height, int color);
+    bool  drawImage(int type, unsigned char *img, int64_t pts, int buffer_size, unsigned short spu_width, unsigned short spu_height, FBRect &videoOriginRect, FBRect &src, FBRect &dst);
     FBRect drawText(int type, TextParams& textParams, int64_t pts, int buffer_size, unsigned short spu_width, unsigned short spu_height, FBRect &videoOriginRect, FBRect &src, FBRect &dst,
             int marginBottom = MIN_TEXT_MARGIN_BOTTOM, bool flush = true);
     void drawMultiText(int type, TextParams& textParams, int64_t pts, int buffer_size, unsigned short spu_width, unsigned short spu_height, FBRect &videoOriginRect, FBRect &src, FBRect &dst);
@@ -137,7 +140,10 @@ private:
     bool mInited = false;
     int mFbfd;
     struct fb_var_screeninfo mVinfo;
+    struct fb_fix_screeninfo mFinfo;
     unsigned char* mFramebuffer;
+    int mCurSurface;
+    int mCurSur;
 };
 
 #endif //_FBDEVICE_H

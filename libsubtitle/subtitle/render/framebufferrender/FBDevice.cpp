@@ -103,6 +103,7 @@ FBDevice::FBDevice() {
 FBDevice::~FBDevice() {
     /* release our interfaces to shutdown DirectFB */
     //font->Release( font );
+    cleanupFramebuffer();
     ALOGD("FBDevice ---");
 }
 
@@ -270,9 +271,28 @@ bool FBDevice::initFramebuffer() {
     mVinfo.bits_per_pixel = 32;
     mVinfo.xres_virtual = mVinfo.xres;
     mVinfo.yres_virtual = mVinfo.yres * 2;  // double buffering
+    //set format is ARGB
+    mVinfo.grayscale = 0;
+    mVinfo.transp.offset = 24;
+    mVinfo.transp.length = 8;
+    mVinfo.transp.msb_right = 0;
+    mVinfo.red.offset = 16;
+    mVinfo.red.length = 8;
+    mVinfo.red.msb_right = 0;
+    mVinfo.green.offset = 8;
+    mVinfo.green.length = 8;
+    mVinfo.green.msb_right = 0;
+    mVinfo.blue.offset = 0;
+    mVinfo.blue.length = 8;
+    mVinfo.blue.msb_right = 0;
 
     if (ioctl(mFbfd, FBIOPUT_VSCREENINFO, &mVinfo) == -1) {
         ALOGD("Error: failed to put framebuffer information");
+        close(mFbfd);
+        return false;
+    }
+    if (ioctl(mFbfd, FBIOGET_FSCREENINFO, &mFinfo) == -1) {
+        ALOGD("Error: failed to put framebuffer information 2");
         close(mFbfd);
         return false;
     }
@@ -285,7 +305,8 @@ bool FBDevice::initFramebuffer() {
         close(mFbfd);
         return false;
     }
-
+    print_screen_info(&mVinfo, &mFinfo);
+    mCurSurface == 255;
     return true;
 }
 
@@ -305,28 +326,31 @@ void FBDevice::cleanupFramebuffer() {
     }
 }
 
-void FBDevice::clearFramebufferScreen() {
-    // Check for null pointer
-    if (mFramebuffer == NULL) {
-        ALOGD("clearFramebufferScreen framebuffer is NULL");
-        return;
-    }
+void  FBDevice::print_screen_info(struct fb_var_screeninfo* varInfo, struct fb_fix_screeninfo* fixInfo )
+{
+    ALOGD("\n varinfo:res(%d, %d), virtual res(%d,%d), bpp(%d)\n"
+            "grayscale(%d)\n (offset,len,msb_right) trans(%d,%d,%d) red(%d,%d,%d), green(%d,%d,%d), blue(%d,%d,%d)\n",
+            varInfo->xres, varInfo->yres,varInfo->xres_virtual, varInfo->yres_virtual, varInfo->bits_per_pixel,
+            varInfo->grayscale, varInfo->transp.offset, varInfo->transp.length, varInfo->transp.msb_right,
+            varInfo->red.offset, varInfo->red.length, varInfo->red.msb_right,
+            varInfo->green.offset, varInfo->green.length, varInfo->green.msb_right,
+            varInfo->blue.offset, varInfo->blue.length,varInfo->blue.msb_right);
+    ALOGD("\n fixInfo buffer:%lu buffer_len:%d,line_len:%d\n", fixInfo->smem_start, fixInfo->smem_len, fixInfo->line_length);
+}
 
+void FBDevice::clearFullFramebufferScreen() {
     size_t bufferSize = mVinfo.xres_virtual * mVinfo.yres_virtual * (mVinfo.bits_per_pixel / 8);
-    if (bufferSize == 0) {
-        return;
-    }
+    memset(mFramebuffer, 0, bufferSize);
+}
 
-    try {
-        memset(mFramebuffer, 0, bufferSize);
-    } catch (const std::exception& e) {
-        return;
-    }
+void FBDevice::clearFramebufferScreen(unsigned char* fbuffer, int buffer_len) {
+    memset(fbuffer, 0, buffer_len);
 }
 
 //draw Image To Framebuffer
-void FBDevice::drawImageToFramebuffer(unsigned char* imgBuffer, unsigned short spu_width, unsigned short spu_height,
+void FBDevice::drawImageToFramebuffer(unsigned char* fbuffer, unsigned char* imgBuffer, unsigned short spu_width, unsigned short spu_height,
                                 FBRect& videoOriginRect, int type, float scale_factor) {
+    ALOGD("%s start",__FUNCTION__);
     if (type == TYPE_SUBTITLE_DVB_TELETEXT) {
         // Calculate scaling factors
         #ifdef SUBTITLE_ZAPPER_4K
@@ -336,7 +360,6 @@ void FBDevice::drawImageToFramebuffer(unsigned char* imgBuffer, unsigned short s
         float scale_factor_width = static_cast<float>(mVinfo.xres) / spu_width;
         float scale_factor_height = static_cast<float>(mVinfo.yres) / spu_height;
         #endif
-    //    scale_factor = std::min(scale_factor_width, scale_factor_height);
 
         // Calculate scaled image dimensions
         int scaled_width = static_cast<int>(spu_width * scale_factor_width);
@@ -360,11 +383,10 @@ void FBDevice::drawImageToFramebuffer(unsigned char* imgBuffer, unsigned short s
                 int fbOffset = ((y + y_offset) * mVinfo.xres_virtual + (x + x_offset)) * 4;
 
                 // Copy pixel data from the image buffer to the framebuffer
-                *((unsigned int*)(mFramebuffer + fbOffset)) = *((unsigned int*)(imgBuffer + imgOffset));
+                memcpy(fbuffer + fbOffset, imgBuffer + imgOffset, 4);
             }
         }
     } else {
-            clearFramebufferScreen();
             int x_offset = 0;
             int y_offset = 0;
             x_offset = 0.15 * mVinfo.xres;
@@ -381,10 +403,11 @@ void FBDevice::drawImageToFramebuffer(unsigned char* imgBuffer, unsigned short s
 
                     int imgOffset = (img_y * spu_width + img_x) * 4;  // 4 bytes per pixel
                     int fbOffset = ((y + y_offset) * mVinfo.xres_virtual + (x + x_offset)) * 4;
-                    *((unsigned int*)(mFramebuffer + fbOffset)) = *((unsigned int*)(imgBuffer + imgOffset));
+                    memcpy(fbuffer + fbOffset, imgBuffer + imgOffset, 4);
                 }
             }
     }
+
 }
 
 float setScaleFactor(FBRect& videoOriginRect) {
@@ -398,32 +421,39 @@ float setScaleFactor(FBRect& videoOriginRect) {
 bool FBDevice::drawImage(int type, unsigned char* img, int64_t pts, int buffer_size,
                          unsigned short spu_width, unsigned short spu_height,
                          FBRect& videoOriginRect, FBRect& src, FBRect& dst) {
-    // init framebuffer
-    // if (!initFramebuffer()) {
-    //     ALOGD( "Error: failed to initialize framebuffer\n");
-    //     return false;
-    // }
-
-    ALOGD(" mVinfo.xres = %d,mVinfo.yres = %d",mVinfo.xres,mVinfo.yres);
     ALOGD("%s start",__FUNCTION__);
     ALOGD("videoOriginRect.width() = %d, videoOriginRect.height() = %d, spu_width = %d,spu_height = %d",
                          videoOriginRect.width(), videoOriginRect.height(), spu_width, spu_height);
 
     int image_size  = (spu_width * spu_height * 4);  // 4 bytes per pixel
     float scale_factor = setScaleFactor(videoOriginRect);
-    ALOGD("scale_factor = %f",scale_factor);
-
-    // draw image to framebuffer
-    drawImageToFramebuffer(img, spu_width, spu_height,videoOriginRect, type, scale_factor);
+    int buffer_len;
+    buffer_len = mVinfo.xres * mVinfo.yres * 4;
+    unsigned char* fbuffer = mFramebuffer;
+    if (mCurSurface == 255)
+    {
+        mCurSur = 0;
+        mVinfo.yoffset = 0;
+    }
+    if (mCurSurface == 0)
+    {
+        mCurSur = 1;
+        mVinfo.yoffset = mVinfo.yres;
+        fbuffer = fbuffer + buffer_len;
+    }
+    if (mCurSurface == 1)
+    {
+        mVinfo.yoffset = 0;
+        mCurSur = 0;
+    }
+    clearFramebufferScreen(fbuffer,buffer_len);
+    drawImageToFramebuffer(fbuffer, img, spu_width, spu_height, videoOriginRect, type, scale_factor);
 
     // refresh framebuffer
     if (ioctl(mFbfd, FBIOPAN_DISPLAY, &mVinfo) == -1) {
         ALOGD("Error: failed to pan display");
     }
-
-    // clean up resources
-    //cleanupFramebuffer();
-
+    mCurSurface = mCurSur;
     return true;
 }
 

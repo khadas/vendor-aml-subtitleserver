@@ -229,6 +229,7 @@ void FBRender::drawItems() {
 
 //            mFBDevice->drawImage((*it)->subtitle_type, (*it)->spu_data, (*it)->pts, (*it)->buffer_size, (*it)->spu_width, (*it)->spu_height, showFullScreen ? rect : originDisplayRect, rect, screenRect);
             mFBDevice->drawImage((*it)->subtitle_type, (*it)->spu_data, (*it)->pts, (*it)->buffer_size, (*it)->spu_width, (*it)->spu_height, originDisplayRect, rect, screenRect);
+            std::this_thread::sleep_for(std::chrono::milliseconds(15));
         }
     }
 
@@ -255,8 +256,7 @@ void FBRender::clearScreen() {
     ALOGD("clearScreen");
     // mFBDevice->clearSurface();
     // mFBDevice->drawColor(0, 0, 0, 0);
-    mFBDevice->clearFramebufferScreen();
-    //mFBDevice->cleanupFramebuffer();
+    mFBDevice->clearFullFramebufferScreen();
 }
 
 void FBRender::sendMessage(const AMLMessage &message, nsecs_t nsecs) {

@@ -125,6 +125,7 @@ DemuxSource::DemuxSource() : mRdFd(-1), mState(E_SOURCE_INV),
     sInstance = this;
     mPlayerId = -1;
     mMediaSyncId = -1;
+    mMediaSyncDestroyFlag = false;
     mSubType = -1;
     #ifdef MEDIASYNC_FOR_SUBTITLE
     mMediaSync = MediaSync_create();
@@ -153,6 +154,7 @@ DemuxSource::~DemuxSource() {
 
     mPlayerId = -1;
     mMediaSyncId = -1;
+    mMediaSyncDestroyFlag = false;
     close_dvb_dmx(mDemuxContext, mDemuxId );
     if (mDumpFd > 0) ::close(mDumpFd);
 }
@@ -193,7 +195,7 @@ void DemuxSource::loopRenderTime() {
                 value = sysfsReadInt(SYSFS_VIDEO_PTS.c_str(), 16);
                 mSyncPts = value;
             #ifdef MEDIASYNC_FOR_SUBTITLE
-            } else {
+            } else if (mMediaSync != nullptr && !mMediaSyncDestroyFlag) {
                 MediaSync_getTrackMediaTime(mMediaSync, &value);
                 value = 0x1FFFFFFFF & ((9*value)/100);
                 mSyncPts = value;
@@ -441,6 +443,7 @@ void DemuxSource::setPipId (int mode, int id) {
    } else if (PIP_MEDIASYNC_ID == mode) {
        if ((-1 != mMediaSyncId) || (mMediaSyncId != id)) {
            mMediaSyncId = id;
+           mMediaSyncDestroyFlag = true;
            if (mMediaSync != nullptr) {
                #ifdef MEDIASYNC_FOR_SUBTITLE
                MediaSync_destroy(mMediaSync);
@@ -450,6 +453,7 @@ void DemuxSource::setPipId (int mode, int id) {
            #ifdef MEDIASYNC_FOR_SUBTITLE
            MediaSync_bindInstance(mMediaSync, mMediaSyncId, MEDIA_VIDEO);
            #endif
+           mMediaSyncDestroyFlag = false;
        }
    }
 }

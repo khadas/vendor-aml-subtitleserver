@@ -343,8 +343,8 @@ bool WLGLDevice::initTexture(void* data, WLRect &videoOriginRect, WLRect &cropRe
     //Video original crop
     glBindTexture(GL_TEXTURE_2D, mTexture.texture);
     glAssert("initTexture_glBindTexture");
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, glRect.width(), glRect.height(), 0,
-                 GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_BGRA_EXT, glRect.width(), glRect.height(), 0,
+                 GL_BGRA_EXT, GL_UNSIGNED_BYTE, nullptr);
     glAssert("initTexture_glTexImage2D");
 
     // Avoid data is out of display frame
@@ -357,7 +357,7 @@ bool WLGLDevice::initTexture(void* data, WLRect &videoOriginRect, WLRect &cropRe
 
     //Subtitle rect
     glTexSubImage2D(GL_TEXTURE_2D, 0, subCrop.x(), subCrop.y(),
-                    subCrop.width(), subCrop.height(), GL_RGBA, GL_UNSIGNED_BYTE, data);
+                    subCrop.width(), subCrop.height(), GL_BGRA_EXT, GL_UNSIGNED_BYTE, data);
     glAssert("initTexture_glTexSubImage2D");
 
     glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_CROP_RECT_OES, crop);

@@ -156,6 +156,7 @@ target_link_libraries(${TARGET} PUBLIC zvbi)
 target_link_libraries(${TARGET} PUBLIC pthread)
 target_link_libraries(${TARGET} PUBLIC cairo)
 target_link_libraries(${TARGET} PUBLIC tinyxml2)
+target_link_libraries(${TARGET} PUBLIC png)
 
 if (USE_WAYLAND)
     target_link_libraries(${TARGET} PUBLIC wayland-client)

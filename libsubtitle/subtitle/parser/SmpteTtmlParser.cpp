@@ -471,7 +471,7 @@ int SmpteTtmlParser::SmpteTtmlDecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char 
     if (divDivParagraph == nullptr) divDivParagraph = div->FirstChildElement("tt:div");
 
 
-    if (metadataSmpteImageParagraph != nullptr && layoutRegionParagraph != nullptr && divDivParagraph != nullptr) {
+    while (metadataSmpteImageParagraph != nullptr && layoutRegionParagraph != nullptr && divDivParagraph != nullptr) {
         const tinyxml2::XMLAttribute *metadataSmpteImageXmlIdParagraphAttribute     = metadataSmpteImageParagraph->FindAttribute("xml:id");
         const tinyxml2::XMLAttribute *metadataSmpteImageImageTypeParagraphAttribute = metadataSmpteImageParagraph->FindAttribute("imagetype");
         const tinyxml2::XMLAttribute *metadataSmpteImageEncodingParagraphAttribute  = metadataSmpteImageParagraph->FindAttribute("encoding");
@@ -598,8 +598,8 @@ int SmpteTtmlParser::SmpteTtmlDecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char 
         ALOGD("%s xml:id=%s tts:origin=%s tts:extent=%s\n", __FUNCTION__, layoutRegionXmlIdParagraphAttribute->Value(), layoutRegionTtsOriginParagraphAttribute->Value(), layoutRegionTtsExtentParagraphAttribute->Value());
         ALOGD("%s smpte:image xml:id=%s imagetype=%s encoding=%s imageData:%s", __FUNCTION__, metadataSmpteImageXmlIdParagraphAttribute->Value(), metadataSmpteImageImageTypeParagraphAttribute->Value(), metadataSmpteImageEncodingParagraphAttribute->Value(), imageData);
         ALOGD("%s spu->spu_width:%d,spu->spu_height:%d spu->buffer_size:%d spu->spu_origin_display_w:%d spu->spu_origin_display_h:%d\n", __FUNCTION__, spu->spu_width, spu->spu_height, spu->buffer_size, spu->spu_origin_display_w, spu->spu_origin_display_h);
-        spu->isImmediatePresent = true;
         addDecodedItem(std::shared_ptr<AML_SPUVAR>(spu));
+        spu->pts = spu->m_delay;
 
     }
     doc.Clear();
@@ -776,16 +776,16 @@ int SmpteTtmlParser::softDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
         ptsDiff = subPeekAsInt32(tmpbuf + 15);
 
         spu->subtitle_type = TYPE_SUBTITLE_SMPTE_TTML;
-        spu->pts = dvbPts;
+        spu->pts = mDataSource->getSyncTime();
         if (isMore32Bit(spu->pts) && !isMore32Bit(mDataSource->getSyncTime())) {
             ALOGD("SUB PTS is greater than 32 bits, before subpts: %lld, vpts:%lld", spu->pts, mDataSource->getSyncTime());
             spu->pts &= TSYNC_32_BIT_PTS;
         }
         //If gap time is large than 9 secs, think pts skip,notify info
-        if (abs(mDataSource->getSyncTime() - spu->pts) > 9*90000) {
-            LOGE("[%s::%d]pts skip,vpts:%lld, spu->pts:%lld notify time error!\n", __FUNCTION__, __LINE__, mDataSource->getSyncTime(), spu->pts);
-        }
-        LOGI("[%s::%d]pts ---------------,vpts:%lld, spu->pts:%lld\n", __FUNCTION__, __LINE__, mDataSource->getSyncTime(), spu->pts);
+        //if (abs(mDataSource->getSyncTime() - spu->pts) > 9*90000) {
+        //    LOGE("[%s::%d]pts skip,vpts:%lld, spu->pts:%lld notify time error!\n", __FUNCTION__, __LINE__, mDataSource->getSyncTime(), spu->pts);
+        //}
+        //LOGI("[%s::%d]pts ---------------,vpts:%lld, spu->pts:%lld\n", __FUNCTION__, __LINE__, mDataSource->getSyncTime(), spu->pts);
 
         if (mDumpSub) LOGI("## %s spu-> pts:%lld,dvPts:%lld\n", __FUNCTION__, spu->pts, dvbPts);
         if (mDumpSub) LOGI("## %s datalen=%d,pts=%llx,delay=%llx,diff=%llx, data: %x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x\n",

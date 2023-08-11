@@ -348,66 +348,75 @@ void FBDevice::clearFramebufferScreen(unsigned char* fbuffer, int buffer_len) {
 }
 
 //draw Image To Framebuffer
-void FBDevice::drawImageToFramebuffer(unsigned char* fbuffer, unsigned char* imgBuffer, unsigned short spu_width, unsigned short spu_height,
+void FBDevice::drawImageToFramebuffer(unsigned char* fbuffer, unsigned char* imgBuffer, int start_x, int start_y, unsigned short spu_width, unsigned short spu_height,
                                 FBRect& videoOriginRect, int type, float scale_factor) {
     ALOGD("%s start",__FUNCTION__);
+    float scale_factor_width;
+    float scale_factor_height;
+    int scaled_width;
+    int scaled_height;
+    int x_offset;
+    int y_offset;
     if (type == TYPE_SUBTITLE_DVB_TELETEXT) {
         // Calculate scaling factors
         #ifdef SUBTITLE_ZAPPER_4K
-        float scale_factor_width = static_cast<float>(mVinfo.xres * 0.8) / spu_width;
-        float scale_factor_height = static_cast<float>(mVinfo.yres * 0.8) / spu_height;
+        scale_factor_width = static_cast<float>(mVinfo.xres * 0.8) / spu_width;
+        scale_factor_height = static_cast<float>(mVinfo.yres * 0.8) / spu_height;
         #else
-        float scale_factor_width = static_cast<float>(mVinfo.xres) / spu_width;
-        float scale_factor_height = static_cast<float>(mVinfo.yres) / spu_height;
+        scale_factor_width = static_cast<float>(mVinfo.xres) / spu_width;
+        scale_factor_height = static_cast<float>(mVinfo.yres) / spu_height;
         #endif
 
         // Calculate scaled image dimensions
-        int scaled_width = static_cast<int>(spu_width * scale_factor_width);
-        int scaled_height = static_cast<int>(spu_height * scale_factor_height);
+        scaled_width = static_cast<int>(spu_width * scale_factor_width);
+        scaled_height = static_cast<int>(spu_height * scale_factor_height);
 
-        ALOGD("drawImageToFramebuffer, scale_factor_width = %f, scale_factor_height = %f,scaled_width = %d,scaled_height = %d",
-                                                scale_factor_width, scale_factor_height, scaled_width, scaled_height);
         // Calculate image offset
-        int x_offset = (mVinfo.xres - scaled_width) / 2;
-        int y_offset = (mVinfo.yres - scaled_height) / 2;
-
-        // Copy and scale image data to framebuffer with position offset
-        for (int y = 0; y < scaled_height; ++y) {
-            for (int x = 0; x < scaled_width; ++x) {
-                // Calculate corresponding coordinates in the original image
-                int img_x = static_cast<int>(x / scale_factor_width);
-                int img_y = static_cast<int>(y / scale_factor_height);
-
-                // Calculate image and framebuffer offsets
-                int imgOffset = (img_y * spu_width + img_x) * 4;  // 4 bytes per pixel
-                int fbOffset = ((y + y_offset) * mVinfo.xres_virtual + (x + x_offset)) * 4;
-
-                // Copy pixel data from the image buffer to the framebuffer
-                memcpy(fbuffer + fbOffset, imgBuffer + imgOffset, 4);
-            }
-        }
+        x_offset = (mVinfo.xres - scaled_width) / 2;
+        y_offset = (mVinfo.yres - scaled_height) / 2;
     } else {
-            int x_offset = 0;
-            int y_offset = 0;
-            x_offset = 0.15 * mVinfo.xres;
-            y_offset = 0.8 * mVinfo.yres;
+        scale_factor_width = static_cast<float>(mVinfo.xres) / videoOriginRect.width();
+        scale_factor_height = static_cast<float>(mVinfo.yres) / videoOriginRect.height();
 
-            int scaled_width = static_cast<int>(spu_width * scale_factor);
-            int scaled_height = static_cast<int>(spu_height * scale_factor);
+        scaled_width = static_cast<int>(spu_width * scale_factor_width);
+        scaled_height = static_cast<int>(spu_height * scale_factor_height);
 
-            // Copy and scale image data to framebuffer with position offset
-            for (int y = 0; y < scaled_height; ++y) {
-                for (int x = 0; x < scaled_width; ++x) {
-                    int img_x = static_cast<int>(x / scale_factor);
-                    int img_y = static_cast<int>(y / scale_factor);
-
-                    int imgOffset = (img_y * spu_width + img_x) * 4;  // 4 bytes per pixel
-                    int fbOffset = ((y + y_offset) * mVinfo.xres_virtual + (x + x_offset)) * 4;
-                    memcpy(fbuffer + fbOffset, imgBuffer + imgOffset, 4);
-                }
-            }
+        x_offset = start_x * scale_factor_width;
+        y_offset = start_y * scale_factor_height;
     }
 
+    for (int y = 0; y < scaled_height; ++y) {
+        for (int x = 0; x < scaled_width; ++x) {
+            // Calculate corresponding coordinates in the original image
+            float original_x = x / scale_factor_width;
+            float original_y = y / scale_factor_height;
+
+            // Calculate integer and fractional parts for interpolation
+            int x0 = std::max(0, std::min(static_cast<int>(original_x), spu_width - 1));
+            int y0 = std::max(0, std::min(static_cast<int>(original_y), spu_height - 1));
+            int x1 = std::min(x0 + 1, spu_width - 1);
+            int y1 = std::min(y0 + 1, spu_height - 1);
+            float x_frac = original_x - x0;
+            float y_frac = original_y - y0;
+
+            // Calculate image and framebuffer offsets for the four surrounding pixels
+            int imgOffset00 = ((y0 * spu_width + x0) * 4);   // Top-left pixel
+            int imgOffset10 = ((y0 * spu_width + x1) * 4);   // Top-right pixel
+            int imgOffset01 = ((y1 * spu_width + x0) * 4);   // Bottom-left pixel
+            int imgOffset11 = ((y1 * spu_width + x1) * 4);   // Bottom-right pixel
+            int fbOffset = ((y + y_offset) * mVinfo.xres_virtual + (x + x_offset)) * 4;
+
+            // Perform bilinear interpolation for each channel
+            for (int channel = 0; channel < 4; ++channel) {
+                float top = imgBuffer[imgOffset00 + channel] * (1 - x_frac) + imgBuffer[imgOffset10 + channel] * x_frac;
+                float bottom = imgBuffer[imgOffset01 + channel] * (1 - x_frac) + imgBuffer[imgOffset11 + channel] * x_frac;
+                float interpolated_value = top * (1 - y_frac) + bottom * y_frac;
+
+                // Update the framebuffer with the interpolated value
+                fbuffer[fbOffset + channel] = static_cast<unsigned char>(interpolated_value);
+            }
+        }
+    }
 }
 
 float setScaleFactor(FBRect& videoOriginRect) {
@@ -419,6 +428,7 @@ float setScaleFactor(FBRect& videoOriginRect) {
 }
 
 bool FBDevice::drawImage(int type, unsigned char* img, int64_t pts, int buffer_size,
+                         int start_x, int start_y,
                          unsigned short spu_width, unsigned short spu_height,
                          FBRect& videoOriginRect, FBRect& src, FBRect& dst) {
     ALOGD("%s start",__FUNCTION__);
@@ -447,7 +457,7 @@ bool FBDevice::drawImage(int type, unsigned char* img, int64_t pts, int buffer_s
         mCurSur = 0;
     }
     clearFramebufferScreen(fbuffer,buffer_len);
-    drawImageToFramebuffer(fbuffer, img, spu_width, spu_height, videoOriginRect, type, scale_factor);
+    drawImageToFramebuffer(fbuffer, img, start_x, start_y, spu_width, spu_height, videoOriginRect, type, scale_factor);
 
     // refresh framebuffer
     if (ioctl(mFbfd, FBIOPAN_DISPLAY, &mVinfo) == -1) {
@@ -599,7 +609,7 @@ FBRect FBDevice::drawText(int type, TextParams& textParams, int64_t pts, int buf
     FBRect srcRect{(int)fontBox.x, (int)fontBox.y, (int)fontBox.x2, (int)fontBox.y2};
 
     unsigned char * data = textSurface.data();
-    if (!data || !drawImage(type, data, pts, buffer_size, fontBox.getWidth(), fontBox.getHeight(), videoOriginRect, srcRect, dst)) {
+    if (!data || !drawImage(type, data, pts, buffer_size, moveX, moveY, fontBox.getWidth(), fontBox.getHeight(), videoOriginRect, srcRect, dst)) {
         ALOGE("%s, No valid data will to be drew", __FUNCTION__);
         if (flush) clear();
         return FBRect::empty();

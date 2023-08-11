@@ -212,7 +212,7 @@ void FBRender::drawItems() {
             FBDevice::TextParams textParams;
             textParams.content = text;
             textParams.fontFamily = "";
-            textParams.fontSize = 30;
+            textParams.fontSize = 20;
             textParams.textFillColor = Cairo::Colors::White;
             textParams.textLineColor = Cairo::Colors::White;
             textParams.bgPadding = 10;
@@ -228,7 +228,7 @@ void FBRender::drawItems() {
                     || (*it)->subtitle_type == SubtitleType::TYPE_SUBTITLE_DVB_TELETEXT;
 
 //            mFBDevice->drawImage((*it)->subtitle_type, (*it)->spu_data, (*it)->pts, (*it)->buffer_size, (*it)->spu_width, (*it)->spu_height, showFullScreen ? rect : originDisplayRect, rect, screenRect);
-            mFBDevice->drawImage((*it)->subtitle_type, (*it)->spu_data, (*it)->pts, (*it)->buffer_size, (*it)->spu_width, (*it)->spu_height, originDisplayRect, rect, screenRect);
+            mFBDevice->drawImage((*it)->subtitle_type, (*it)->spu_data, (*it)->pts, (*it)->buffer_size, (*it)->spu_start_x, (*it)->spu_start_y, (*it)->spu_width, (*it)->spu_height, originDisplayRect, rect, screenRect);
             std::this_thread::sleep_for(std::chrono::milliseconds(15));
         }
     }

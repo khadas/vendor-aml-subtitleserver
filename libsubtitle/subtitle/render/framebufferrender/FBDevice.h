@@ -105,11 +105,11 @@ public:
     void cleanupFramebuffer();
     void clearFullFramebufferScreen();
     void clearFramebufferScreen(unsigned char* fbuffer, int buffer_len);
-    void drawImageToFramebuffer(unsigned char* fbuffer, unsigned char* imgBuffer, unsigned short IMAGE_WIDTH, unsigned short IMAGE_HEIGHT,
+    void drawImageToFramebuffer(unsigned char* fbuffer, unsigned char* imgBuffer, int start_x, int start_y, unsigned short spu_width, unsigned short spu_height,
                                 FBRect& videoOriginRect, int type, float scale_factor);
     void  print_screen_info(struct fb_var_screeninfo* varInfo, struct fb_fix_screeninfo* fixInfo );
     void  drawColorToImage(unsigned char* img, unsigned short width, unsigned short height, int color);
-    bool  drawImage(int type, unsigned char *img, int64_t pts, int buffer_size, unsigned short spu_width, unsigned short spu_height, FBRect &videoOriginRect, FBRect &src, FBRect &dst);
+    bool  drawImage(int type, unsigned char *img, int64_t pts, int buffer_size, int start_x, int start_y, unsigned short spu_width, unsigned short spu_height, FBRect &videoOriginRect, FBRect &src, FBRect &dst);
     FBRect drawText(int type, TextParams& textParams, int64_t pts, int buffer_size, unsigned short spu_width, unsigned short spu_height, FBRect &videoOriginRect, FBRect &src, FBRect &dst,
             int marginBottom = MIN_TEXT_MARGIN_BOTTOM, bool flush = true);
     void drawMultiText(int type, TextParams& textParams, int64_t pts, int buffer_size, unsigned short spu_width, unsigned short spu_height, FBRect &videoOriginRect, FBRect &src, FBRect &dst);

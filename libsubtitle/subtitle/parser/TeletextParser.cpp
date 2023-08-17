@@ -56,7 +56,7 @@
 //#define SUPPORT_LOAD_ANIMATION
 //#define SUPPORT_GRAPHICS_MODE_SUBTITLE_PAGE_FULL_SCREEN
 //#define UNREMOVED_MIX_VIDEO_MODE_FOUR_COLOR_KEY_BACKGROUND
-
+//#define REMOVE_TELETEXT_SEARCH_FOOTER
 #define TELETEXT_WARN_PAGE_1 0x548080
 #define TELETEXT_WARN_PAGE_2 0x548000
 #define TELETEXT_WARN_PAGE_3 0xb18081
@@ -1235,6 +1235,7 @@ static inline int generateSearchDisplay(AVSubtitleRect *subRect, unsigned char *
     }
     memset(&des[TELETEXT_HEAD_HEIGHT*width*4], 0x00, (TELETEXT_TEXT_HEIGHT+TELETEXT_BAR_HEIGHT)*width*4);
 
+#ifndef REMOVE_TELETEXT_SEARCH_FOOTER
     hasData = 0;
     for (int y = (TELETEXT_HEAD_HEIGHT + TELETEXT_TEXT_HEIGHT); y < height; y++) {
         for (int x = 0; x < width; x++) {
@@ -1247,6 +1248,8 @@ static inline int generateSearchDisplay(AVSubtitleRect *subRect, unsigned char *
             if (src[(y*width) + x] != 0) hasData++;
         }
      }
+#endif
+
      ALOGD("skip empty page end.. hasData=%d", hasData);
      if (hasData < (width)) {
          return -1;

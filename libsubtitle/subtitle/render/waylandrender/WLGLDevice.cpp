@@ -345,6 +345,10 @@ bool WLGLDevice::initTexture(void* data, WLRect &videoOriginRect, WLRect &cropRe
     glAssert("initTexture_glBindTexture");
     glTexImage2D(GL_TEXTURE_2D, 0, GL_BGRA_EXT, glRect.width(), glRect.height(), 0,
                  GL_BGRA_EXT, GL_UNSIGNED_BYTE, nullptr);
+    void* clearData = calloc(4, glRect.width() * glRect.height());
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+                    glRect.width(), glRect.height(), GL_BGRA_EXT, GL_UNSIGNED_BYTE, clearData);
+    free(clearData);
     glAssert("initTexture_glTexImage2D");
 
     // Avoid data is out of display frame

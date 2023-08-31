@@ -40,6 +40,7 @@ target_link_libraries(${TARGET} PUBLIC subtitle)
 set(CLIENT_PUBLIC_HEADERS
         SubtitleAPICommon.h
         SubtitleNativeAPI.h
+        SubtitleNativeAPIForC.h
         SubtitleReportAPI.h)
 install(
         FILES ${CLIENT_PUBLIC_HEADERS} DESTINATION include

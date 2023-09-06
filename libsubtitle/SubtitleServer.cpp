@@ -246,7 +246,7 @@ Result SubtitleServer::resetForSeek(int32_t sId) {
     return Result::FAIL;
 }
 
-Result SubtitleServer::updateVideoPos(int32_t sId, int32_t pos) {
+Result SubtitleServer::updateVideoPos(int32_t sId, int64_t pos) {
     std::shared_ptr<SubtitleService> ss = getSubtitleService(sId);
     if (ss != nullptr) {
         bool r = ss->updateVideoPosAt(pos);

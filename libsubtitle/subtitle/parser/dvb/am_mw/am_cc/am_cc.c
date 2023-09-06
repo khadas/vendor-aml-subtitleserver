@@ -103,6 +103,7 @@ extern void vbi_caption_reset(vbi_decoder *vbi);
 /****************************************************************************
  * Static data
  ***************************************************************************/
+static int64_t agmp_vpts = -1;
 static int vout_fd = -1;
 static const vbi_opacity opacity_map[AM_CC_OPACITY_MAX] =
 {
@@ -175,6 +176,11 @@ uint32_t am_cc_get_video_pts(void* media_sync)
 {
 	#define VIDEO_PTS_PATH "/sys/class/tsync/pts_video"
 	int64_t value;
+	if (agmp_vpts >= 0) {
+		value = agmp_vpts;
+		AM_DEBUG(0, "updateVideoPosTest agmp_vpts  == %lld",agmp_vpts);
+		return value;
+	}
 	#ifdef MEDIASYNC_FOR_SUBTITLE
 	if (media_sync != NULL) {
 		MediaSync_getTrackMediaTime(media_sync, &value);
@@ -1462,6 +1468,11 @@ void *AM_CC_GetUserData(AM_CC_Handle_t handle)
 		return NULL;
 
 	return cc->cpara.user_data;
+}
+
+void *AM_CC_GetAgmpVpts(int64_t pts)
+{
+	agmp_vpts = pts;
 }
 
 void *AM_Isdb_GetUserData(AM_ISDB_Handle_t handle)

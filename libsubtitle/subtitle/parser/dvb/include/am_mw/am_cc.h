@@ -344,6 +344,8 @@ extern AM_ErrorCode_t AM_CC_SetUserOptions(AM_CC_Handle_t handle, AM_CC_UserOpti
  */
 extern void *AM_CC_GetUserData(AM_CC_Handle_t handle);
 
+extern void *AM_CC_GetAgmpVpts(int64_t pts);
+
 #ifdef __cplusplus
 }
 #endif

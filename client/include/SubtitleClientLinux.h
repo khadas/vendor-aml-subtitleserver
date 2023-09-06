@@ -105,7 +105,7 @@ public:
 
     int close();
     int resetForSeek();
-    int updateVideoPos(int32_t pos);
+    int updateVideoPos(int64_t pos);
 
 
     int getTotalTracks();

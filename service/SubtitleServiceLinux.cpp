@@ -202,6 +202,7 @@ int SubtitleServiceLinux::SetCmd(subtitle_module_param_t param, native_handle_t 
             case SUBTITLE_UPDATEVIDEOPTS:
                 ALOGD(" SubtitleServiceLinux  %s, line %d SUBTITLE_UPDATEVIDEOPTS",
                       __FUNCTION__, __LINE__);
+                ret = mpSubtitlecontrol->updateVideoPos(paramData[0], paramData[1]);
                 break;
             case SUBTITLE_SETPAGEID:
                 ALOGD(" SubtitleServiceLinux  %s, line %d SUBTITLE_SETPAGEID", __FUNCTION__,

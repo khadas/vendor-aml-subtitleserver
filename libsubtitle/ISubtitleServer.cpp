@@ -60,7 +60,7 @@ public:
     virtual Result resetForSeek(int32_t sId) {
 	   return OK;
     }
-    virtual Result updateVideoPos(int32_t sId, int32_t pos) {
+    virtual Result updateVideoPos(int32_t sId, int64_t pos) {
 	   return OK;
     }
 

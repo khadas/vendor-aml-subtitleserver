@@ -212,7 +212,7 @@ int SubtitleClientLinux::resetForSeek() {
 
 }
 
-int SubtitleClientLinux::updateVideoPos(int32_t pos) {
+int SubtitleClientLinux::updateVideoPos(int64_t pos) {
     int ret = SendMethodCall(
             format_string("subtitle.ctrl.%d.%d.%d", SUBTITLE_UPDATEVIDEOPTS, mSessionId,
                           pos));

@@ -41,7 +41,7 @@
 #include "Subtitle.h"
 #include "Parser.h"
 #include "ParserFactory.h"
-
+#include "parser/dvb/include/am_mw/am_cc.h"
 //#include "BitmapDisplay.h"
 
 Subtitle::Subtitle() :
@@ -170,6 +170,7 @@ void Subtitle::onTypeChanged(int newType) {
 }
 
 int Subtitle::onMediaCurrentPresentationTime(int ptsMills) {
+    AM_CC_GetAgmpVpts(ptsMills);
     unsigned int pts = (unsigned int)ptsMills;
 
     if (mPresentation != nullptr) {

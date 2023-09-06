@@ -51,7 +51,7 @@ class ISubtitleServer : public IInterface{
     virtual Result open(int32_t sId, const hidl_handle& handle, int32_t ioType, OpenType openType) = 0;
     virtual Result close(int32_t sId) = 0;
     virtual Result resetForSeek(int32_t sId) = 0;
-    virtual Result updateVideoPos(int32_t sId, int32_t pos) = 0;
+    virtual Result updateVideoPos(int32_t sId, int64_t pos) = 0;
 
 
     virtual void getTotalTracks(int32_t sId, getTotalTracks_cb _hidl_cb) = 0;

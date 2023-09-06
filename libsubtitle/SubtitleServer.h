@@ -118,7 +118,7 @@ public:
     Result open(int32_t sId, int32_t ioType, OpenType openType, const native_handle_t* handle) ;
     Result close(int32_t sId) ;
     Result resetForSeek(int32_t sId) ;
-    Result updateVideoPos(int32_t sId, int32_t pos) ;
+    Result updateVideoPos(int32_t sId, int64_t pos) ;
 
 
     int getTotalTracks(int32_t sId) ;

@@ -348,7 +348,7 @@ void FBDevice::clearFramebufferScreen(unsigned char* fbuffer, int buffer_len) {
 }
 
 //draw Image To Framebuffer
-void FBDevice::drawImageToFramebuffer(unsigned char* fbuffer, unsigned char* imgBuffer, int start_x, int start_y, unsigned short spu_width, unsigned short spu_height,
+void FBDevice::drawImageToFramebuffer(unsigned char* fbuffer, int buffer_len, unsigned char* imgBuffer, int start_x, int start_y, unsigned short spu_width, unsigned short spu_height,
                                 FBRect& videoOriginRect, int type, float scale_factor) {
     ALOGD("%s start",__FUNCTION__);
     float scale_factor_width;
@@ -374,7 +374,22 @@ void FBDevice::drawImageToFramebuffer(unsigned char* fbuffer, unsigned char* img
         // Calculate image offset
         x_offset = (mVinfo.xres - scaled_width) / 2;
         y_offset = (mVinfo.yres - scaled_height) / 2;
+        for (int y = 0; y < scaled_height; ++y) {
+            for (int x = 0; x < scaled_width; ++x) {
+                // Calculate corresponding coordinates in the original image
+                int img_x = static_cast<int>(x / scale_factor_width);
+                int img_y = static_cast<int>(y / scale_factor_height);
+
+                // Calculate image and framebuffer offsets
+                int imgOffset = (img_y * spu_width + img_x) * 4;  // 4 bytes per pixel
+                int fbOffset = ((y + y_offset) * mVinfo.xres_virtual + (x + x_offset)) * 4;
+
+                // Copy pixel data from the image buffer to the framebuffer
+                memcpy(fbuffer + fbOffset, imgBuffer + imgOffset, 4);
+            }
+        }
     } else {
+        clearFramebufferScreen(fbuffer,buffer_len);
         scale_factor_width = static_cast<float>(mVinfo.xres) / videoOriginRect.width();
         scale_factor_height = static_cast<float>(mVinfo.yres) / videoOriginRect.height();
 
@@ -383,37 +398,37 @@ void FBDevice::drawImageToFramebuffer(unsigned char* fbuffer, unsigned char* img
 
         x_offset = start_x * scale_factor_width;
         y_offset = start_y * scale_factor_height;
-    }
 
-    for (int y = 0; y < scaled_height; ++y) {
-        for (int x = 0; x < scaled_width; ++x) {
-            // Calculate corresponding coordinates in the original image
-            float original_x = x / scale_factor_width;
-            float original_y = y / scale_factor_height;
+        for (int y = 0; y < scaled_height; ++y) {
+            for (int x = 0; x < scaled_width; ++x) {
+                // Calculate corresponding coordinates in the original image
+                float original_x = x / scale_factor_width;
+                float original_y = y / scale_factor_height;
 
-            // Calculate integer and fractional parts for interpolation
-            int x0 = std::max(0, std::min(static_cast<int>(original_x), spu_width - 1));
-            int y0 = std::max(0, std::min(static_cast<int>(original_y), spu_height - 1));
-            int x1 = std::min(x0 + 1, spu_width - 1);
-            int y1 = std::min(y0 + 1, spu_height - 1);
-            float x_frac = original_x - x0;
-            float y_frac = original_y - y0;
+                // Calculate integer and fractional parts for interpolation
+                int x0 = std::max(0, std::min(static_cast<int>(original_x), spu_width - 1));
+                int y0 = std::max(0, std::min(static_cast<int>(original_y), spu_height - 1));
+                int x1 = std::min(x0 + 1, spu_width - 1);
+                int y1 = std::min(y0 + 1, spu_height - 1);
+                float x_frac = original_x - x0;
+                float y_frac = original_y - y0;
 
-            // Calculate image and framebuffer offsets for the four surrounding pixels
-            int imgOffset00 = ((y0 * spu_width + x0) * 4);   // Top-left pixel
-            int imgOffset10 = ((y0 * spu_width + x1) * 4);   // Top-right pixel
-            int imgOffset01 = ((y1 * spu_width + x0) * 4);   // Bottom-left pixel
-            int imgOffset11 = ((y1 * spu_width + x1) * 4);   // Bottom-right pixel
-            int fbOffset = ((y + y_offset) * mVinfo.xres_virtual + (x + x_offset)) * 4;
+                // Calculate image and framebuffer offsets for the four surrounding pixels
+                int imgOffset00 = ((y0 * spu_width + x0) * 4);   // Top-left pixel
+                int imgOffset10 = ((y0 * spu_width + x1) * 4);   // Top-right pixel
+                int imgOffset01 = ((y1 * spu_width + x0) * 4);   // Bottom-left pixel
+                int imgOffset11 = ((y1 * spu_width + x1) * 4);   // Bottom-right pixel
+                int fbOffset = ((y + y_offset) * mVinfo.xres_virtual + (x + x_offset)) * 4;
 
-            // Perform bilinear interpolation for each channel
-            for (int channel = 0; channel < 4; ++channel) {
-                float top = imgBuffer[imgOffset00 + channel] * (1 - x_frac) + imgBuffer[imgOffset10 + channel] * x_frac;
-                float bottom = imgBuffer[imgOffset01 + channel] * (1 - x_frac) + imgBuffer[imgOffset11 + channel] * x_frac;
-                float interpolated_value = top * (1 - y_frac) + bottom * y_frac;
+                // Perform bilinear interpolation for each channel
+                for (int channel = 0; channel < 4; ++channel) {
+                    float top = imgBuffer[imgOffset00 + channel] * (1 - x_frac) + imgBuffer[imgOffset10 + channel] * x_frac;
+                    float bottom = imgBuffer[imgOffset01 + channel] * (1 - x_frac) + imgBuffer[imgOffset11 + channel] * x_frac;
+                    float interpolated_value = top * (1 - y_frac) + bottom * y_frac;
 
-                // Update the framebuffer with the interpolated value
-                fbuffer[fbOffset + channel] = static_cast<unsigned char>(interpolated_value);
+                    // Update the framebuffer with the interpolated value
+                    fbuffer[fbOffset + channel] = static_cast<unsigned char>(interpolated_value);
+                }
             }
         }
     }
@@ -456,8 +471,7 @@ bool FBDevice::drawImage(int type, unsigned char* img, int64_t pts, int buffer_s
         mVinfo.yoffset = 0;
         mCurSur = 0;
     }
-    clearFramebufferScreen(fbuffer,buffer_len);
-    drawImageToFramebuffer(fbuffer, img, start_x, start_y, spu_width, spu_height, videoOriginRect, type, scale_factor);
+    drawImageToFramebuffer(fbuffer, buffer_len, img, start_x, start_y, spu_width, spu_height, videoOriginRect, type, scale_factor);
 
     // refresh framebuffer
     if (ioctl(mFbfd, FBIOPAN_DISPLAY, &mVinfo) == -1) {

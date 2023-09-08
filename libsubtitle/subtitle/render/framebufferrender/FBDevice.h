@@ -105,7 +105,7 @@ public:
     void cleanupFramebuffer();
     void clearFullFramebufferScreen();
     void clearFramebufferScreen(unsigned char* fbuffer, int buffer_len);
-    void drawImageToFramebuffer(unsigned char* fbuffer, unsigned char* imgBuffer, int start_x, int start_y, unsigned short spu_width, unsigned short spu_height,
+    void drawImageToFramebuffer(unsigned char* fbuffer, int buffer_len, unsigned char* imgBuffer, int start_x, int start_y, unsigned short spu_width, unsigned short spu_height,
                                 FBRect& videoOriginRect, int type, float scale_factor);
     void  print_screen_info(struct fb_var_screeninfo* varInfo, struct fb_fix_screeninfo* fixInfo );
     void  drawColorToImage(unsigned char* img, unsigned short width, unsigned short height, int color);

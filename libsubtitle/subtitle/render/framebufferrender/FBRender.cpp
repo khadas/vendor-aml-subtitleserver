@@ -229,7 +229,9 @@ void FBRender::drawItems() {
 
 //            mFBDevice->drawImage((*it)->subtitle_type, (*it)->spu_data, (*it)->pts, (*it)->buffer_size, (*it)->spu_width, (*it)->spu_height, showFullScreen ? rect : originDisplayRect, rect, screenRect);
             mFBDevice->drawImage((*it)->subtitle_type, (*it)->spu_data, (*it)->pts, (*it)->buffer_size, (*it)->spu_start_x, (*it)->spu_start_y, (*it)->spu_width, (*it)->spu_height, originDisplayRect, rect, screenRect);
-            std::this_thread::sleep_for(std::chrono::milliseconds(15));
+            if ((*it)->subtitle_type != SubtitleType::TYPE_SUBTITLE_DTVKIT_TELETEXT && (*it)->subtitle_type != SubtitleType::TYPE_SUBTITLE_DVB_TELETEXT) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(15));
+            }
         }
     }
 

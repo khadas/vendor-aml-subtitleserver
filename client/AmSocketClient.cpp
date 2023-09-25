@@ -46,6 +46,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <chrono>
+#include <cstddef>
 
 #include "AmSocketClient.h"
 #include "cutils/properties.h"

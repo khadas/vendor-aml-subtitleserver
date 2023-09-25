@@ -26,7 +26,7 @@
 
 #ifndef _PGS_SUB_H
 #define _PGS_SUB_H
-
+#include <cstdlib>
 
 // TODO: impl as a class item
 // support sort!!!

@@ -31,6 +31,7 @@
 #include <vector>
 #include <binder/IMemory.h>
 #include <binder/Parcel.h>
+#include <string>
 
 using android::IMemory;
 using android::Parcel;

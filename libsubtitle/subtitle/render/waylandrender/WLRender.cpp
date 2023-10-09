@@ -157,7 +157,7 @@ void WLRender::removeSubtitleItem(std::shared_ptr<AML_SPUVAR> spu) {
     mShowingSubs.remove(spu);
     mRenderMutex.unlock();
 
-    sendMessage(AMLMessage(kWhat_show_subtitle_item));
+    //sendMessage(AMLMessage(kWhat_show_subtitle_item));
 }
 
 void WLRender::drawItems() {

@@ -263,6 +263,10 @@ bool Presentation::syncCurrentPresentTime(int64_t pts) {
 
 bool Presentation::startPresent(std::shared_ptr<Parser> parser) {
     std::unique_lock<std::mutex> autolock(mMutex);
+    if (parser == nullptr) {
+        ALOGE("[%s:%d] Error! parser is nullptr", __func__, __LINE__);
+        return false;
+    }
     mParser = parser;
     mMsgProcess = new MessageProcess(this, parser->isExternalSub());
     if (mRender != nullptr && mRender->getType() == Render::DIRECT_RENDER) {
@@ -486,6 +490,10 @@ void Presentation::MessageProcess::handleExtSub(const Message& message) {
 
             // external sub always decoded all the subtitle items.
             mLooper->removeMessages(this, MSG_PTS_TIME_CHECK_SPU);
+            if (mPresent->mParser == nullptr) {
+                ALOGE("[%s:%d] Error! parser is nullptr", __func__, __LINE__);
+                return;
+            }
 
             //1. collect all decoded items! save in mEmittedShowingSpu!
             std::shared_ptr<AML_SPUVAR> spu;
@@ -535,6 +543,10 @@ void Presentation::MessageProcess::handleStreamSub(const Message& message) {
     switch (message.what) {
         case MSG_PTS_TIME_CHECK_SPU: {
             mLooper->removeMessages(this, MSG_PTS_TIME_CHECK_SPU);
+            if (mPresent->mParser == nullptr) {
+                ALOGE("[%s:%d] Error! parser is nullptr", __func__, __LINE__);
+                return;
+            }
             std::shared_ptr<AML_SPUVAR> spu = mPresent->mParser->tryConsumeDecodedItem();
             uint64_t timestamp = 0;
             uint64_t pts = 0;

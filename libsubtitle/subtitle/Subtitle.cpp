@@ -237,6 +237,7 @@ void Subtitle::scheduleStart() {
 
 // Run in a new thread. any access to this object's member field need protected by lock
 void Subtitle::run() {
+    bool ret = false;
     // check exit
     ALOGD("Enter: run mExitRequested:%d, mSubPrams->subType:%d", mExitRequested, mSubPrams->subType);
 
@@ -254,9 +255,12 @@ void Subtitle::run() {
             if (mParser == nullptr) {
                 ALOGE("Parser creat failed, break!");
                 break;
+            } else {
+                mParser->startParser(mParserNotifier, mPresentation.get());
             }
-            mParser->startParser(mParserNotifier, mPresentation.get());
-            mPresentation->startPresent(mParser);
+            if (mPresentation != nullptr) {
+                ret = mPresentation->startPresent(mParser);
+            }
             mPendingAction = -1; // No need handle
         }else if(mIsExtSub && mParser->getParseType() == TYPE_SUBTITLE_CLOSED_CAPTION){
             /*
@@ -300,29 +304,35 @@ void Subtitle::run() {
                     mParser = ParserFactory::create(mSubPrams, mDataSource);
                 }
                 ALOGD("run ACTION_SUBTITLE_SET_PARAM %d %d", mSubPrams->subType, TYPE_SUBTITLE_CLOSED_CAPTION);
-                if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_DVB) {
-                    mParser->updateParameter(TYPE_SUBTITLE_DTVKIT_DVB, &mSubPrams->dtvkitDvbParam);
-                } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_TELETEXT
-                         || mSubPrams->subType == TYPE_SUBTITLE_DVB_TELETEXT) {
-                    mParser->updateParameter(TYPE_SUBTITLE_DVB_TELETEXT, &mSubPrams->ttParam);
-                } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_ARIB_B24
-                         || mSubPrams->subType == TYPE_SUBTITLE_ARIB_B24) {
-                    mParser->updateParameter(TYPE_SUBTITLE_ARIB_B24, &mSubPrams->arib24Param);
-                } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_TTML
-                         || mSubPrams->subType == TYPE_SUBTITLE_TTML) {
-                    mParser->updateParameter(TYPE_SUBTITLE_TTML, &mSubPrams->ttmlParam);
-                } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_SMPTE_TTML
-                         || mSubPrams->subType == TYPE_SUBTITLE_SMPTE_TTML) {
-                    mParser->updateParameter(TYPE_SUBTITLE_SMPTE_TTML, &mSubPrams->smpteTtmlParam);
-                } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_SCTE27) {
-                    mParser->updateParameter(TYPE_SUBTITLE_DTVKIT_SCTE27, &mSubPrams->scteParam);
-                } else if (mSubPrams->subType == TYPE_SUBTITLE_CLOSED_CAPTION) {
-                    mParser->updateParameter(TYPE_SUBTITLE_CLOSED_CAPTION, &mSubPrams->ccParam);
+                if (mParser != nullptr) {
+                    if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_DVB) {
+                        mParser->updateParameter(TYPE_SUBTITLE_DTVKIT_DVB, &mSubPrams->dtvkitDvbParam);
+                    } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_TELETEXT
+                             || mSubPrams->subType == TYPE_SUBTITLE_DVB_TELETEXT) {
+                        mParser->updateParameter(TYPE_SUBTITLE_DVB_TELETEXT, &mSubPrams->ttParam);
+                    } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_ARIB_B24
+                             || mSubPrams->subType == TYPE_SUBTITLE_ARIB_B24) {
+                        mParser->updateParameter(TYPE_SUBTITLE_ARIB_B24, &mSubPrams->arib24Param);
+                    } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_TTML
+                             || mSubPrams->subType == TYPE_SUBTITLE_TTML) {
+                        mParser->updateParameter(TYPE_SUBTITLE_TTML, &mSubPrams->ttmlParam);
+                    } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_SMPTE_TTML
+                             || mSubPrams->subType == TYPE_SUBTITLE_SMPTE_TTML) {
+                        mParser->updateParameter(TYPE_SUBTITLE_SMPTE_TTML, &mSubPrams->smpteTtmlParam);
+                    } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_SCTE27) {
+                        mParser->updateParameter(TYPE_SUBTITLE_DTVKIT_SCTE27, &mSubPrams->scteParam);
+                    } else if (mSubPrams->subType == TYPE_SUBTITLE_CLOSED_CAPTION) {
+                        mParser->updateParameter(TYPE_SUBTITLE_CLOSED_CAPTION, &mSubPrams->ccParam);
+                    }
                 }
 
                 if (createAndStart) {
-                    mParser->startParser(mParserNotifier, mPresentation.get());
-                    mPresentation->startPresent(mParser);
+                    if (mParser != nullptr) {
+                        mParser->startParser(mParserNotifier, mPresentation.get());
+                    }
+                    if (mPresentation  != nullptr) {
+                        ret = mPresentation->startPresent(mParser);
+                    }
                 }
             }
             break;
@@ -344,25 +354,32 @@ void Subtitle::run() {
                     mParser = nullptr;
                 }
                 mParser = ParserFactory::create(mSubPrams, mDataSource);
-                mParser->startParser(mParserNotifier, mPresentation.get());
-                mPresentation->startPresent(mParser);
-                if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_DVB) {
-                    mParser->updateParameter(TYPE_SUBTITLE_DTVKIT_DVB, &mSubPrams->dtvkitDvbParam);
-                } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_TELETEXT) {
-                    mParser->updateParameter(TYPE_SUBTITLE_DVB_TELETEXT, &mSubPrams->ttParam);
-                } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_SCTE27) {
-                    mParser->updateParameter(TYPE_SUBTITLE_DTVKIT_SCTE27, &mSubPrams->scteParam);
-                } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_ARIB_B24) {
-                    mParser->updateParameter(TYPE_SUBTITLE_DTVKIT_ARIB_B24, &mSubPrams->arib24Param);
-                } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_TTML) {
-                    mParser->updateParameter(TYPE_SUBTITLE_DTVKIT_TTML, &mSubPrams->ttmlParam);
+                if (mParser != nullptr) {
+                    mParser->startParser(mParserNotifier, mPresentation.get());
+                }
+                if (mPresentation != nullptr) {
+                    ret = mPresentation->startPresent(mParser);
+                }
+
+                if (mParser != nullptr) {
+                    if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_DVB) {
+                        mParser->updateParameter(TYPE_SUBTITLE_DTVKIT_DVB, &mSubPrams->dtvkitDvbParam);
+                    } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_TELETEXT) {
+                        mParser->updateParameter(TYPE_SUBTITLE_DVB_TELETEXT, &mSubPrams->ttParam);
+                    } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_SCTE27) {
+                        mParser->updateParameter(TYPE_SUBTITLE_DTVKIT_SCTE27, &mSubPrams->scteParam);
+                    } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_ARIB_B24) {
+                        mParser->updateParameter(TYPE_SUBTITLE_DTVKIT_ARIB_B24, &mSubPrams->arib24Param);
+                    } else if (mSubPrams->subType == TYPE_SUBTITLE_DTVKIT_TTML) {
+                        mParser->updateParameter(TYPE_SUBTITLE_DTVKIT_TTML, &mSubPrams->ttmlParam);
+                    }
                 }
             }
             break;
             case ACTION_SUBTITLE_RESET_MEDIASYNC:
                 if (mParser != nullptr) {
                     mParser->setPipId(PIP_MEDIASYNC_ID, mSubPrams->mediaId);
-            }
+                }
             break;
             case ACTION_SUBTITLE_RESET_FOR_SEEK:
                 if (mParser != nullptr) {
@@ -385,9 +402,13 @@ void Subtitle::run() {
             if (mParser == nullptr) {
                 ALOGE("Parser creat failed, break!");
                 break;
+            } else {
+                mParser->startParser(mParserNotifier, mPresentation.get());
             }
-            mParser->startParser(mParserNotifier, mPresentation.get());
-            mPresentation->startPresent(mParser);
+
+            if (mPresentation != nullptr) {
+                ret = mPresentation->startPresent(mParser);
+            }
         }
 
     }

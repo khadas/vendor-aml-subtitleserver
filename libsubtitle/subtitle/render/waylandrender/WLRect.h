@@ -28,7 +28,7 @@
 #define _WLRECT_H
 
 #include <cstdint>
-#include <utils/Log.h>
+#include "SubtitleLog.h"
 
 class WLGLRect;
 
@@ -96,7 +96,7 @@ public:
     int height() { return mBottom - mTop; }
 
     void log(const char * msg) {
-        ALOGD("%s: [l=%d, t=%d, r=%d, b=%d] [w=%d, h=%d]", msg,
+        SUBTITLE_LOGI("%s: [l=%d, t=%d, r=%d, b=%d] [w=%d, h=%d]", msg,
                 mLeft, mTop, mRight, mBottom, width(), height());
     }
 

@@ -29,7 +29,7 @@
 #include "DFBRender.h"
 
 #include <thread>
-#include <utils/Log.h>
+#include "SubtitleLog.h"
 
 #include "DFBDevice.h"
 #include <Parser.h>
@@ -52,18 +52,18 @@ void DFBRender::Clear() {
 }
 
 DFBRender::DFBRender() {
-    ALOGD("DFBRender +++");
+    SUBTITLE_LOGI("DFBRender +++");
     std::thread thread(DFBRender::threadFunc, this);
     thread.detach();
 }
 
 DFBRender::~DFBRender() {
-    ALOGD("DFBRender ---");
+    SUBTITLE_LOGI("DFBRender ---");
     requestExit();
 }
 
 void DFBRender::threadFunc(void *data) {
-    ALOGD("DFBRender threadFunc start");
+    SUBTITLE_LOGI("DFBRender threadFunc start");
     DFBRender* render = static_cast<DFBRender *>(data);
 
     if (render->mLooper == nullptr) {
@@ -78,11 +78,11 @@ void DFBRender::threadFunc(void *data) {
     }
 
     render->onThreadExit();
-    ALOGD("DFBRender thread exit !!!");
+    SUBTITLE_LOGI("DFBRender thread exit !!!");
 }
 
 void DFBRender::AMLHandler::handleMessage(const AMLMessage &message) {
-    ALOGD("handleMessage: %d", message.what);
+    SUBTITLE_LOGI("handleMessage: %d", message.what);
     DFBRender* render = mWk_DFBRender;
     if (mWk_DFBRender == nullptr) {
         return;
@@ -115,14 +115,14 @@ void DFBRender::requestExit() {
 void DFBRender::dfbInit() {
     mDFBDevice = std::make_shared<DFBDevice>();
     if (!mDFBDevice->initCheck()) {
-        ALOGE("dfbInit, initCheck failed");
+        SUBTITLE_LOGE("dfbInit, initCheck failed");
         mLooper->removeMessages(mHandler);
         requestExit();
         return;
     }
 
     sendMessage(AMLMessage(kWhat_clear));
-    ALOGD("RenderDevice init OK.");
+    SUBTITLE_LOGI("RenderDevice init OK.");
 }
 
 bool DFBRender::showSubtitleItem(std::shared_ptr<AML_SPUVAR> spu, int type) {
@@ -164,7 +164,7 @@ void DFBRender::drawItems() {
     android::AutoMutex _l(mRenderMutex);
 
     if (mShowingSubs.empty()) {
-        ALOGW("No any item can be draw.");
+        SUBTITLE_LOGE("No any item can be draw.");
         clearScreen();
         return;
     }
@@ -191,7 +191,7 @@ void DFBRender::drawItems() {
                 std::vector<std::string> ccData;
                 std::string input = text;
                 if (!CCJsonParser::populateData(input, ccData)) {
-                    ALOGE("No valid data");
+                    SUBTITLE_LOGE("No valid data");
                     continue;
                 }
 
@@ -204,7 +204,7 @@ void DFBRender::drawItems() {
             }
 
 
-            ALOGD("Text type: '%s'", text);
+            SUBTITLE_LOGI("Text type: '%s'", text);
 
             // Using 720p to show subtitle for reduce mem.
             originDisplayRect.set(0, 0, 1280, 720);
@@ -220,7 +220,7 @@ void DFBRender::drawItems() {
 
             mDFBDevice->drawMultiText((*it)->subtitle_type, textParams,(*it)->pts, (*it)->buffer_size, (*it)->spu_width, (*it)->spu_height, originDisplayRect, rect, screenRect);
         } else {
-            ALOGD("Image type");
+            SUBTITLE_LOGI("Image type");
 
             // Show full screen for Teletext
             bool showFullScreen =
@@ -231,7 +231,7 @@ void DFBRender::drawItems() {
         }
     }
 
-    ALOGD("After draw items: %d", mShowingSubs.size());
+    SUBTITLE_LOGI("After draw items: %d", mShowingSubs.size());
 }
 
 bool DFBRender::isText(std::shared_ptr<AML_SPUVAR> &spu) {
@@ -246,12 +246,12 @@ bool DFBRender::isText(std::shared_ptr<AML_SPUVAR> &spu) {
 }
 
 void DFBRender::onThreadExit() {
-    ALOGD("%s", __FUNCTION__ );
+    SUBTITLE_LOGI("%s", __FUNCTION__ );
     mDFBDevice.reset();
 }
 
 void DFBRender::clearScreen() {
-    ALOGD("clearScreen");
+    SUBTITLE_LOGI("clearScreen");
     mDFBDevice->clearSurface();
     mDFBDevice->drawColor(0, 0, 0, 0);
 }

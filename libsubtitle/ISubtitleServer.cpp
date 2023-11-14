@@ -33,7 +33,7 @@
 #include <binder/IPCThreadState.h>
 #include <binder/IServiceManager.h>
 #include <ISubtitleServer.h>
-#include <utils/Log.h>
+#include "SubtitleLog.h"
 
 namespace android {
 
@@ -134,7 +134,7 @@ public:
 
 /*
     virtual int startScreenCap(int32_t left, int32_t top, int32_t right, int32_t bottom, int32_t width, int32_t height, int32_t sourceType, const char* fileName) {
-        ALOGI("BpScreenControlService startScreenCap left:%d, top:%d, right:%d, bottom:%d, width:%d, height:%d, sourceType:%d, fileName:%s\n", left, top, right, bottom, width, height, sourceType, fileName);
+        SUBTITLE_LOGI("BpScreenControlService startScreenCap left:%d, top:%d, right:%d, bottom:%d, width:%d, height:%d, sourceType:%d, fileName:%s\n", left, top, right, bottom, width, height, sourceType, fileName);
         Parcel data, reply;
         data.writeInterfaceToken(IScreenControlService::getInterfaceDescriptor());
         data.writeInt32(left);
@@ -150,7 +150,7 @@ public:
     }
 
     virtual int startScreenRecord(int32_t width, int32_t height, int32_t frameRate, int32_t bitRate, int32_t limitTimeSec, int32_t sourceType, const char* fileName) {
-        ALOGI("BpScreenControlService startScreenRecord width:%d, height:%d, frameRate:%d, bitRate:%d, limitTimeSec:%d, sourceType:%d, fileName\n", width, height, frameRate, bitRate, limitTimeSec, sourceType, fileName);
+        SUBTITLE_LOGI("BpScreenControlService startScreenRecord width:%d, height:%d, frameRate:%d, bitRate:%d, limitTimeSec:%d, sourceType:%d, fileName\n", width, height, frameRate, bitRate, limitTimeSec, sourceType, fileName);
         Parcel data, reply;
         data.writeInterfaceToken(IScreenControlService::getInterfaceDescriptor());
         data.writeInt32(width);
@@ -183,7 +183,7 @@ status_t BnScreenControlService::onTransact(
             int32_t height = data.readInt32();
             int32_t sourceType = data.readInt32();
             const char* fileName = data.readCString();
-            ALOGI("BnScreenControlService onTransact left:%d, top:%d, right:%d, bottom:%d, width:%d, height:%d, sourceType:%d, fileName:%s\n", left, top, right, bottom, width, height, sourceType, fileName);
+            SUBTITLE_LOGI("BnScreenControlService onTransact left:%d, top:%d, right:%d, bottom:%d, width:%d, height:%d, sourceType:%d, fileName:%s\n", left, top, right, bottom, width, height, sourceType, fileName);
             int err = startScreenCap(left, top, right, bottom, width, height, sourceType, fileName);
             reply->writeInt32(err);*/
             return NO_ERROR;
@@ -198,7 +198,7 @@ status_t BnScreenControlService::onTransact(
             int32_t limitTimeSec = data.readInt32();
             int32_t sourceType = data.readInt32();
             const char* fileName = data.readCString();
-            ALOGI("BnScreenControlService onTransact width:%d, height:%d, frameRate:%d, bitRate:%d, limitTimeSec:%d, sourceType:%d, fileName:%s\n", width, height, frameRate, bitRate, limitTimeSec, sourceType, fileName);
+            SUBTITLE_LOGI("BnScreenControlService onTransact width:%d, height:%d, frameRate:%d, bitRate:%d, limitTimeSec:%d, sourceType:%d, fileName:%s\n", width, height, frameRate, bitRate, limitTimeSec, sourceType, fileName);
             int err = startScreenRecord(width, height, frameRate, bitRate, limitTimeSec, sourceType, fileName);
             reply->writeInt32(err);*/
             return NO_ERROR;

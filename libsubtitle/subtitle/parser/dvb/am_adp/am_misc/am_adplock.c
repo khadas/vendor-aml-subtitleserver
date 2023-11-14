@@ -1,6 +1,3 @@
-#ifdef _FORTIFY_SOURCE
-#undef _FORTIFY_SOURCE
-#endif
 /***************************************************************************
  * Copyright (C) 2014-2019 Amlogic, Inc. All rights reserved.
  *
@@ -34,11 +31,10 @@
  * \author Gong Ke <ke.gong@amlogic.com>
  * \date 2010-07-05: create the document
  ***************************************************************************/
+#ifdef _FORTIFY_SOURCE
+#undef _FORTIFY_SOURCE
+#endif
 
-#define AM_DEBUG_LEVEL 0
-
-#include <am_debug.h>
-//#include <am_mem.h>
 #include "am_adp_internal.h"
 
 /****************************************************************************

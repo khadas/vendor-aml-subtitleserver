@@ -26,7 +26,7 @@
 
 #ifndef YOCTO_EVENTTRACKER_H
 #define YOCTO_EVENTTRACKER_H
-
+#include "SubtitleLog.h"
 #include <utils/Looper.h>
 #include <thread>
 #include <functional>
@@ -59,14 +59,14 @@ public:
             {
                 std::lock_guard<std::mutex> _l(_mutex);
                 *looper = android::Looper::prepare(0);
-                ALOGD("EventsTracker, Looper created: %p", (*looper).get());
+                SUBTITLE_LOGI("EventsTracker, Looper created: %p", (*looper).get());
                 _cond.notify_all();
             }
 
             while (!mRequestExit) {
                 (*looper)->pollOnce(-1);
             }
-            ALOGD("EventsTracker: %s EXIT!!!", name);
+            SUBTITLE_LOGI("EventsTracker: %s EXIT!!!", name);
 
             {
                 std::unique_lock<std::mutex> _l(_mutex_exit);
@@ -77,9 +77,9 @@ public:
 
         {
             std::unique_lock<std::mutex> _l(_mutex);
-            ALOGD("EventsTracker, Waiting for mLooper create");
+            SUBTITLE_LOGI("EventsTracker, Waiting for mLooper create");
             _cond.wait(_l, [&]() -> bool { return mLooper != nullptr; });
-            ALOGD("EventsTracker, Looper created: %p", mLooper.get());
+            SUBTITLE_LOGI("EventsTracker, Looper created: %p", mLooper.get());
         }
 
         mCallback = callback;
@@ -121,15 +121,15 @@ public:
             std::unique_lock<std::mutex> _l(_mutex_exit);
 
             if (!mExited) {
-                ALOGD("Waiting for exit...");
+                SUBTITLE_LOGI("Waiting for exit...");
                 _cond_exit.wait(_l);
-                ALOGD("Exit thread...");
+                SUBTITLE_LOGI("Exit thread...");
                 mExited = true;
             }
 
             if (mThread->joinable()) {
                 mThread->join();
-                ALOGD("join thread...");
+                SUBTITLE_LOGI("join thread...");
             }
         }
     }

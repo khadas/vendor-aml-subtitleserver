@@ -23,24 +23,20 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 #define LOG_TAG "SubtitleService"
 
 #include <stdlib.h>
-#include <utils/Log.h>
+#include "SubtitleLog.h"
 #include <utils/CallStack.h>
 #include "SocketServer.h"
 #include "DataSourceFactory.h"
-
-
-//#include "AndroidDisplay.h"
 
 #include "SubtitleService.h"
 
 
 SubtitleService::SubtitleService() {
     mIsInfoRetrieved = false;
-    ALOGD("%s", __func__);
+    SUBTITLE_LOGI("%s", __func__);
     mStarted = false;
     mIsInfoRetrieved = false;
     //mFmqReceiver = nullptr;
@@ -54,10 +50,10 @@ SubtitleService::SubtitleService() {
         if (!mSockServ->isServing()) {
             mSockServ->serve();
         } else {
-            ALOGD("SubSocketServer is already be serving.");
+            SUBTITLE_LOGI("SubSocketServer is already be serving.");
         }
     } else {
-        ALOGE("Error! cannot start socket server!");
+        SUBTITLE_LOGE("Error! cannot start socket server!");
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(800));
@@ -65,7 +61,7 @@ SubtitleService::SubtitleService() {
 }
 
 SubtitleService::~SubtitleService() {
-    ALOGD("%s", __func__);
+    SUBTITLE_LOGI("%s", __func__);
     //android::CallStack here(LOG_TAG);
    // if (mFmqReceiver != nullptr) {
     //    mFmqReceiver->unregisterClient(mDataSource);
@@ -79,12 +75,12 @@ void SubtitleService::setupDumpRawFlags(int flagMap) {
 #if 0
 bool SubtitleService::startFmqReceiver(std::unique_ptr<FmqReader> reader) {
     if (mFmqReceiver != nullptr) {
-        ALOGD("ALOGE error! why still has a reference?");
+        SUBTITLE_LOGI("SUBTITLE_LOGE error! why still has a reference?");
         mFmqReceiver = nullptr;
     }
 
     mFmqReceiver = std::make_unique<FmqReceiver>(std::move(reader));
-    ALOGD("add :%p", mFmqReceiver.get());
+    SUBTITLE_LOGI("add :%p", mFmqReceiver.get());
 
     if (mDataSource != nullptr) {
         mFmqReceiver->registClient(mDataSource);
@@ -94,7 +90,7 @@ bool SubtitleService::startFmqReceiver(std::unique_ptr<FmqReader> reader) {
 }
 bool SubtitleService::stopFmqReceiver() {
     if (mFmqReceiver != nullptr && mDataSource != nullptr) {
-        ALOGD("release :%p", mFmqReceiver.get());
+        SUBTITLE_LOGI("release :%p", mFmqReceiver.get());
         mFmqReceiver->unregisterClient(mDataSource);
         mFmqReceiver = nullptr;
         return true;
@@ -104,10 +100,10 @@ bool SubtitleService::stopFmqReceiver() {
 }
 #endif
 bool SubtitleService::startSubtitle(std::vector<int> fds, int trackId, SubtitleIOType type, ParserEventNotifier *notifier) {
-    ALOGD("%s  type:%d", __func__, type);
+    SUBTITLE_LOGI("%s  type:%d", __func__, type);
     std::unique_lock<std::mutex> autolock(mLock);
     if (mStarted) {
-        ALOGD("Already started, exit");
+        SUBTITLE_LOGI("Already started, exit");
         return false;
     } else {
         mStarted = true;
@@ -127,7 +123,7 @@ bool SubtitleService::startSubtitle(std::vector<int> fds, int trackId, SubtitleI
         datasource->enableSourceDump(true);
     }
     if (nullptr == datasource) {
-        ALOGD("Error, %s data Source is null!", __func__);
+        SUBTITLE_LOGI("Error, %s data Source is null!", __func__);
         return false;
     }
 
@@ -159,11 +155,11 @@ bool SubtitleService::startSubtitle(std::vector<int> fds, int trackId, SubtitleI
     //we only update params for DTV. because we do not wait dtv and
     // CC parser run the same time
 
-    ALOGD("setParameter on start: %d, dtvSubType=%d",
+    SUBTITLE_LOGI("setParameter on start: %d, dtvSubType=%d",
         mSubParam.isValidDtvParams(), mSubParam.dtvSubType);
     // TODO: revise,
     if (!hasExtSub && (mSubParam.isValidDtvParams() || mSubParam.dtvSubType <= 0)) {
-        ALOGD("setParameter on start");
+        SUBTITLE_LOGI("setParameter on start");
         subtitle->setParameter(&mSubParam);
     }
 
@@ -190,7 +186,7 @@ bool SubtitleService::resetForSeek() {
 int SubtitleService::updateVideoPosAt(int timeMills) {
     static int test = 0;
     if (test++ %100 == 0)
-        ALOGD("%s: %d(called %d times)", __func__, timeMills, test);
+        SUBTITLE_LOGI("%s: %d(called %d times)", __func__, timeMills, test);
 
     if (mSubtiles) {
         return mSubtiles->onMediaCurrentPresentationTime(timeMills);
@@ -373,7 +369,7 @@ void SubtitleService::setClosedCaptionVfmt(int vfmt) {
              2 for the media id setting.
 */
 void SubtitleService::setPipId(int mode, int id) {
-    ALOGD("setPipId mode = %d, id = %d\n", mode, id);
+    SUBTITLE_LOGI("setPipId mode = %d, id = %d\n", mode, id);
     bool same = true;
     if (PIP_PLAYER_ID== mode) {
         mSubParam.playerId = id;
@@ -399,7 +395,7 @@ void SubtitleService::setRenderType(int renderType) {
 
 bool SubtitleService::ttControl(int cmd, int magazine, int page, int regionId, int param) {
     // DO NOT update the entire parameter.
-    ALOGD("ttControl cmd:%d, magazine=%d, page:%d, regionId:%d",cmd, magazine, page, regionId);
+    SUBTITLE_LOGI("ttControl cmd:%d, magazine=%d, page:%d, regionId:%d",cmd, magazine, page, regionId);
 
     switch (cmd) {
         case TT_EVENT_GO_TO_PAGE:
@@ -414,22 +410,22 @@ bool SubtitleService::ttControl(int cmd, int magazine, int page, int regionId, i
     }
     mSubParam.ttParam.event = (TeletextEvent)cmd;
     mSubParam.subType = TYPE_SUBTITLE_DVB_TELETEXT;
-    ALOGD("event=%d", mSubParam.ttParam.event);
+    SUBTITLE_LOGI("event=%d", mSubParam.ttParam.event);
     if (mSubtiles != nullptr) {
         return mSubtiles->setParameter(&mSubParam);
     }
-    ALOGD("%s mSubtiles null", __func__);
+    SUBTITLE_LOGI("%s mSubtiles null", __func__);
 
     return false;
 }
 
 int SubtitleService::ttGoHome() {
-    ALOGD("%s ", __func__);
+    SUBTITLE_LOGI("%s ", __func__);
     return mSubtiles->setParameter(&mSubParam);
 }
 
 int SubtitleService::ttGotoPage(int pageNo, int subPageNo) {
-    ALOGD("debug##%s ", __func__);
+    SUBTITLE_LOGI("debug##%s ", __func__);
     mSubParam.ttParam.ctrlCmd = CMD_GO_TO_PAGE;
     mSubParam.ttParam.magazine = pageNo;
     mSubParam.ttParam.subPageNo = subPageNo;
@@ -439,7 +435,7 @@ int SubtitleService::ttGotoPage(int pageNo, int subPageNo) {
 }
 
 int SubtitleService::ttNextPage(int dir) {
-    ALOGD("debug##%s ", __func__);
+    SUBTITLE_LOGI("debug##%s ", __func__);
     mSubParam.ttParam.ctrlCmd = CMD_NEXT_PAGE;
     mSubParam.subType = TYPE_SUBTITLE_DVB_TELETEXT;
     mSubParam.ttParam.pageDir = dir;
@@ -455,7 +451,7 @@ int SubtitleService::ttNextSubPage(int dir) {
 }
 
 bool SubtitleService::userDataOpen(ParserEventNotifier *notifier) {
-    ALOGD("%s ", __func__);
+    SUBTITLE_LOGI("%s ", __func__);
     //default start userdata monitor afd
     if (mUserDataAfd == nullptr) {
         mUserDataAfd = std::shared_ptr<UserDataAfd>(new UserDataAfd());
@@ -465,7 +461,7 @@ bool SubtitleService::userDataOpen(ParserEventNotifier *notifier) {
 }
 
 bool SubtitleService::userDataClose() {
-    ALOGD("%s ", __func__);
+    SUBTITLE_LOGI("%s ", __func__);
     if (mUserDataAfd != nullptr) {
         mUserDataAfd->stop();
         mUserDataAfd = nullptr;
@@ -475,10 +471,10 @@ bool SubtitleService::userDataClose() {
 }
 
 bool SubtitleService::stopSubtitle() {
-    ALOGD("%s", __func__);
+    SUBTITLE_LOGI("%s", __func__);
     std::unique_lock<std::mutex> autolock(mLock);
     if (!mStarted) {
-        ALOGD("Already stopped, exit");
+        SUBTITLE_LOGI("Already stopped, exit");
         return false;
     } else {
         mStarted = false;
@@ -506,7 +502,7 @@ bool SubtitleService::stopSubtitle() {
 
 int SubtitleService::totalSubtitles() {
     if (mSubtiles == nullptr) {
-        ALOGE("Not ready or exited, ignore request!");
+        SUBTITLE_LOGE("Not ready or exited, ignore request!");
         return -1;
     }
     // TODO: impl a state of subtitle, throw error when call in wrong state

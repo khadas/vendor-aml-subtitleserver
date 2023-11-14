@@ -30,8 +30,13 @@ set(subtitleservice_srcs
 set(TARGET subtitleservice)
 add_executable(${TARGET} ${subtitleservice_srcs})
 
+if (NOT NDEBUG)
+    add_definitions(-DNEED_SUBTITLE_DEBUG_INFORMATION)
+    add_definitions(-DNEED_SUBTITLE_DEBUG_ERROR)
+    target_link_libraries(${TARGET} PUBLIC log)
+endif()
+
 target_link_libraries(${TARGET} PUBLIC binder)
-target_link_libraries(${TARGET} PUBLIC log)
 target_link_libraries(${TARGET} PUBLIC zvbi)
 target_link_libraries(${TARGET} PUBLIC pthread)
 target_link_libraries(${TARGET} PUBLIC subtitle)

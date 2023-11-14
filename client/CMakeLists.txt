@@ -32,8 +32,13 @@ set(subtitleclient_srcs
 set(TARGET subtitleclient)
 add_library(${TARGET} SHARED ${subtitleclient_srcs})
 
+if (NOT NDEBUG)
+    add_definitions(-DNEED_SUBTITLE_DEBUG_INFORMATION)
+    add_definitions(-DNEED_SUBTITLE_DEBUG_ERROR)
+    target_link_libraries(${TARGET} PUBLIC log)
+endif()
+
 target_link_libraries(${TARGET} PUBLIC binder)
-target_link_libraries(${TARGET} PUBLIC log)
 target_link_libraries(${TARGET} PUBLIC pthread)
 target_link_libraries(${TARGET} PUBLIC subtitle)
 

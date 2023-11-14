@@ -24,12 +24,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define LOG_NDEBUG 0
 
 #define LOG_TAG "SubSocketServer"
 
 #include <fcntl.h>
-#include <utils/Log.h>
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -41,6 +39,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/poll.h>
+#include "SubtitleLog.h"
 
 #include "DataSource.h"
 #include "Segment.h"
@@ -84,24 +83,24 @@ static inline void dump(const char *buf, int size) {
         sprintf(chars, "%02x ", buf[i]);
         strcat(str, chars);
         if (i % 8 == 7) {
-            ALOGD("%s", str);
+            SUBTITLE_LOGI("%s", str);
             str[0] = str[1] = 0;
         }
     }
-    ALOGD("%s", str);
+    SUBTITLE_LOGI("%s", str);
 }
 
 
 static std::mutex _g_inst_mutex;
 
 SubSocketServer::SubSocketServer() : mExitRequested(false) {
-    ALOGD("%s ?", __func__);
+    SUBTITLE_LOGI("%s ?", __func__);
 
     mEventsTracker = std::make_shared<EventsTracker>(SubSocketServer::handleEvent);
 }
 
 SubSocketServer::~SubSocketServer() {
-    ALOGD("%s", __func__);
+    SUBTITLE_LOGI("%s", __func__);
 
     if (mEventsTracker != nullptr) {
         mEventsTracker->requestExit();
@@ -114,7 +113,7 @@ SubSocketServer::~SubSocketServer() {
 SubSocketServer *SubSocketServer::mInstance = nullptr;
 
 SubSocketServer *SubSocketServer::GetInstance() {
-    ALOGD("%s", __func__);
+    SUBTITLE_LOGI("%s", __func__);
 
     std::unique_lock<std::mutex> autolock(_g_inst_mutex);
     if (mInstance == nullptr) {
@@ -132,17 +131,17 @@ int SubSocketServer::serve() {
 
 void SubSocketServer::__threadLoop() {
     while (!mExitRequested && threadLoop());
-    ALOGD("%s: EXIT!!!", __FUNCTION__);
+    SUBTITLE_LOGI("%s: EXIT!!!", __FUNCTION__);
 }
 
 bool SubSocketServer::threadLoop() {
-    ALOGD("%s", __FUNCTION__);
+    SUBTITLE_LOGI("%s", __FUNCTION__);
     int flag = 1;
     int sockFd = socket(USE_UN ? AF_UNIX : AF_INET, SOCK_STREAM, 0);
     if (sockFd < 0) return true;
 
     if ((setsockopt(sockFd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag))) < 0) {
-        ALOGE("setsockopt failed.\n");
+        SUBTITLE_LOGE("setsockopt failed.\n");
         close(sockFd);
         return true;
     }
@@ -159,7 +158,7 @@ bool SubSocketServer::threadLoop() {
     size_t sockLen = offsetof(struct sockaddr_un, sun_path) + unPath.size();
 
     if (::bind(sockFd, (struct sockaddr *) &un, (socklen_t) sockLen) == -1) {
-        ALOGE("bind as UN fail. error=%d, err:%s\n", errno, strerror(errno));
+        SUBTITLE_LOGE("bind as UN fail. error=%d, err:%s\n", errno, strerror(errno));
         close(sockFd);
         return false;
     }
@@ -170,21 +169,21 @@ bool SubSocketServer::threadLoop() {
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     if (::bind(sockFd, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
-        ALOGE("bind as INET fail. error=%d, err:%s\n", errno, strerror(errno));
+        SUBTITLE_LOGE("bind as INET fail. error=%d, err:%s\n", errno, strerror(errno));
         close(sockFd);
         return false;
     }
 #endif
 
     if (::listen(sockFd, QUEUE_SIZE) == -1) {
-        ALOGE("listen fail.error=%d, err:%s\n", errno, strerror(errno));
+        SUBTITLE_LOGE("listen fail.error=%d, err:%s\n", errno, strerror(errno));
         close(sockFd);
         return true;
     }
 
     mIsServing = true;
 
-    ALOGV("[startServerThread] listen success.\n");
+    SUBTITLE_LOGI("[startServerThread] listen success.\n");
     while (!mExitRequested) {
         struct sockaddr_in client_addr;
         socklen_t length = sizeof(client_addr);
@@ -194,14 +193,14 @@ bool SubSocketServer::threadLoop() {
             return true;
         }
 
-        ALOGD("New connection comming: fd=%d", connFd);
+        SUBTITLE_LOGI("New connection coming: fd=%d", connFd);
         auto *dataObj = new DataObj_t;
         dataObj->obj1 = this;
         mEventsTracker->addFd(connFd,
                               EventsTracker::EVENT_INPUT | EventsTracker::EVENT_ERROR, dataObj);
     }
 
-    ALOGV("closed.\n");
+    SUBTITLE_LOGI("closed.\n");
     close(sockFd);
     mEventsTracker->requestExit();
     mIsServing = false;
@@ -211,14 +210,14 @@ bool SubSocketServer::threadLoop() {
 int SubSocketServer::handleEvent(int fd, int events, void *data) {
     auto *dataObj = static_cast<DataObj_t *>(data);
     if (dataObj == nullptr) {
-        ALOGE("data DataObj_t == null.");
+        SUBTITLE_LOGE("data DataObj_t == null.");
         close(fd);
         return EventsTracker::RET_REMOVE;
     }
 
     auto subSocketServer = static_cast<SubSocketServer *>(dataObj->obj1);
     if (subSocketServer == nullptr) {
-        ALOGE("data SubSocketServer == null.");
+        SUBTITLE_LOGE("data SubSocketServer == null.");
         close(fd);
         ringbuffer_free(dataObj->obj2);
         return EventsTracker::RET_REMOVE;
@@ -227,14 +226,14 @@ int SubSocketServer::handleEvent(int fd, int events, void *data) {
 //    EventsTracker *tracker = subSocketServer->mEventsTracker.get();
 //    if (tracker == nullptr) {
 //        /*Do not listen anymore*/
-//        ALOGE("data EventsTracker == null.");
+//        SUBTITLE_LOGE("data EventsTracker == null.");
 //        close(fd);
 //        ringbuffer_free(dataObj->obj2);
 //        return EventsTracker::RET_REMOVE;
 //    }
 
     if (events & EventsTracker::EVENT_INPUT) {
-        ALOGD("%s: fd= %d, events= EVENT_INPUT", __FUNCTION__, fd);
+        SUBTITLE_LOGI("%s: fd= %d, events= EVENT_INPUT", __FUNCTION__, fd);
 
         int ret = subSocketServer->processData(fd, dataObj);
         if (ret == EventsTracker::RET_REMOVE) {
@@ -247,7 +246,7 @@ int SubSocketServer::handleEvent(int fd, int events, void *data) {
         return ret;
 
     } else if (events & EventsTracker::EVENT_ERROR) {
-        ALOGE("Error occurred for fd %d, remove.", fd);
+        SUBTITLE_LOGE("Error occurred for fd %d, remove.", fd);
         if (dataObj->obj2 != nullptr) {
             delete (IpcBuffer *) dataObj->obj2;
         }
@@ -263,10 +262,10 @@ int SubSocketServer::handleEvent(int fd, int events, void *data) {
 int SubSocketServer::processData(int fd, DataObj_t *dataObj) {
     //1. Precondition for data
     if (dataObj->obj2 == nullptr) {
-        ALOGD("create new handle for fd %d", fd);
+        SUBTITLE_LOGI("create new handle for fd %d", fd);
         dataObj->obj2 = new IpcBuffer(512 * 1024, "socket_buffer");
     } else {
-        ALOGD("handle already created for fd %d", fd);
+        SUBTITLE_LOGI("handle already created for fd %d", fd);
     }
 
     auto ipcBuffer = static_cast<IpcBuffer *>(dataObj->obj2);
@@ -278,7 +277,7 @@ int SubSocketServer::processData(int fd, DataObj_t *dataObj) {
     char recvBuf[1024] = {0};
     int retLen = ::recv(fd, recvBuf, sizeof(recvBuf), 0);
     if (retLen <= 0) {
-        ALOGD("Client broken, fd= %d, remove.", fd);
+        SUBTITLE_LOGI("Client broken, fd= %d, remove.", fd);
         auto subSocketServer = static_cast<SubSocketServer *>(dataObj->obj1);
         int sessionId = ipcBuffer->_data_header->sessionId;
         subSocketServer->onRemoteDead(sessionId < 0 ? 0 : sessionId);
@@ -286,14 +285,14 @@ int SubSocketServer::processData(int fd, DataObj_t *dataObj) {
     }
 
     if (mClients.empty()) {
-        ALOGE("mClients is empty, do not process now.");
+        SUBTITLE_LOGE("mClients is empty, do not process now.");
         return EventsTracker::RET_CONTINUE;
     }
 
     //2. Process data
     ipcBuffer->write(recvBuf, retLen);
     if (ipcBuffer->readableCount() < sizeof(IpcPackageHeader)) {
-        ALOGE("No enough data for Header.");
+        SUBTITLE_LOGE("No enough data for Header.");
         return EventsTracker::RET_CONTINUE;
     }
 
@@ -311,7 +310,7 @@ int SubSocketServer::processData(int fd, DataObj_t *dataObj) {
         ipcBuffer->_data_header->dataSize = peekAsSocketWord(buffer + sizeOfInt * 3);
         ipcBuffer->_data_header->pkgType = peekAsSocketWord(buffer + sizeOfInt * 4);
 
-        ALOGD("Find header:\n"
+        SUBTITLE_LOGI("Find header:\n"
               "struct IpcPackageHeader {\n"
               "    int syncWord = %d;\n"
               "    int sessionId = %d;\n"
@@ -327,14 +326,14 @@ int SubSocketServer::processData(int fd, DataObj_t *dataObj) {
 
         if (eTypeSubtitleExitServ == ipcBuffer->_data_header->pkgType
             || 'XEDC' == ipcBuffer->_data_header->pkgType) {
-            ALOGD("exit requested!");
+            SUBTITLE_LOGI("exit requested!");
             return EventsTracker::RET_REMOVE;
         }
     }
 
     if (ipcBuffer->readableCount() < ipcBuffer->_data_header->dataSize) {
         //Maybe data is coming.
-        ALOGD("Buffer readableCount(%d) < Needed data size(%d), waiting more data.",
+        SUBTITLE_LOGI("Buffer readableCount(%d) < Needed data size(%d), waiting more data.",
                 ipcBuffer->readableCount(), ipcBuffer->_data_header->dataSize);
         return EventsTracker::RET_CONTINUE;
     }
@@ -362,7 +361,7 @@ int SubSocketServer::processData(int fd, DataObj_t *dataObj) {
 bool SubSocketServer::registClient(DataListener *client) {
     std::lock_guard<std::mutex> guard(GetInstance()->mLock);
     GetInstance()->mClients.push_back(client);
-    ALOGD("registClient: %p size=%d", client, GetInstance()->mClients.size());
+    SUBTITLE_LOGI("registClient: %p size=%d", client, GetInstance()->mClients.size());
     return true;
 }
 
@@ -382,24 +381,24 @@ bool SubSocketServer::unregisterClient(DataListener *client) {
         }
 
         //GetInstance()->mClients.pop_back();
-        ALOGD("unregisterClient: %p size=%d", client, GetInstance()->mClients.size());
+        SUBTITLE_LOGI("unregisterClient: %p size=%d", client, GetInstance()->mClients.size());
     }
     return true;
 }
 
 void SubSocketServer::onRemoteDead(int sessionId) {
-    ALOGD("onRemoteDead, sessionId= %d", sessionId);
+    SUBTITLE_LOGI("onRemoteDead, sessionId= %d", sessionId);
 
     SubtitleServer *server = SubtitleServer::Instance();
     if (server && !server->isClosed(sessionId)) {
         if (server->close(sessionId) == Result::OK
                && server->closeConnection(sessionId) == Result::OK) {
-            ALOGD("onRemoteDead, self close OK for id %d", sessionId);
+            SUBTITLE_LOGI("onRemoteDead, self close OK for id %d", sessionId);
         } else {
-            ALOGD("onRemoteDead, self close failed for id %d", sessionId);
+            SUBTITLE_LOGI("onRemoteDead, self close failed for id %d", sessionId);
         }
     } else {
-        ALOGD("onRemoteDead, already closed for id %d", sessionId);
+        SUBTITLE_LOGI("onRemoteDead, already closed for id %d", sessionId);
     }
 }
 

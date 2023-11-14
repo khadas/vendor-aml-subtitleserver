@@ -151,8 +151,24 @@ if (USE_FB)
     add_definitions(-DUSE_FB) # Macro definition USE_SEE
 endif()
 
+if (NOT NDEBUG)
+    add_definitions(-DNEED_SUBTITLE_DEBUG_INFORMATION)
+    add_definitions(-DNEED_SUBTITLE_DEBUG_ERROR)
+    target_link_libraries(${TARGET} PUBLIC log)
+endif()
+
+#Organize compilation macro control
+add_definitions(-DNEED_MIN_DVB)
+add_definitions(-DNEED_ARIBCC_STYLE)
+add_definitions(-DNEED_TELETEXT_GRAPHICS_SUBTITLE_PAGENUMBER_BLACKGROUND)
+#add_definitions(-DNEED_TELETEXT_CACHE_ZVBI_STATUS)
+#add_definitions(-DREMOVE_TELETEXT_SEARCH_FOOTER)    #for zapper 4k
+#add_definitions(-DNEED_TELETEXT_SUPPORT_LOAD_ANIMATION)    #teletext graphics support load animation
+#add_definitions(-DNEED_TELETEXT_UNREMOVED_MIX_VIDEO_MODE_FOUR_COLOR_KEY_BACKGROUND)
+#add_definitions(-DNEED_TELETEXT_SUPPORT_GRAPHICS_MODE_SUBTITLE_PAGE_FULL_SCREEN)
+
+
 target_link_libraries(${TARGET} PUBLIC binder)
-target_link_libraries(${TARGET} PUBLIC log)
 target_link_libraries(${TARGET} PUBLIC zvbi)
 target_link_libraries(${TARGET} PUBLIC pthread)
 target_link_libraries(${TARGET} PUBLIC cairo)

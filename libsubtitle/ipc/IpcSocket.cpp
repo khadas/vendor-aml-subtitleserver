@@ -34,7 +34,7 @@
 #include <arpa/inet.h>
 
 #include <IpcSocket.h>
-#include <utils/Log.h>
+#include "SubtitleLog.h"
 
 #include <cstring>
 #include <memory>
@@ -66,11 +66,11 @@ IpcSocket::IpcSocket(bool isServer)
           mIsValid(false),
           mListenFd(-1) {
 
-    ALOGD("%s +++ (%s)", __FUNCTION__, (mIsServer ? "Server" : "Client"));
+    SUBTITLE_LOGI("%s +++ (%s)", __FUNCTION__, (mIsServer ? "Server" : "Client"));
 }
 
 IpcSocket::~IpcSocket() {
-    ALOGD("%s --- (%s)", __FUNCTION__, (mIsServer ? "Server" : "Client"));
+    SUBTITLE_LOGI("%s --- (%s)", __FUNCTION__, (mIsServer ? "Server" : "Client"));
     mSelfData = nullptr;
     close(mListenFd);
     mListenFd = -1;
@@ -88,7 +88,7 @@ void IpcSocket::start(int port, void *selfData, OnThreadStart onThreadStart) {
         mIsValid = initAsClient(port);
     }
 
-    ALOGD("Init %s(%d) %s",
+    SUBTITLE_LOGI("Init %s(%d) %s",
           (mIsServer ? "Server" : "Client"),
           port,
           (mIsValid ? "success" : "failed"));
@@ -104,7 +104,7 @@ bool IpcSocket::initAsServer(int port) {
     if (sockFd < 0) return false;
 
     if ((setsockopt(sockFd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag))) < 0) {
-        ALOGE("setsockopt failed.\n");
+        SUBTITLE_LOGE("setsockopt failed.\n");
         close(sockFd);
         return false;
     }
@@ -121,7 +121,7 @@ bool IpcSocket::initAsServer(int port) {
     size_t sockLen = offsetof(struct sockaddr_un, sun_path) + unPath.size();
 
     if (::bind(sockFd, (struct sockaddr *) &un, (socklen_t) sockLen) == -1) {
-        ALOGE("bind as UN fail. error=%d, err:%s\n", errno, strerror(errno));
+        SUBTITLE_LOGE("bind as UN fail. error=%d, err:%s\n", errno, strerror(errno));
         close(sockFd);
         return false;
     }
@@ -132,14 +132,14 @@ bool IpcSocket::initAsServer(int port) {
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     if (::bind(sockFd, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
-        ALOGE("bind as INET fail. error=%d, err:%s\n", errno, strerror(errno));
+        SUBTITLE_LOGE("bind as INET fail. error=%d, err:%s\n", errno, strerror(errno));
         close(sockFd);
         return false;
     }
 #endif
 
     if (::listen(sockFd, 10) == -1) {
-        ALOGE("listen fail.error=%d, err:%s\n", errno, strerror(errno));
+        SUBTITLE_LOGE("listen fail.error=%d, err:%s\n", errno, strerror(errno));
         close(sockFd);
         return false;
     }
@@ -171,7 +171,7 @@ bool IpcSocket::initAsClient(int port) {
             //load dvb so need time since add close caption subtitle, add to 120ms.
             //only has subtitle to connect socket
             if (now() - startTime > 120000ll) {
-                ALOGE("%s:%d, connect socket failed!, error=%d, err:%s\n", __FILE__, __LINE__,
+                SUBTITLE_LOGE("%s:%d, connect socket failed!, error=%d, err:%s\n", __FILE__, __LINE__,
                       errno, strerror(errno));
                 close(mListenFd);
                 mListenFd = -1;
@@ -189,7 +189,7 @@ bool IpcSocket::initAsClient(int port) {
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
     if (mListenFd < 0) {
-        ALOGE("%s:%d, create socket failed!mSockFd:%d, error=%d, err:%s\n", __FILE__, __LINE__,
+        SUBTITLE_LOGE("%s:%d, create socket failed!mSockFd:%d, error=%d, err:%s\n", __FILE__, __LINE__,
               mListenFd, errno, strerror(errno));
         return false;
     }
@@ -200,7 +200,7 @@ bool IpcSocket::initAsClient(int port) {
             //load dvb so need time since add close caption subtitle, add to 120ms.
             //only has subtitle to connect socket
             if (now() - startTime > 120000ll) {
-                ALOGE("%s:%d, connect socket failed!, error=%d, err:%s\n", __FILE__, __LINE__,
+                SUBTITLE_LOGE("%s:%d, connect socket failed!, error=%d, err:%s\n", __FILE__, __LINE__,
                       errno, strerror(errno));
                 close(mListenFd);
                 mListenFd = -1;
@@ -212,7 +212,7 @@ bool IpcSocket::initAsClient(int port) {
     }
 #endif
 
-    ALOGI("%s:%d, connect socket success!mSockFd:%d\n", __FILE__, __LINE__, mListenFd);
+    SUBTITLE_LOGI("%s:%d, connect socket success!mSockFd:%d\n", __FILE__, __LINE__, mListenFd);
 
     DataObj_t *dataObj = new DataObj_t;
     dataObj->obj1 = this;
@@ -225,7 +225,7 @@ bool IpcSocket::initAsClient(int port) {
 int IpcSocket::handleEvents(int fd, int events, void *data) {
     auto *dataObj = static_cast<DataObj_t *>(data);
     if (dataObj == nullptr) {
-        ALOGE("data DataObj_t == null.");
+        SUBTITLE_LOGE("data DataObj_t == null.");
         close(fd);
         return EventsTracker::RET_REMOVE;
     }
@@ -240,7 +240,7 @@ int IpcSocket::handleEvents(int fd, int events, void *data) {
     }
 
     if (events & EventsTracker::EVENT_ERROR) {
-        ALOGE("[%s] Error for %s fd(%d)", __FUNCTION__,
+        SUBTITLE_LOGE("[%s] Error for %s fd(%d)", __FUNCTION__,
               (ipcSocket->mIsServer ? "Server" : "Client"), fd);
         close(fd);
         dataObj->reset();
@@ -249,7 +249,7 @@ int IpcSocket::handleEvents(int fd, int events, void *data) {
         return EventsTracker::RET_REMOVE;
     }
 
-    ALOGD("handleEvents: %s", (ipcSocket->mIsServer ? "Server" : "Client"));
+    SUBTITLE_LOGI("handleEvents: %s", (ipcSocket->mIsServer ? "Server" : "Client"));
 
     int ret;
     if (ipcSocket->mIsServer) {
@@ -274,7 +274,7 @@ bool IpcSocket::processListenFd(int fd) {
     socklen_t length = sizeof(un);
     connFd = accept(fd, (struct sockaddr *) &un, &length);
     if (connFd < 0) {
-        ALOGE("[%s], accept fd(%d) failed", __FUNCTION__, fd);
+        SUBTITLE_LOGE("[%s], accept fd(%d) failed", __FUNCTION__, fd);
         close(fd);
     }
 #else
@@ -282,13 +282,13 @@ bool IpcSocket::processListenFd(int fd) {
         socklen_t length = sizeof(client_addr);
         connFd = accept(fd, (struct sockaddr *) &client_addr, &length);
         if (connFd < 0) {
-            ALOGE("[%s], accept fd(%d) failed", __FUNCTION__, fd);
+            SUBTITLE_LOGE("[%s], accept fd(%d) failed", __FUNCTION__, fd);
             close(fd);
             return false;
         }
 #endif
 
-    ALOGD("New connection comming: fd=%d", connFd);
+    SUBTITLE_LOGI("New connection coming: fd=%d", connFd);
     auto *dataObj = new DataObj_t;
     dataObj->obj1 = this;
     dataObj->obj2 = mSelfData;
@@ -325,7 +325,7 @@ int IpcSocket::handleServerEvents(int fd, int events, void *data) {
     auto ipcSocket = static_cast<IpcSocket *>(dataObj->obj1);
 
     if (fd == ipcSocket->mListenFd) {
-        ALOGD("connect client coming");
+        SUBTITLE_LOGI("connect client coming");
         bool ok = ipcSocket->processListenFd(fd);
 
         // Do not hold self data anymore when success to
@@ -386,7 +386,7 @@ bool IpcSocket::receive(int fd, char *data, int size) {
             if (errno == EINTR)
                 retlen = 0;
             else {
-                ALOGE("%s:%d, receive socket failed!", __FILE__, __LINE__);
+                SUBTITLE_LOGE("%s:%d, receive socket failed!", __FILE__, __LINE__);
                 return false;
             }
         }
@@ -425,10 +425,10 @@ std::string IpcSocket::sendForResult(int fd, const char *data, int size) {
     mEventReceivedListenerFunc = [&](int fd, void * /*selfData*/) -> int {
         char retBuf[1024];
         if (IpcSocket::receive(fd, retBuf, sizeof(retBuf))) {
-            ALOGD("Client received: %s", retBuf);
+            SUBTITLE_LOGI("Client received: %s", retBuf);
             blockChannel.put(retBuf);
         } else {
-            ALOGE("Server broken, remove");
+            SUBTITLE_LOGE("Server broken, remove");
             blockChannel.put("-1");
             return EventsTracker::RET_REMOVE;
         }

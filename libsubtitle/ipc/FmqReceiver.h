@@ -26,11 +26,11 @@
 
 #pragma once
 
-#include <utils/Log.h>
+#include "SubtitleLog.h"
 #include <utils/Thread.h>
 #include <mutex>
 #include <thread>
-#include<vector>
+#include <vector>
 
 #include "DataSource.h"
 
@@ -50,7 +50,7 @@ public:
     bool registClient(std::shared_ptr<DataListener> client) {
         std::lock_guard<std::mutex> guard(mLock);
         mClients.push_back(client);
-        ALOGD("registClient: %p size=%d", client.get(), mClients.size());
+        SUBTITLE_LOGI("registClient: %p size=%d", client.get(), mClients.size());
         return true;
     }
 
@@ -69,7 +69,7 @@ public:
             }
 
             //GetInstance()->mClients.pop_back();
-            ALOGD("unregisterClient: %p size=%d", client.get(), mClients.size());
+            SUBTITLE_LOGI("unregisterClient: %p size=%d", client.get(), mClients.size());
         }
         return true;
     }

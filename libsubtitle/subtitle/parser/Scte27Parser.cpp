@@ -35,7 +35,7 @@
 #include <mutex>
 
 //#include "trace_support.h"
-#include <utils/Log.h>
+#include "SubtitleLog.h"
 #include <utils/CallStack.h>
 
 #include "sub_types2.h"
@@ -43,7 +43,6 @@
 #include "ParserFactory.h"
 
 
-//#define  TRACE()  LOGI("[%s::%d]\n",__FUNCTION__,__LINE__)
 #define  DATA_SIZE 10*1024
 
 // we want access Parser in little-dvb callback.
@@ -57,12 +56,12 @@ Scte27Parser *Scte27Parser::getCurrentInstance() {
 
 void Scte27Parser::notifySubtitleDimension(int width, int height) {
     if (mNotifier != nullptr) {
-        ALOGD("notifySubtitleDimension: %d %d", width, height);
+        SUBTITLE_LOGI("notifySubtitleDimension: %d %d", width, height);
         mNotifier->onSubtitleDimension(width, height);
     }
 }
 static void save2BitmapFile(const char *filename, uint32_t *bitmap, int w, int h) {
-    LOGI("save2BitmapFile:%s\n",filename);
+    SUBTITLE_LOGI("save2BitmapFile:%s\n",filename);
     FILE *f;
     char fname[40];
 
@@ -104,7 +103,7 @@ static uint8_t *lockBitmap(int *w, int *h, int *bpp) {
     pbuf = (unsigned char *)malloc((*w)*(*h)*(*bpp));    //SCTE27_SUB_SIZE need *4
 
     if (!pbuf) {
-        LOGI("malloc pbuf failed!\n");
+        SUBTITLE_LOGI("malloc pbuf failed!\n");
         return NULL;
     }
 
@@ -124,7 +123,7 @@ static uint8_t *getBitmap(int *w, int *h, int *bpp) {
     uint8_t *buf;
 
     buf = lockBitmap(w, h, bpp);
-    LOGI("bitmap buffer [%p]", buf);
+    SUBTITLE_LOGI("bitmap buffer [%p]", buf);
     return buf;
 }
 
@@ -140,16 +139,16 @@ static void initBitmap(TVSubtitleData *ctx, int bitmap_w, int bitmap_h) {
     ctx->sub_w = bitmap_w;
     ctx->sub_h = bitmap_h;
 
-    LOGI("init_bitmap w:%d h:%d p:%d", ctx->bmp_w, ctx->bmp_h, ctx->bmp_pitch);
+    SUBTITLE_LOGI("init_bitmap w:%d h:%d p:%d", ctx->bmp_w, ctx->bmp_h, ctx->bmp_pitch);
 
 
 }
 
 static void updateSizeCallback(AM_SCTE27_Handle_t handle, int width, int height) {
-    LOGI("scte27_update_size width:%d,height:%d", width, height);
+    SUBTITLE_LOGI("scte27_update_size width:%d,height:%d", width, height);
     TVSubtitleData *sub = (TVSubtitleData *)AM_SCTE27_GetUserData(handle);
     if (!sub) {
-        ALOGE("Error!Scte27 get userdata null! ");
+        SUBTITLE_LOGE("Error!Scte27 get userdata null! ");
         return;
     }
     pthread_mutex_lock(&sub->lock);
@@ -158,7 +157,7 @@ static void updateSizeCallback(AM_SCTE27_Handle_t handle, int width, int height)
     //setScte27WidthHeight(width, height);
     Scte27Parser *parser = Scte27Parser::getCurrentInstance();
     if (parser == nullptr) {
-        ALOGE("Report subtitle size to a deleted scte parser!");
+        SUBTITLE_LOGE("Report subtitle size to a deleted scte parser!");
         pthread_mutex_unlock(&sub->lock);
         return;
     }
@@ -167,18 +166,18 @@ static void updateSizeCallback(AM_SCTE27_Handle_t handle, int width, int height)
 }
 
 static void drawBeginCallback(AM_SCTE27_Handle_t handle) {
-    LOGI("[scte27_draw_begin_cb]");
+    SUBTITLE_LOGI("[scte27_draw_begin_cb]");
     (void)handle;
 }
 
 static void drawEndCallback(AM_SCTE27_Handle_t handle) {
-    LOGI("[scte27_draw_end_cb]");
+    SUBTITLE_LOGI("[scte27_draw_end_cb]");
     TVSubtitleData *sub = (TVSubtitleData *)AM_SCTE27_GetUserData(handle);
 
     std::unique_lock<std::mutex> autolock(gLock);
     Scte27Parser *parser = Scte27Parser::getCurrentInstance();
     if (parser == nullptr) {
-        ALOGE("Report subtitle string to a deleted scte parser!");
+        SUBTITLE_LOGE("Report subtitle string to a deleted scte parser!");
         return;
     }
 
@@ -187,14 +186,14 @@ static void drawEndCallback(AM_SCTE27_Handle_t handle) {
     spu->buffer_size = sub->sub_w*sub->sub_h*4;//SCTE27_SUB_SIZE;
     spu->spu_data = (unsigned char *)malloc(sub->sub_w*sub->sub_h*4);
     if (!spu->spu_data) {
-        LOGI("av_malloc SCTE27_SUB_SIZE failed!\n");
+        SUBTITLE_LOGI("av_malloc SCTE27_SUB_SIZE failed!\n");
         return;
     }
     memset(spu->spu_data, 0, sub->sub_w*sub->sub_h*4);
     memcpy(spu->spu_data,ctx->buffer, sub->sub_w*sub->sub_h*4);
     spu->spu_width = sub->sub_w;
     spu->spu_height = sub->sub_h;
-    LOGI("[scte27_draw_end_cb]data->buffer:%p", ctx->buffer);
+    SUBTITLE_LOGI("[scte27_draw_end_cb]data->buffer:%p", ctx->buffer);
     spu->spu_origin_display_w = ctx->sub_w;
     spu->spu_origin_display_h = ctx->sub_h;
 
@@ -215,11 +214,11 @@ static void drawEndCallback(AM_SCTE27_Handle_t handle) {
             char filename[32];
             snprintf(filename, sizeof(filename), "./data/subtitleDump/27_%d", sIndex++);
             save2BitmapFile(filename, (uint32_t *)ctx->buffer, 1920, 1080);
-            LOGI("[scte27_draw_end_cb]dump sucess!");
+            SUBTITLE_LOGI("[scte27_draw_end_cb]dump success!");
         }
     }
     memset(ctx->buffer, 0, sub->sub_w*sub->sub_h*4);
-    LOGI("[scte27_draw_end_cb]");
+    SUBTITLE_LOGI("[scte27_draw_end_cb]");
 
 }
 
@@ -245,7 +244,7 @@ static void langCallback(AM_SCTE27_Handle_t handle, char *buffer, int size) {
     (void)handle;
     std::unique_lock<std::mutex> autolock(gLock);
     Scte27Parser *parser = Scte27Parser::getCurrentInstance();
-    LOGI("%s, lang:%s, size:%d", __FUNCTION__, buffer, size);
+    SUBTITLE_LOGI("%s, lang:%s, size:%d", __FUNCTION__, buffer, size);
     if (buffer == NULL || size == 0) {
         return;
     }
@@ -256,7 +255,7 @@ static void langCallback(AM_SCTE27_Handle_t handle, char *buffer, int size) {
 }
 
 Scte27Parser::Scte27Parser(std::shared_ptr<DataSource> source) {
-    LOGI("creat Scte27 Parser");
+    SUBTITLE_LOGI("creat Scte27 Parser");
     mPid = -1;
     mDataSource = source;
     mParseType = TYPE_SUBTITLE_SCTE27;
@@ -266,7 +265,7 @@ Scte27Parser::Scte27Parser(std::shared_ptr<DataSource> source) {
 }
 
 Scte27Parser::~Scte27Parser() {
-    LOGI("%s", __func__);
+    SUBTITLE_LOGI("%s", __func__);
     {
         std::unique_lock<std::mutex> autolock(gLock);
         sInstance = nullptr;
@@ -295,16 +294,16 @@ bool Scte27Parser::updateParameter(int type, void *data) {
     (void) type;
     Scte27Param *scte27_p = (Scte27Param *) data;
     mPid = scte27_p->SCTE27_PID;
-    LOGI("updateParameter mPid:%d", mPid);
+    SUBTITLE_LOGI("updateParameter mPid:%d", mPid);
     return true;
 }
 
 void Scte27Parser::setPipId (int mode, int id) {
-    LOGI(" setPipId mode:%d, id %d", mode, id);
+    SUBTITLE_LOGI(" setPipId mode:%d, id %d", mode, id);
     if (PIP_PLAYER_ID == mode) {
         mPlayerId = id;
     } else if (PIP_MEDIASYNC_ID == mode) {
-        LOGI(" setPipId  mMediaSyncId = %d, id=%d,mState=%d",mMediaSyncId,id,mState);
+        SUBTITLE_LOGI(" setPipId  mMediaSyncId = %d, id=%d,mState=%d",mMediaSyncId,id,mState);
        if ((mMediaSyncId != id) && ( mState == SUB_PLAYING)) {
            mMediaSyncId = id;
            stopScte27();
@@ -320,9 +319,9 @@ void Scte27Parser::checkDebug() {
 }
 
 int Scte27Parser::startScte27(int dmxId, int pid) {
-    LOGI("[sub_start_scte27]");
+    SUBTITLE_LOGI("[sub_start_scte27]");
     int ret;
-    LOGE("[sub_start_scte27]pid:%d, dmx_id:%d", pid, dmxId);
+    SUBTITLE_LOGE("[sub_start_scte27]pid:%d, dmx_id:%d", pid, dmxId);
     AM_SCTE27_Para_t sctep;
    // struct dmx_sct_filter_params param;
 
@@ -359,7 +358,7 @@ int Scte27Parser::startScte27(int dmxId, int pid) {
 
     return 0;
 error:
-    LOGE("scte start failed");
+    SUBTITLE_LOGE("scte start failed");
     if (mScteContext->scte27_handle) {
         AM_SCTE27_Destroy(mScteContext->scte27_handle);
         mScteContext->scte27_handle = NULL;
@@ -401,7 +400,7 @@ int Scte27Parser::getSpu() {
     if (mState == SUB_INIT) {
         mState = SUB_PLAYING;
     } else if (mState == SUB_STOP) {
-        ALOGD(" mState == SUB_STOP \n\n");
+        SUBTITLE_LOGI(" mState == SUB_STOP \n\n");
         return 0;
     }
     return getScte27Spu();

@@ -44,9 +44,9 @@ public:
 int main(int argc, char **argv) {
  //   unsigned char read_buf[256];
 //    memset(read_buf, 0, sizeof(read_buf));
- //    ALOGD("AAAAAAAAAAAAAAAA subtitletest  %s, line %d",__FUNCTION__,__LINE__);
+ //    SUBTITLE_LOGI("AAAAAAAAAAAAAAAA subtitletest  %s, line %d",__FUNCTION__,__LINE__);
 
-//ALOGD("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA main subtitletest.cpp AAAAAAAAAAAAAAAAA");
+//SUBTITLE_LOGI("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA main subtitletest.cpp AAAAAAAAAAAAAAAAA");
     //sp<ProcessState> proc(ProcessState::self());
     //proc->startThreadPool();
 	//amlsub_Create();

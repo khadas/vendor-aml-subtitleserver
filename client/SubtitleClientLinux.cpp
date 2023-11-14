@@ -40,6 +40,8 @@
 #include <sys/shm.h>
 #include <EventsTracker.h>
 #include <IpcSocket.h>
+#include "SubtitleLog.h"
+#include <utils/CallStack.h>
 
 #define SERVER_PORT 10200
 
@@ -56,7 +58,7 @@ SubtitleClientLinux *mInstance = NULL;
 
 SubtitleClientLinux::SubtitleClientLinux(bool isFallback, sp<SubtitleListener> listener,
                                          OpenType openType) {
-    ALOGD("SubtitleServerHidlClient getSubtitleService ...");
+    SUBTITLE_LOGI("SubtitleServerHidlClient getSubtitleService ...");
     // Mutex::Autolock _l(mLock);
     mIsFallback = isFallback;
     mSubtitleListener = listener;
@@ -72,7 +74,7 @@ void SubtitleClientLinux::initRemoteLocked() {
     }
 
     if (!mIpcSocket->isvalid()) {
-        ALOGE("Client: initRemoteLocked failed");
+        SUBTITLE_LOGE("Client: initRemoteLocked failed");
         mIpcSocket->stop();
         return;
     }
@@ -80,17 +82,17 @@ void SubtitleClientLinux::initRemoteLocked() {
     mIpcSocket->setEventListener(eventReceiver);
 
     mSessionId = openConnection();
-    ALOGD("Connected to subtitleservice.  mSessionId = %d\n", mSessionId);
+    SUBTITLE_LOGI("Connected to subtitleservice.  mSessionId = %d\n", mSessionId);
 }
 
 /*static */
 int SubtitleClientLinux::eventReceiver(int fd, void */*selfData*/) {
     char retBuf[1024];
     if (!IpcSocket::receive(fd, retBuf, sizeof(retBuf))) {
-        ALOGD("Server broken, fd= %d, remove.", fd);
+        SUBTITLE_LOGI("Server broken, fd= %d, remove.", fd);
         return EventsTracker::RET_REMOVE;
     } else {
-        ALOGD("Client received: %s", retBuf);
+        SUBTITLE_LOGI("Client received: %s", retBuf);
     }
 
     return EventsTracker::RET_CONTINUE;
@@ -116,13 +118,13 @@ int SubtitleClientLinux::SendMethodCall(char *CmdString, native_handle_t* /*hand
 
         auto resultStr = mIpcSocket->sendForResult(mIpcSocket->fd(), payload.c_str(), payloadSize);
         if (resultStr == "-1") {
-            ALOGE("Server is broken, stop!!!");
+            SUBTITLE_LOGE("Server is broken, stop!!!");
             mIpcSocket->stop();
             return ret;
         }
 
         if (!resultStr.empty()) {
-            ALOGD("[%s]  %s ==> ||| <== %s", __FUNCTION__ , CmdString, resultStr.c_str());
+            SUBTITLE_LOGI("[%s]  %s ==> ||| <== %s", __FUNCTION__ , CmdString, resultStr.c_str());
             ret = atoi(resultStr.c_str());
         }
     }
@@ -145,18 +147,18 @@ int SubtitleClientLinux::SplitRetBuf(const char *commandData) {
     while (token != NULL) {
         mRet[cmd_size].assign(token);
 
-        ALOGD("%s mRet[%d]:%s\n", token, cmd_size, mRet[cmd_size].c_str());
+        SUBTITLE_LOGI("%s mRet[%d]:%s\n", token, cmd_size, mRet[cmd_size].c_str());
         cmd_size++;
         token = strtok(NULL, delimitation);
     }
 
-    ALOGD("%s: cmd_size = %d\n", __FUNCTION__, cmd_size);
+    SUBTITLE_LOGI("%s: cmd_size = %d\n", __FUNCTION__, cmd_size);
 
     return cmd_size;
 }
 
 int SubtitleClientLinux::openConnection() {
-    ALOGD("%s\n", __FUNCTION__);
+    SUBTITLE_LOGI("%s\n", __FUNCTION__);
     int ret = -1;
     int sessionId = SendMethodCall(format_string("subtitle.ctrl.%d", SUBTITLE_OPENCONNECTION));
     if (sessionId >= 0) {
@@ -167,20 +169,20 @@ int SubtitleClientLinux::openConnection() {
 }
 
 int SubtitleClientLinux::closeConnection() {
-    ALOGD("%s\n", __FUNCTION__);
+    SUBTITLE_LOGI("%s\n", __FUNCTION__);
     int ret = SendMethodCall(
             format_string("subtitle.ctrl.%d.%d", SUBTITLE_CLOSECONNECTION, mSessionId));
-    ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
     return ret;
 }
 
 bool SubtitleClientLinux::open(const char *path, int ioType) {
-    ALOGD("%s\n", __FUNCTION__);
+    SUBTITLE_LOGI("%s\n", __FUNCTION__);
     return true;
 }
 
 bool SubtitleClientLinux::open(int fd, int ioType) {
-    ALOGD(" SubtitleClientLinux  %s, line %d fd=%d,ioType=%d mOpenType=%d", __FUNCTION__, __LINE__, fd, ioType, mOpenType);
+    SUBTITLE_LOGI(" SubtitleClientLinux  %s, line %d fd=%d,ioType=%d mOpenType=%d", __FUNCTION__, __LINE__, fd, ioType, mOpenType);
     char buf[32] = {0};
     //int param = (demuxId << 16 | iotType);
     native_handle_t *nativeHandle = nullptr;
@@ -192,14 +194,14 @@ bool SubtitleClientLinux::open(int fd, int ioType) {
     int ret = SendMethodCall(format_string("subtitle.ctrl.%d.%d.%d.%d",
                                            SUBTITLE_OPEN, mSessionId, ioType,
                                            mOpenType), nativeHandle);
-    ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
     return true;
 }
 
 int SubtitleClientLinux::close() {
-    ALOGD("%s\n", __FUNCTION__);
+    SUBTITLE_LOGI("%s\n", __FUNCTION__);
     int ret = SendMethodCall(format_string("subtitle.ctrl.%d.%d", SUBTITLE_CLOSE, mSessionId));
-    ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
     return ret;
 
 }
@@ -207,7 +209,7 @@ int SubtitleClientLinux::close() {
 int SubtitleClientLinux::resetForSeek() {
     int ret = SendMethodCall(
             format_string("subtitle.ctrl.%d.%d", SUBTITLE_RESETFORSEEK, mSessionId));
-    ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
     return ret;
 
 }
@@ -216,26 +218,26 @@ int SubtitleClientLinux::updateVideoPos(int64_t pos) {
     int ret = SendMethodCall(
             format_string("subtitle.ctrl.%d.%d.%d", SUBTITLE_UPDATEVIDEOPTS, mSessionId,
                           pos));
-    ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
     return ret;
 }
 
 int SubtitleClientLinux::getTotalTracks() {
     int ret = SendMethodCall(
             format_string("subtitle.get.%d.%d", SUBTITLE_GETTOTALTRACKS, mSessionId));
-    ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
     return ret;
 }
 
 int SubtitleClientLinux::getType() {
     int ret = SendMethodCall(format_string("subtitle.get.%d.%d", SUBTITLE_GETTYPE, mSessionId));
-    ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
     return ret;
 }
 
 int SubtitleClientLinux::getLanguage() {
     int ret = SendMethodCall(format_string("subtitle.get.%d.%d", SUBTITLE_GETLANGUAGE, mSessionId));
-    ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
     return ret;
 }
 
@@ -253,35 +255,35 @@ int SubtitleClientLinux::setSubType(int32_t type) {
 int SubtitleClientLinux::setSubPid(int32_t pid) {
     int ret = SendMethodCall(
             format_string("subtitle.set.%d.%d.%d", SUBTITLE_GETSUBPID, mSessionId, pid));
-    ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
     return ret;
 }
 
 int SubtitleClientLinux::setPageId(int32_t pageId) {
     int ret = SendMethodCall(
             format_string("subtitle.set.%d.%d.%d", SUBTITLE_SETPAGEID, mSessionId, pageId));
-    ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
     return ret;
 }
 
 int SubtitleClientLinux::setAncPageId(int32_t ancPageId) {
     int ret = SendMethodCall(
             format_string("subtitle.set.%d.%d.%d", SUBTITLE_SETANCPAGEID, mSessionId, ancPageId));
-    ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
     return ret;
 }
 
 int SubtitleClientLinux::setChannelId(int32_t channelId) {
     int ret = SendMethodCall(
             format_string("subtitle.set.%d.%d.%d", SBUTITLE_SETCHANNELID, mSessionId, channelId));
-    ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
     return ret;
 }
 
 int SubtitleClientLinux::setClosedCaptionVfmt(int32_t vfmt) {
     int ret = SendMethodCall(
             format_string("subtitle.set.%d", SBUTITLE_SETCHANNELID, mSessionId, vfmt));
-    ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
     return ret;
 }
 
@@ -289,21 +291,21 @@ int SubtitleClientLinux::ttControl(int cmd, int magazine, int page, int regionId
     int ret = SendMethodCall(
             format_string("subtitle.ttcontrol.%d.%d.%d.%d.%d.%d.%d",
                           SUBTITLE_TTCONTROL, mSessionId, cmd, magazine, page, regionId, param));
-    ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
     return ret;
 }
 
 int SubtitleClientLinux::ttGoHome() {
     int ret = SendMethodCall(format_string("subtitle.ttcontrol.%d.%d",
                                            SUBTITLE_TTGOHOME, mSessionId));
-    ALOGE("SubtitleClientLinux: ret %d\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d\n", ret);
     return ret;
 }
 
 int SubtitleClientLinux::ttNextPage(int32_t dir) {
     int ret = SendMethodCall(format_string("subtitle.ttcontrol.%d.%d.%d",
                                            SUBTITLE_TTNEXTPAGE, mSessionId, dir));
-    ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
     return ret;
 
 }
@@ -311,35 +313,35 @@ int SubtitleClientLinux::ttNextPage(int32_t dir) {
 int SubtitleClientLinux::ttNextSubPage(int32_t dir) {
     int ret = SendMethodCall(
             format_string("subtitle.ttcontrol.%d.%d.%d", SUBTITLE_TTNEXTSUBPAGE, mSessionId, dir));
-    ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
     return ret;
 }
 
 int SubtitleClientLinux::ttGotoPage(int32_t pageNo, int32_t subPageNo) {
     int ret = SendMethodCall(format_string("subtitle.ttcontrol.%d.%d.%d.%d",
                                            SUBTITLE_TTGOTOPAGE, mSessionId, pageNo, subPageNo));
-    ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
     return ret;
 }
 
 int SubtitleClientLinux::userDataOpen() {
     int ret = SendMethodCall(format_string("subtitle.afdcontrol.%d.%d",
                                            SUBTITLE_USERDATAOPEN, mSessionId));
-    ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
     return ret;
 }
 
 int SubtitleClientLinux::userDataClose() {
     int ret = SendMethodCall(format_string("subtitle.afdcontrol.%d.%d",
                                            SUBTITLE_USERDATACLOSE, mSessionId));
-    ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
     return ret;
 }
 
 int SubtitleClientLinux::setPipId(int32_t mode, int32_t id) {
     int ret = SendMethodCall(format_string("subtitle.set.%d.%d.%d.%d",
                                            SUBTITLE_SETPIPID, mSessionId, mode, id));
-    ALOGE("SubtitleClientLinux: setPipId, ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: setPipId, ret %d.\n", ret);
     return ret;
 }
 
@@ -397,7 +399,7 @@ void SubtitleClientLinux::prepareWritingQueue(int32_t size) {
     SendMethodCall(buf);
 
     ret = atoi(mRetBuf);
-    ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
 
     return ret;
 */
@@ -415,7 +417,7 @@ void SubtitleClientLinux::setCallback(const sp<ISubtitleCallback> &callback, Con
        SendMethodCall(buf);
 
        ret = atoi(mRetBuf);
-       ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+       SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
        send.writeStrongBinder(sp<IBinder>(this));
        tvServicebinder->transact(CMD_SET_TV_CB, send, &reply);
    */
@@ -431,7 +433,7 @@ SubtitleClientLinux::setFallbackCallback(const sp<ISubtitleCallback> &callback, 
        SendMethodCall(buf);
 
        ret = atoi(mRetBuf);
-       ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+       SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
 
        return ret;
    */
@@ -445,7 +447,7 @@ void SubtitleClientLinux::removeCallback() {
     SendMethodCall(buf);
 
     ret = atoi(mRetBuf);
-    ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
 
     //return ret;
 
@@ -458,11 +460,11 @@ void SubtitleClientLinux::setRenderType(int type) {
 void SubtitleClientLinux::applyRenderType() {
     int ret = SendMethodCall(format_string("subtitle.set.%d.%d.%d",
                                            SUBTITLE_SETRENDERTYPE, mSessionId, mRenderType));
-    ALOGE("SubtitleClientLinux: ret %d.\n", ret);
+    SUBTITLE_LOGE("SubtitleClientLinux: ret %d.\n", ret);
 }
 
 void SubtitleClientLinux::SubtitleCallback::notify(int msg, int ext1, int ext2, const Parcel *obj) {
-    ALOGE(" SubtitleClientLinux::notify");
+    SUBTITLE_LOGE(" SubtitleClientLinux::notify");
 }
 
 #if 1
@@ -479,13 +481,13 @@ void SubtitleClientLinux::SubtitleCallback::notifyDataCallback(SubtitleHidlParce
     int videoWidth = parcel.bodyInt[6];
     int videoHeight = parcel.bodyInt[7];
     int keyid = parcel.shmid;
-    ALOGD("processSubtitleData! aa %d %d,width=%d,height=%d", type, parcel.msgType, width, height);
+    SUBTITLE_LOGI("processSubtitleData! aa %d %d,width=%d,height=%d", type, parcel.msgType, width, height);
     key_t key;
     char pathname[30];
     strcpy(pathname, "/tmp");
     int shmId = shmget(6549, size, 0);
     if (shmId == -1) {
-        ALOGE("Error get shm  ipc_id error shmid=%d, error=%s", shmId, strerror(errno));
+        SUBTITLE_LOGE("Error get shm  ipc_id error shmid=%d, error=%s", shmId, strerror(errno));
         return;
     }
     char *data = (char *) shmat(shmId, NULL, 0);
@@ -493,7 +495,7 @@ void SubtitleClientLinux::SubtitleCallback::notifyDataCallback(SubtitleHidlParce
         mListener->onSubtitleEvent(data, size, type, cordinateX, cordinateY, width, height,
                                    videoWidth, videoHeight, cmd);
     } else {
-        ALOGD("error, no handle for this event!");
+        SUBTITLE_LOGI("error, no handle for this event!");
     }
     shmdt(data);
     shmctl(shmId, IPC_RMID, NULL);

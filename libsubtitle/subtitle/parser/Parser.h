@@ -48,16 +48,16 @@
 
 
 #ifndef LOGD
-#define LOGD ALOGD
+#define LOGD SUBTITLE_LOGI
 #endif
 #ifndef LOGE
-#define LOGE ALOGE
+#define LOGE SUBTITLE_LOGE
 #endif
 #ifndef LOGI
-#define LOGI ALOGI
+#define LOGI SUBTITLE_LOGI
 #endif
 #ifndef LOGV
-#define LOGV ALOGI
+#define LOGV SUBTITLE_LOGI
 #endif
 
 //before is disorder with amnuplayer send,now

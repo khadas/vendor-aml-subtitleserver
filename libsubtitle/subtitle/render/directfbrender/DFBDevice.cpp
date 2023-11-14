@@ -30,7 +30,7 @@
 #include <Parser.h>
 
 #include <cstdlib>
-#include <utils/Log.h>
+#include "SubtitleLog.h"
 #include <cstring>
 #include <vector>
 #include <string>
@@ -57,10 +57,10 @@ using namespace Cairo;
 #define ENV_WAYLAND_DISPLAY "WAYLAND_DISPLAY"
 #define SUBTITLE_OVERLAY_NAME "subtitle-overlay"
 
-#ifdef ALOGD
-#undef ALOGD
+#ifdef SUBTITLE_LOGI
+#undef SUBTITLE_LOGI
 #endif
-#define ALOGD(...) ALOGI(__VA_ARGS__)
+#define SUBTITLE_LOGI(...) SUBTITLE_LOGI(__VA_ARGS__)
 
 class RdkShellCmd {
 public:
@@ -77,7 +77,7 @@ private:
         FILE* pFile = popen(cmd, "r");
         char buf[128];
         char* retStr = fgets(buf, sizeof(buf), pFile);
-        ALOGD("[%s] ret= %s", method, retStr);
+        SUBTITLE_LOGI("[%s] ret= %s", method, retStr);
         pclose(pFile);
     }
 };
@@ -94,18 +94,18 @@ static struct DisplayEnv {
 };
 
 DFBDevice::DFBDevice() {
-    ALOGD("DFBDevice +++");
+    SUBTITLE_LOGI("DFBDevice +++");
     mInited = init();
 }
 
 DFBDevice::~DFBDevice() {
     /* release our interfaces to shutdown DirectFB */
     //font->Release( font );
-    ALOGD("DFBDevice ---");
+    SUBTITLE_LOGI("DFBDevice ---");
 }
 
 bool DFBDevice::init() {
-    ALOGD("DFBDevice %s", __FUNCTION__);
+    SUBTITLE_LOGI("DFBDevice %s", __FUNCTION__);
     return initDisplay();
 }
 
@@ -114,15 +114,15 @@ bool DFBDevice::connectDisplay() {
     auto funcConnectFromPresetEnv = [&]()->bool {
         const char *runtimeDir = getenv(ENV_XDG_RUNTIME_DIR);
         const char *waylandDisplay = getenv(ENV_WAYLAND_DISPLAY);
-        ALOGD("connectDisplay, current env= {%s, %s}", runtimeDir, waylandDisplay);
+        SUBTITLE_LOGI("connectDisplay, current env= {%s, %s}", runtimeDir, waylandDisplay);
         if (runtimeDir != nullptr && strlen(runtimeDir) > 0
             && waylandDisplay != nullptr && strlen(waylandDisplay) > 0) {
-            ALOGD("createDisplay with preset env");
+            SUBTITLE_LOGI("createDisplay with preset env");
             if (createDisplay()) {
-                ALOGD("createDisplay success for {%s, %s}", runtimeDir, waylandDisplay);
+                SUBTITLE_LOGI("createDisplay success for {%s, %s}", runtimeDir, waylandDisplay);
                 return true;
             } else {
-                ALOGE("createDisplay failed for {%s, %s}", runtimeDir, waylandDisplay);
+                SUBTITLE_LOGE("createDisplay failed for {%s, %s}", runtimeDir, waylandDisplay);
             }
         }
 
@@ -130,17 +130,17 @@ bool DFBDevice::connectDisplay() {
     };
 
     auto funcConnectFromCandidatesEnvs = [&]()->bool {
-        ALOGD("createDisplay with candidate envs");
+        SUBTITLE_LOGI("createDisplay with candidate envs");
         int n = sizeof(sCandidateEnvs) / sizeof(sCandidateEnvs[0]);
         for (int i = 0; i < n; ++i) {
             struct DisplayEnv& env = sCandidateEnvs[i];
             setupEnv(env.xdg_runtime_dir, env.wayland_display);
 
             if (createDisplay()) {
-                ALOGD("createDisplay success for {%s, %s}", env.xdg_runtime_dir, env.wayland_display);
+                SUBTITLE_LOGI("createDisplay success for {%s, %s}", env.xdg_runtime_dir, env.wayland_display);
                 return true;
             } else {
-                ALOGE("createDisplay failed for {%s, %s}", env.xdg_runtime_dir, env.wayland_display);
+                SUBTITLE_LOGE("createDisplay failed for {%s, %s}", env.xdg_runtime_dir, env.wayland_display);
             }
         }
 
@@ -157,7 +157,7 @@ static IDirectFBSurface *load_image(std::string filename)
     DFBSurfaceDescription dsc;
     ret = dfb->CreateImageProvider (dfb,  filename.c_str(), &image_provider);
     if (ret != DFB_OK) {
-        ALOGD("CreateImageProvider Fail!");
+        SUBTITLE_LOGI("CreateImageProvider Fail!");
         return NULL;
     }
 
@@ -199,9 +199,9 @@ static void save2BitmapFile(const char *filename, uint32_t *bitmap, int w, int h
     char fname[40];
     snprintf(fname, sizeof(fname), "%s.png", filename);
     f = fopen(fname, "w");
-    ALOGD("%s start", __FUNCTION__);
+    SUBTITLE_LOGI("%s start", __FUNCTION__);
     if (!f) {
-        ALOGE("Error cannot open file %s!", fname);
+        SUBTITLE_LOGE("Error cannot open file %s!", fname);
         return;
     }
     fprintf(f, "P6\n" "%d %d\n" "%d\n", w, h, 255);
@@ -217,7 +217,7 @@ static void save2BitmapFile(const char *filename, uint32_t *bitmap, int w, int h
 }
 
 bool DFBDevice::initDisplay() {
-    ALOGD("DFBDevice  initDisplay start!");
+    SUBTITLE_LOGI("DFBDevice  initDisplay start!");
     DFBResult ret;
     /* disable mouse icon,init directfb command line parsing.*/
     int argx = 2;
@@ -225,12 +225,12 @@ bool DFBDevice::initDisplay() {
     char **argPointer = argData;
     ret = DirectFBInit(&argx, &argPointer);
     if (ret != DFB_OK) {
-        ALOGD("DirectFBInit DirectFB Fail!");
+        SUBTITLE_LOGI("DirectFBInit DirectFB Fail!");
         return  false;
     }
     ret = DirectFBCreate(&dfb);
     if (ret != DFB_OK) {
-        ALOGD("DirectFBCreate Fail!");
+        SUBTITLE_LOGI("DirectFBCreate Fail!");
         return  false;
     }
 
@@ -238,20 +238,20 @@ bool DFBDevice::initDisplay() {
     sdsc.caps = DSCAPS_PRIMARY;
     ret = dfb->CreateSurface(dfb, &sdsc, &screen);
     if (ret != DFB_OK) {
-        ALOGD("CreateSurface Fail!");
+        SUBTITLE_LOGI("CreateSurface Fail!");
         return  false;
     }
     //screen->SetBlittingFlags( screen, DSBLIT_BLEND_ALPHACHANNEL );
     screen->Clear ( screen, 255, 255, 255, 0 );
 
     screen->GetSize (screen, &screen_width, &screen_height);
-    ALOGD("DFBDevice screen_width = %d,screen_height = %d", screen_width, screen_height);
-    ALOGD("DFBDevice  initDisplay end!");
+    SUBTITLE_LOGI("DFBDevice screen_width = %d,screen_height = %d", screen_width, screen_height);
+    SUBTITLE_LOGI("DFBDevice  initDisplay end!");
     return true;
 }
 
 void DFBDevice::setupEnv(const char* runtimeDir, const char* waylandDisplay) {
-    ALOGD("setupEnv, ENV_XDG_RUNTIME_DIR= %s, ENV_WAYLAND_DISPLAY= %s",
+    SUBTITLE_LOGI("setupEnv, ENV_XDG_RUNTIME_DIR= %s, ENV_WAYLAND_DISPLAY= %s",
             runtimeDir, waylandDisplay);
 
     setenv(ENV_XDG_RUNTIME_DIR, runtimeDir, 1);
@@ -259,7 +259,7 @@ void DFBDevice::setupEnv(const char* runtimeDir, const char* waylandDisplay) {
 }
 
 bool DFBDevice::createDisplay() {
-    ALOGD("dfb_display_roundtrip 222");
+    SUBTITLE_LOGI("dfb_display_roundtrip 222");
     return true;
 }
 
@@ -269,7 +269,7 @@ void DFBDevice::getScreenSize(size_t *width, size_t *height) {
     if (env) {
         int w = 0, h = 0;
         if (sscanf(env, "%dx%d", &w, &h) == 2) {
-            ALOGD("getScreenSize, from env WESTEROS_GL_GRAPHICS_MAX_SIZE: [%dx%d]", w, h);
+            SUBTITLE_LOGI("getScreenSize, from env WESTEROS_GL_GRAPHICS_MAX_SIZE: [%dx%d]", w, h);
             if ((w > 0) && (h > 0)) {
                 *width = w;
                 *height = h;
@@ -278,13 +278,13 @@ void DFBDevice::getScreenSize(size_t *width, size_t *height) {
         }
     }
 
-    ALOGD("getScreenSize, from defult: [%dx%d]", WIDTH, HEIGHT);
+    SUBTITLE_LOGI("getScreenSize, from defult: [%dx%d]", WIDTH, HEIGHT);
     *width = WIDTH;
     *height = HEIGHT;
 }
 
 bool DFBDevice::initTexture(void* data, DFBRect &videoOriginRect, DFBRect &cropRect) {
-    ALOGD("sourceCrop glRect= [%d, %d, %d, %d]", cropRect.x(), cropRect.y(),
+    SUBTITLE_LOGI("sourceCrop glRect= [%d, %d, %d, %d]", cropRect.x(), cropRect.y(),
             cropRect.width(), cropRect.height());
     if (data == nullptr || cropRect.isEmpty())
         return false;
@@ -298,7 +298,7 @@ bool DFBDevice::initTexture(void* data, DFBRect &videoOriginRect, DFBRect &cropR
     // Avoid data is out of display frame
     DFBRect subCrop;
     if (!videoOriginRect.intersect(cropRect, &subCrop)) {
-        ALOGE("Final subCrop is empty, return");
+        SUBTITLE_LOGE("Final subCrop is empty, return");
         return false;
     }
     subCrop.log("Final subCrop");
@@ -311,7 +311,7 @@ void DFBDevice::drawColor(float r, float g, float b, float a, bool flush) {
 void DFBDevice::drawColor(float r, float g, float b, float a, DFBRect &rect, bool flush) {
     DFBRect intersectRect = DFBRect();
     if (rect.isEmpty() || !mScreenRect.intersect(rect, &intersectRect)) {
-        ALOGW("%s, Rect checked failed", __FUNCTION__ );
+        SUBTITLE_LOGE("%s, Rect checked failed", __FUNCTION__ );
         return;
     }
 }
@@ -319,13 +319,13 @@ void DFBDevice::drawColor(float r, float g, float b, float a, DFBRect &rect, boo
 bool DFBDevice::drawImage(int type, unsigned char *img, int64_t pts, int buffer_size, unsigned short spu_width , unsigned short spu_height, DFBRect &videoOriginRect, DFBRect &src, DFBRect &dst) {
 /*
     if (!initTexture(img, videoOriginRect, src)) {
-        ALOGE("%s: initTexture failed", __FUNCTION__ );
+        SUBTITLE_LOGE("%s: initTexture failed", __FUNCTION__ );
         return false;
     }
 */
 
     char *filename;
-    ALOGD("DFBDevice %s img:%p buffer_size:%d pts:%lld, spu_width:%d spu_height:%d src.x():%d ,src.y():%d ,src.width():%d ,src.height():%d start", __FUNCTION__, img, buffer_size, pts, spu_width, spu_height, src.x(),src.y(),src.width(),src.height());
+    SUBTITLE_LOGI("DFBDevice %s img:%p buffer_size:%d pts:%lld, spu_width:%d spu_height:%d src.x():%d ,src.y():%d ,src.width():%d ,src.height():%d start", __FUNCTION__, img, buffer_size, pts, spu_width, spu_height, src.x(),src.y(),src.width(),src.height());
     filename = "/tmp/subtitle_dfb";
     saveAsPNG(filename, (uint32_t *)img, spu_width, spu_height);
 //    save2BitmapFile(filename, (uint32_t *)img, spu_width, spu_height);
@@ -336,7 +336,7 @@ bool DFBDevice::drawImage(int type, unsigned char *img, int64_t pts, int buffer_
     screen->Flip (screen, NULL, DSFLIP_WAITFORSYNC);
     //screen->StretchBlit(screen, image, NULL, NULL);
     image->Release(image);
-    ALOGD("DFBDevice %s end", __FUNCTION__);
+    SUBTITLE_LOGI("DFBDevice %s end", __FUNCTION__);
     return true;
 }
 
@@ -396,12 +396,12 @@ void DFBDevice::drawMultiText(int type, TextParams &textParams, int64_t pts, int
 
     isTextMultiPart = false;
     int textPart = contents.size();
-    ALOGD("[%s], contents, size= %d", __FUNCTION__, textPart);
+    SUBTITLE_LOGI("[%s], contents, size= %d", __FUNCTION__, textPart);
 
     if (!contents.empty()) {
         int marginBottom = MIN_TEXT_MARGIN_BOTTOM;
         for (auto it = contents.rbegin(); it != contents.rend(); it++) {
-            ALOGD("[%s], content= %s", __FUNCTION__, it->c_str());
+            SUBTITLE_LOGI("[%s], content= %s", __FUNCTION__, it->c_str());
             bool flush = (it + 1) == contents.rend();
             textParams.content = it->c_str();
 
@@ -432,7 +432,7 @@ DFBRect DFBDevice::drawText(int type, TextParams& textParams, int64_t pts, int b
 
     const char* content = textParams.content;
     if (content == nullptr || strlen(content) <= 0) {
-        ALOGE("Empty text, do not render");
+        SUBTITLE_LOGE("Empty text, do not render");
         if (flush) clear();
         return DFBRect::empty();
     }
@@ -442,10 +442,10 @@ DFBRect DFBDevice::drawText(int type, TextParams& textParams, int64_t pts, int b
     font.size = textParams.fontSize;
 
     BoundingBox fontBox = getFontBox(content, videoOriginRect, font);
-    ALOGD("fontBox= [%f, %f, %f, %f]", fontBox.x, fontBox.y, fontBox.x2, fontBox.y2);
+    SUBTITLE_LOGI("fontBox= [%f, %f, %f, %f]", fontBox.x, fontBox.y, fontBox.x2, fontBox.y2);
     if (fontBox.isEmpty()) {
         if (flush) clear();
-        ALOGE_IF(strlen(content) > 0, "No support text type rendering");
+        SUBTITLE_LOGE_IF(strlen(content) > 0, "No support text type rendering");
         return DFBRect::empty();
     }
 
@@ -483,7 +483,7 @@ DFBRect DFBDevice::drawText(int type, TextParams& textParams, int64_t pts, int b
 
     unsigned char * data = textSurface.data();
     if (!data || !drawImage(type, data, pts, buffer_size, spu_width, spu_height, videoOriginRect, srcRect, dst)) {
-        ALOGE("%s, No valid data will to be drew", __FUNCTION__);
+        SUBTITLE_LOGE("%s, No valid data will to be drew", __FUNCTION__);
         if (flush) clear();
         return DFBRect::empty();
     }

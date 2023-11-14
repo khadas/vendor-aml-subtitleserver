@@ -26,7 +26,7 @@
 
 #define LOG_TAG "SubtitleSignalHandler"
 #include "SubtitleSignalHandler.h"
-#include <utils/Log.h>
+#include "SubtitleLog.h"
 #include <string.h>
 #include <unistd.h>
 #include <execinfo.h>
@@ -73,7 +73,7 @@ void SubtitleSignalHandler::unexpectedSignalHandler(int signal_number, siginfo_t
 {
     static bool handlingUnexpectedSignal = false;
     if (handlingUnexpectedSignal) {
-        ALOGE("HandleUnexpectedSignal reentered\n");
+        SUBTITLE_LOGE("HandleUnexpectedSignal reentered\n");
 
         _exit(1);
     }
@@ -91,7 +91,7 @@ void SubtitleSignalHandler::unexpectedSignalHandler(int signal_number, siginfo_t
     }
 
     instance().dumpstack(ss);
-    ALOGE("%s", ss.str().c_str());
+    SUBTITLE_LOGE("%s", ss.str().c_str());
     fprintf(stderr, "%s\n", ss.str().c_str());
 
     struct sigaction action;

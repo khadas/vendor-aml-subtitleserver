@@ -33,7 +33,7 @@
  *************************************************/
 #define LOG_NDEBUG 0
 #define LOG_TAG "AmSocket"
-#include <utils/Log.h>
+#include "SubtitleLog.h"
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -81,7 +81,7 @@ int64_t AmSocketClient::GetNowUs() {
 }
 
 int AmSocketClient::socketConnect() {
-    ALOGD("socketConnect");
+    SUBTITLE_LOGI("socketConnect");
 #if USE_UN
     mSockFd = socket(AF_UNIX, SOCK_STREAM, 0);
     std::string unPath = std::string(UN_BASE_PATH);
@@ -99,7 +99,7 @@ int AmSocketClient::socketConnect() {
             //load dvb so need time since add close caption subtitle, add to 120ms.
             //only has subtitle to connect socket
             if (now() - startTime > 120000ll) {
-                ALOGE("%s:%d, connect socket failed!, error=%d, err:%s\n", __FILE__, __LINE__,
+                SUBTITLE_LOGE("%s:%d, connect socket failed!, error=%d, err:%s\n", __FILE__, __LINE__,
                       errno, strerror(errno));
                 close(mSockFd);
                 mSockFd = -1;
@@ -117,7 +117,7 @@ int AmSocketClient::socketConnect() {
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
     if (mSockFd < 0) {
-        ALOGE("%s:%d, create socket failed!mSockFd:%d, error=%d, err:%s\n", __FILE__, __LINE__,
+        SUBTITLE_LOGE("%s:%d, create socket failed!mSockFd:%d, error=%d, err:%s\n", __FILE__, __LINE__,
               mSockFd, errno, strerror(errno));
         return false;
     }
@@ -128,7 +128,7 @@ int AmSocketClient::socketConnect() {
             //load dvb so need time since add close caption subtitle, add to 120ms.
             //only has subtitle to connect socket
             if (now() - startTime > 120000ll) {
-                ALOGE("%s:%d, connect socket failed!, error=%d, err:%s\n", __FILE__, __LINE__,
+                SUBTITLE_LOGE("%s:%d, connect socket failed!, error=%d, err:%s\n", __FILE__, __LINE__,
                       errno, strerror(errno));
                 close(mSockFd);
                 mSockFd = -1;
@@ -140,7 +140,7 @@ int AmSocketClient::socketConnect() {
     }
 #endif
 
-    ALOGI("%s:%d, connect socket success!mSockFd:%d\n", __FILE__, __LINE__, mSockFd);
+    SUBTITLE_LOGI("%s:%d, connect socket success!mSockFd:%d\n", __FILE__, __LINE__, mSockFd);
 
     return 0;
 }
@@ -175,7 +175,7 @@ void AmSocketClient::socketSend(const char *buf, int size) {
                 if (errno == EINTR) {
                     retLen = 0;
                 }
-		     //MLOGI("%s:%d, send socket failed!retLen:%d\n", __FILE__, __LINE__, retLen);
+             //MLOGI("%s:%d, send socket failed!retLen:%d\n", __FILE__, __LINE__, retLen);
                 return;
             }
 
@@ -195,7 +195,7 @@ int AmSocketClient::socketRecv(char *buf, int size) {
             if (errno == EINTR)
                 retlen = 0;
             else {
-                ALOGE("%s:%d, receive socket failed!", __FILE__, __LINE__);
+                SUBTITLE_LOGE("%s:%d, receive socket failed!", __FILE__, __LINE__);
                 return -1;
             }
         }

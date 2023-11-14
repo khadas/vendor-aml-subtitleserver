@@ -29,7 +29,7 @@
 #include "FBRender.h"
 
 #include <thread>
-#include <utils/Log.h>
+#include "SubtitleLog.h"
 
 #include "FBDevice.h"
 #include <Parser.h>
@@ -52,18 +52,18 @@ void FBRender::Clear() {
 }
 
 FBRender::FBRender() {
-    ALOGD("FBRender +++");
+    SUBTITLE_LOGI("FBRender +++");
     std::thread thread(FBRender::threadFunc, this);
     thread.detach();
 }
 
 FBRender::~FBRender() {
-    ALOGD("FBRender ---");
+    SUBTITLE_LOGI("FBRender ---");
     requestExit();
 }
 
 void FBRender::threadFunc(void *data) {
-    ALOGD("FBRender threadFunc start");
+    SUBTITLE_LOGI("FBRender threadFunc start");
     FBRender* render = static_cast<FBRender *>(data);
 
     if (render->mLooper == nullptr) {
@@ -78,11 +78,11 @@ void FBRender::threadFunc(void *data) {
     }
 
     render->onThreadExit();
-    ALOGD("FBRender thread exit !!!");
+    SUBTITLE_LOGI("FBRender thread exit !!!");
 }
 
 void FBRender::AMLHandler::handleMessage(const AMLMessage &message) {
-    ALOGD("handleMessage: %d", message.what);
+    SUBTITLE_LOGI("handleMessage: %d", message.what);
     FBRender* render = mWk_FBRender;
     if (mWk_FBRender == nullptr) {
         return;
@@ -115,14 +115,14 @@ void FBRender::requestExit() {
 void FBRender::fbInit() {
     mFBDevice = std::make_shared<FBDevice>();
     if (!mFBDevice->initCheck()) {
-        ALOGE("fbInit, initCheck failed");
+        SUBTITLE_LOGE("fbInit, initCheck failed");
         mLooper->removeMessages(mHandler);
         requestExit();
         return;
     }
 
     sendMessage(AMLMessage(kWhat_clear));
-    ALOGD("RenderDevice init OK.");
+    SUBTITLE_LOGI("RenderDevice init OK.");
 }
 
 bool FBRender::showSubtitleItem(std::shared_ptr<AML_SPUVAR> spu, int type) {
@@ -164,7 +164,7 @@ void FBRender::drawItems() {
     android::AutoMutex _l(mRenderMutex);
 
     if (mShowingSubs.empty()) {
-        ALOGW("No any item can be draw.");
+        SUBTITLE_LOGE("No any item can be draw.");
         clearScreen();
         return;
     }
@@ -191,7 +191,7 @@ void FBRender::drawItems() {
                 std::vector<std::string> ccData;
                 std::string input = text;
                 if (!CCJsonParser::populateData(input, ccData)) {
-                    ALOGE("No valid data");
+                    SUBTITLE_LOGE("No valid data");
                     continue;
                 }
 
@@ -204,7 +204,7 @@ void FBRender::drawItems() {
             }
 
 
-            ALOGD("Text type: '%s'", text);
+            SUBTITLE_LOGI("Text type: '%s'", text);
 
             // Using 720p to show subtitle for reduce mem.
             originDisplayRect.set(0, 0, 1280, 720);
@@ -220,7 +220,7 @@ void FBRender::drawItems() {
 
             mFBDevice->drawMultiText((*it)->subtitle_type, textParams,(*it)->pts, (*it)->buffer_size, (*it)->spu_width, (*it)->spu_height, originDisplayRect, rect, screenRect);
         } else {
-            ALOGD("Image type");
+            SUBTITLE_LOGI("Image type");
 
             // Show full screen for Teletext
             bool showFullScreen =
@@ -235,7 +235,7 @@ void FBRender::drawItems() {
         }
     }
 
-    ALOGD("After draw items: %d", mShowingSubs.size());
+    SUBTITLE_LOGI("After draw items: %d", mShowingSubs.size());
 }
 
 bool FBRender::isText(std::shared_ptr<AML_SPUVAR> &spu) {
@@ -250,12 +250,12 @@ bool FBRender::isText(std::shared_ptr<AML_SPUVAR> &spu) {
 }
 
 void FBRender::onThreadExit() {
-    ALOGD("%s", __FUNCTION__ );
+    SUBTITLE_LOGI("%s", __FUNCTION__ );
     mFBDevice.reset();
 }
 
 void FBRender::clearScreen() {
-    ALOGD("clearScreen");
+    SUBTITLE_LOGI("clearScreen");
     // mFBDevice->clearSurface();
     // mFBDevice->drawColor(0, 0, 0, 0);
     mFBDevice->clearFullFramebufferScreen();

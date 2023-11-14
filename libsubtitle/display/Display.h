@@ -27,7 +27,7 @@
 #ifndef __SUBTITLE_DISPLAY_H__
 #define __SUBTITLE_DISPLAY_H__
 #include <memory>
-#include <utils/Log.h>
+#include "SubtitleLog.h"
 #include <utils/CallStack.h>
 struct DisplayInfo {
     int width;
@@ -45,8 +45,8 @@ class Display {
 public:
     Display() {};
     virtual ~Display() {
-	        ALOGD("%s", __func__);
-	};
+            SUBTITLE_LOGI("%s", __func__);
+    };
 
     virtual DisplayInfo getDisplayInfo() =0;
     virtual std::shared_ptr<SurfaceHandle> createLayer(int width, int height, int format) =0;

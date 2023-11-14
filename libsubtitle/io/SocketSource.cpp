@@ -29,11 +29,8 @@
 #include <fcntl.h>
 #include <string>
 
-//#ifdef ANDROID
-#include <utils/Log.h>
+#include "SubtitleLog.h"
 #include <utils/CallStack.h>
-//#endif
-//#include "trace_support.h"
 
 #include "SocketSource.h"
 #include "SocketServer.h"
@@ -67,7 +64,7 @@ static inline unsigned long sysfsReadInt(const char *path, int base) {
         }
         ::close(fd);
     } else {
-        ALOGE("unable to open file %s,err: %s", path, strerror(errno));
+        SUBTITLE_LOGE("unable to open file %s,err: %s", path, strerror(errno));
     }
     return val;
 }
@@ -88,14 +85,14 @@ SocketSource::SocketSource() : mTotalSubtitle(-1),
     #ifdef MEDIASYNC_FOR_SUBTITLE
     mMediaSync = MediaSync_create();
     #endif
-    ALOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n", __FUNCTION__, __LINE__);
+    SUBTITLE_LOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n", __FUNCTION__, __LINE__);
     mSegment = std::shared_ptr<BufferSegment>(new BufferSegment());
-    ALOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n", __FUNCTION__, __LINE__);
+    SUBTITLE_LOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n", __FUNCTION__, __LINE__);
     // register listener: mSegment.
     // mSgement register onData, SocketSource::onData.
     SubSocketServer::registClient(this);
     mState = E_SOURCE_INV;
-    ALOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n", __FUNCTION__, __LINE__);
+    SUBTITLE_LOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n", __FUNCTION__, __LINE__);
 
     std::thread t = std::thread(&SocketSource::loopRenderTime, this);
     t.detach();
@@ -114,18 +111,18 @@ SocketSource::SocketSource(const std::string url) : mTotalSubtitle(-1),
     #ifdef MEDIASYNC_FOR_SUBTITLE
     mMediaSync = MediaSync_create();
     #endif
-    ALOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n",__FUNCTION__,__LINE__);
+    SUBTITLE_LOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n",__FUNCTION__,__LINE__);
     mSegment = std::shared_ptr<BufferSegment>(new BufferSegment());
-    ALOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n",__FUNCTION__,__LINE__);
+    SUBTITLE_LOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n",__FUNCTION__,__LINE__);
     // register listener: mSegment.
     // mSgement register onData, SocketSource::onData.
     SubSocketServer::registClient(this);
     mState = E_SOURCE_INV;
-    ALOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n",__FUNCTION__,__LINE__);
+    SUBTITLE_LOGE("DDDDDDDDDDDDDDDD in SocketSource %s, line %d\n",__FUNCTION__,__LINE__);
 }
 
 void SocketSource::setPipId(int mode, int id) {
-    ALOGE("setPipId mode:%d, id = %d", mode, id);
+    SUBTITLE_LOGE("setPipId mode:%d, id = %d", mode, id);
     if (PIP_PLAYER_ID == mode) {
         mPlayerId = id;
     } else if (PIP_MEDIASYNC_ID == mode) {
@@ -143,7 +140,7 @@ void SocketSource::setPipId(int mode, int id) {
 }
 
 SocketSource::~SocketSource() {
-    ALOGD("%s", __func__);
+    SUBTITLE_LOGI("%s", __func__);
     mExitRequested = true;
     #ifdef MEDIASYNC_FOR_SUBTITLE
     if (mMediaSync != nullptr) {
@@ -162,10 +159,10 @@ void SocketSource::loopRenderTime() {
             auto wk_lstner = (*it);
 
             if (wk_lstner.expired()) {
-                ALOGV("[threadLoop] lstn null.\n");
+                SUBTITLE_LOGI("[threadLoop] lstn null.\n");
                 continue;
             }
-            ALOGD("mMediaSyncId= %d", mMediaSyncId);
+            SUBTITLE_LOGI("mMediaSyncId= %d", mMediaSyncId);
             int64_t value;
             if (-1 == mMediaSyncId) {
                 value = sysfsReadInt(SYSFS_VIDEO_PTS.c_str(), 16);
@@ -179,7 +176,7 @@ void SocketSource::loopRenderTime() {
             }
             static int i = 0;
             if (i++%300 == 0) {
-                ALOGE(" read pts: %lld %llu,mMediaSyncId=%d", value, value,mMediaSyncId);
+                SUBTITLE_LOGE(" read pts: %lld %llu,mMediaSyncId=%d", value, value,mMediaSyncId);
             }
             if (!mExitRequested) {
                 if (auto lstn = wk_lstner.lock()) {
@@ -226,44 +223,44 @@ int SocketSource::onData(const char *buffer, int len) {
     if (f == nullptr) {
         f = fopen("/media/tt_stream_dump.ts", "a+");
         if (f == nullptr) {
-            ALOGE("Failed to open '/media/tt_stream_dump.ts'");
+            SUBTITLE_LOGE("Failed to open '/media/tt_stream_dump.ts'");
         }
     }
 
     if (f != nullptr) {
         size_t written = fwrite(buffer, len, 1, f);
-        ALOGD("SocketSource::onDat, dump writen: %d", written);
+        SUBTITLE_LOGI("SocketSource::onDat, dump writen: %d", written);
     }
 
     int type = make32bitValue(buffer);
-    ALOGD("in SourcketSource subtype=%x eTypeSubtitleRenderTime=%x size=%d", type, eTypeSubtitleRenderTime, len);
+    SUBTITLE_LOGI("in SourcketSource subtype=%x eTypeSubtitleRenderTime=%x size=%d", type, eTypeSubtitleRenderTime, len);
     switch (type) {
         case eTypeSubtitleRenderTime: {
             static int count = 0;
             mRenderTimeUs = (((int64_t)make32bitValue(buffer+8))<<32) | make32bitValue(buffer+4);//make32bitValue(buffer + 4);
 
             if (count++ %100 == 0)
-                ALOGD("mRenderTimeUs:%x(updated %d times) time:%llu %llx", type, count, mRenderTimeUs, mRenderTimeUs);
+                SUBTITLE_LOGI("mRenderTimeUs:%x(updated %d times) time:%llu %llx", type, count, mRenderTimeUs, mRenderTimeUs);
             break;
         }
         case eTypeSubtitleTotal: {
             mTotalSubtitle = make32bitValue(buffer + 4);
-            ALOGD("eTypeSubtitleTotal:%x total:%d", type, mTotalSubtitle);
+            SUBTITLE_LOGI("eTypeSubtitleTotal:%x total:%d", type, mTotalSubtitle);
             break;
         }
         case eTypeSubtitleStartPts: {
             mStartPts = (((int64_t)make32bitValue(buffer+8))<<32) | make32bitValue(buffer+4);
-            ALOGD("eTypeSubtitleStartPts:%x time:%llx", type, mStartPts);
+            SUBTITLE_LOGI("eTypeSubtitleStartPts:%x time:%llx", type, mStartPts);
             break;
         }
         case eTypeSubtitleType: {
             mSubtitleType = make32bitValue(buffer + 4);
-            ALOGD("eTypeSubtitleType:%x %x len=%d", type, mSubtitleType, len);
+            SUBTITLE_LOGI("eTypeSubtitleType:%x %x len=%d", type, mSubtitleType, len);
             break;
         }
 
         case eTypeSubtitleData:
-            ALOGD("eTypeSubtitleData: len=%d", len);
+            SUBTITLE_LOGI("eTypeSubtitleData: len=%d", len);
             if (mTotalSubtitle != -1 || mSubtitleType != -1)
                 mSegment->push(makeNewSpBuffer(buffer+4, len-4), len-4);
             break;
@@ -272,11 +269,11 @@ int SocketSource::onData(const char *buffer, int len) {
         case eTypeSubtitleLangString:
         case eTypeSubtitleResetServ:
         case eTypeSubtitleExitServ:
-            ALOGD("not handled message: %s", buffer+4);
+            SUBTITLE_LOGI("not handled message: %s", buffer+4);
             break;
 
         default: {
-            ALOGD("!!!!!!!!!SocketSource:onData(subtitleData): %d", /*buffer,*/ len);
+            SUBTITLE_LOGI("!!!!!!!!!SocketSource:onData(subtitleData): %d", /*buffer,*/ len);
             mSegment->push(makeNewSpBuffer(buffer, len), len);
             break;
         }
@@ -314,10 +311,10 @@ size_t SocketSource::read(void *buffer, size_t size) {
     while (read != size && mState == E_SOURCE_STARTED) {
         if (mCurrentItem != nullptr && !mCurrentItem->isEmpty()) {
             read += mCurrentItem->read_l(((char *)buffer+read), size-read);
-            //ALOGD("read:%d,size:%d", read, size);
+            //SUBTITLE_LOGI("read:%d,size:%d", read, size);
             if (read == size) break;
         } else {
-            ALOGD("mCurrentItem null, pop next buffer item");
+            SUBTITLE_LOGI("mCurrentItem null, pop next buffer item");
             mCurrentItem = mSegment->pop();
         }
     }
@@ -325,7 +322,7 @@ size_t SocketSource::read(void *buffer, size_t size) {
     if (mNeedDumpSource) {
         if (mDumpFd == -1) {
             mDumpFd = ::open("/data/local/traces/cur_sub.dump", O_RDWR | O_CREAT, 0666);
-            ALOGD("need dump Source: mDumpFd=%d %d", mDumpFd, errno);
+            SUBTITLE_LOGI("need dump Source: mDumpFd=%d %d", mDumpFd, errno);
         }
 
         if (mDumpFd > 0) {

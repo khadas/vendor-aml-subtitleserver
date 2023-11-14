@@ -30,28 +30,11 @@
 #include <algorithm>
 #include <functional>
 
-#include <utils/Log.h>
+#include "SubtitleLog.h"
 
 #include "ExtParser.h"
 #include "ParserFactory.h"
 #include "ExtSubFactory.h"
-
-
-//#define __DEBUG
-/*#ifdef __DEBUG
-#define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
-#define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
-#define  TRACE()    LOGI("[%s::%d]\n",__FUNCTION__,__LINE__)
-#else
-#define  LOGI(...)
-#define  LOGE(...)
-//#define  TRACE()
-#endif
-*/
-
-#define log_print LOGI
-//#define log_print LOGE
-//#define LOGE ALOGE
 
 //TODO: move to utils directory
 
@@ -74,7 +57,7 @@ ExtParser::ExtParser(std::shared_ptr<DataSource> source, int trackId) {
 }
 
 ExtParser::~ExtParser() {
-    ALOGI("%s", __func__);
+    SUBTITLE_LOGI("%s", __func__);
     // call back may call parser, parser later destroy
     mSubIndex = 0;
 }

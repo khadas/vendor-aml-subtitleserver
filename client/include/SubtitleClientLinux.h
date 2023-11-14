@@ -176,7 +176,7 @@ class SubtitleCallback : public BnSubtitleCallback{
         virtual void eventNotify( SubtitleHidlParcel& parcel) override;
        virtual void notify(int msg, int ext1, int ext2, const Parcel *obj) override;
 
-	private:
+    private:
         sp<SubtitleListener> mListener;
     };
 

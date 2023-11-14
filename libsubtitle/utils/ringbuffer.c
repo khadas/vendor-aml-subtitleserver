@@ -32,19 +32,10 @@
 #include <unistd.h>
 #include <stdio.h>
 //#include "trace_support.h"
-#include <utils/Log.h>
+#include "SubtitleLog.h"
 //#include <utils/CallStack.h>
 #include "ringbuffer.h"
 
-#define DEBUG
-//#define DUMP_FILE
-
-#ifdef DEBUG
-#define DBG_printf(...) ALOGD(__VA_ARGS__)
-#else
-#define DBG_printf(...) ((void)0)
-
-#endif
 
 // Handle to a buffer structure
 // Create with buffer_create(), destroy with buffer_free()
@@ -126,7 +117,7 @@ int ringbuffer_read(rbuf_handle_t handle, char *dst, int count, rbuf_mode_t mode
 
     rbuf->write_avail += count;
     rbuf->read_avail -= count;
-    DBG_printf("after read[%s]: readavail:%d write_avail:%d size:%d r_pos:%d w_pos:%d\n", rbuf->name,
+    SUBTITLE_LOGI("after read[%s]: readavail:%d write_avail:%d size:%d r_pos:%d w_pos:%d\n", rbuf->name,
         rbuf->read_avail,rbuf->write_avail, rbuf->buffer_size, rbuf->read_pos, rbuf->write_pos);
 
 
@@ -161,7 +152,7 @@ int ringbuffer_peek(rbuf_handle_t handle, char *dst, int count, rbuf_mode_t mode
     dumpbuffer(rbuf->r_fp, dst, count);
 #endif
 
-    DBG_printf("after read[%s]: readavail:%d write_avail:%d size:%d r_pos:%d w_pos:%d\n", rbuf->name,
+    SUBTITLE_LOGI("after read[%s]: readavail:%d write_avail:%d size:%d r_pos:%d w_pos:%d\n", rbuf->name,
         rbuf->read_avail,rbuf->write_avail, rbuf->buffer_size, rbuf->read_pos, rbuf->write_pos);
 
     return count;
@@ -198,7 +189,7 @@ int ringbuffer_write(rbuf_handle_t handle, const char *src, int count, rbuf_mode
 
     rbuf->write_avail -= count;
     rbuf->read_avail += count;
-    DBG_printf("after write[%s]: readavail:%d write_avail:%d size:%d r_pos:%d w_pos:%d\n", rbuf->name,
+    SUBTITLE_LOGI("after write[%s]: readavail:%d write_avail:%d size:%d r_pos:%d w_pos:%d\n", rbuf->name,
         rbuf->read_avail,rbuf->write_avail, rbuf->buffer_size, rbuf->read_pos, rbuf->write_pos);
 
     return count;
@@ -246,7 +237,7 @@ rbuf_handle_t ringbuffer_create(int size, const char*name)
     // Allocate handle
     ringbuffer_t *rbuf = (ringbuffer_t *)malloc(sizeof(ringbuffer_t));
     if (!rbuf) {
-        ALOGD("ERROR: failed to allocate handle\n");
+        SUBTITLE_LOGI("ERROR: failed to allocate handle\n");
         goto error;
     }
 
@@ -270,7 +261,7 @@ rbuf_handle_t ringbuffer_create(int size, const char*name)
     // Allocate buffer
     rbuf->buffer = (char *)malloc(size);
     if (!(rbuf->buffer)) {
-        ALOGD("ERROR: failed to allocate buffer\n");
+        SUBTITLE_LOGI("ERROR: failed to allocate buffer\n");
         goto error;
     }
 

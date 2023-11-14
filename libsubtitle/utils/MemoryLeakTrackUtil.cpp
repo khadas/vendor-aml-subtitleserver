@@ -24,15 +24,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define LOG_NDEBUG 0
 #define LOG_TAG "MemoryLeackTrackUtil"
-#include <utils/Log.h>
+
 #include <utils/Vector.h>
 #include <utils/String8.h>
 
+#include "SubtitleLog.h"
 #include "MemoryLeakTrackUtil.h"
 
-//#include <bionic_malloc.h>
 
 extern std::string backtrace_string(const uintptr_t* frames, size_t frame_count);
 
@@ -100,7 +99,7 @@ public:
                 if (sscanf(line, "%lx-%lx %4c %llx %hhx:%hhx %lu %n",
                          &startAddrValue, &endAddrValue, permissions, &offset,
                          &devMajor, &devMinor, &inode, &pathIndex) == 7) {
-                    //ALOGD("parsed maps:%lx-%lx %s %llx %hhx:%hhx %lu [%s]",
+                    //SUBTITLE_LOGI("parsed maps:%lx-%lx %s %llx %hhx:%hhx %lu [%s]",
                     //     startAddrValue, endAddrValue, permissions, offset,
                     //     devMajor, devMinor, inode, line+pathIndex);
                     if (strlen(line+pathIndex) < 3) {

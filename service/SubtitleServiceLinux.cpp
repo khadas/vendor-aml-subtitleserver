@@ -45,7 +45,7 @@ extern "C" {
 
 SubtitleServiceLinux *mInstance = NULL;
 SubtitleServiceLinux *SubtitleServiceLinux::GetInstance() {
-            LOGD(" SubtitleServiceLinux  %s, line %d", __FUNCTION__, __LINE__);
+            SUBTITLE_LOGI(" SubtitleServiceLinux  %s, line %d", __FUNCTION__, __LINE__);
     if (mInstance == NULL) {
         mInstance = new SubtitleServiceLinux();
     }
@@ -63,7 +63,7 @@ SubtitleServiceLinux::SubtitleServiceLinux() {
     });
 
     if (!mIpcSocket->isvalid()) {
-        ALOGE("[%s] Server cocket init failed", __FUNCTION__ );
+        SUBTITLE_LOGE("[%s] Server cocket init failed", __FUNCTION__ );
         mIpcSocket->stop();
         return;
     }
@@ -82,23 +82,23 @@ int SubtitleServiceLinux::eventReceiver(int fd, void *selfData) {
     char recvBuf[1024] = {0};
     int retLen = IpcSocket::receive(fd, recvBuf, sizeof(recvBuf));
     if (retLen <= 0) {
-        ALOGD("Client broken, fd= %d, remove.", fd);
+        SUBTITLE_LOGI("Client broken, fd= %d, remove.", fd);
         subService->onRemoteDead(0);
         return EventsTracker::RET_REMOVE;
     }
 
-    ALOGD("Receive: %s", recvBuf);
+    SUBTITLE_LOGI("Receive: %s", recvBuf);
     int ret = subService->ParserSubtitleCommand(recvBuf, nullptr);
 
     std::string retStr = std::to_string(ret);
     bool send = IpcSocket::send(fd, retStr.c_str(), retStr.size());
-    ALOGD("Reply %s", (send ? "OK" : "NG"));
+    SUBTITLE_LOGI("Reply %s", (send ? "OK" : "NG"));
 
     return EventsTracker::RET_CONTINUE;
 }
 
 SubtitleServiceLinux::~SubtitleServiceLinux() {
-    ALOGD(" SubtitleServiceLinux  %s, line %d", __FUNCTION__, __LINE__);
+    SUBTITLE_LOGI(" SubtitleServiceLinux  %s, line %d", __FUNCTION__, __LINE__);
     if (mpSubtitlecontrol != NULL) {
         delete mpSubtitlecontrol;
         mpSubtitlecontrol = NULL;
@@ -119,11 +119,11 @@ int SubtitleServiceLinux::SplitCommand(const char *commandData) {
     while (token != NULL) {
         mSubtitleCommand[cmd_size].assign(token);
 
-        //ALOGE("%s mSubtitleCommand[%d]:%s\n", token, cmd_size, mSubtitleCommand[cmd_size].c_str());
+        //SUBTITLE_LOGE("%s mSubtitleCommand[%d]:%s\n", token, cmd_size, mSubtitleCommand[cmd_size].c_str());
         cmd_size++;
         token = strtok(NULL, delimitation);
     }
-    //LOGD("%s: cmd_size = %d\n", __FUNCTION__, cmd_size);
+    //SUBTITLE_LOGI("%s: cmd_size = %d\n", __FUNCTION__, cmd_size);
 
     return cmd_size;
 }
@@ -160,7 +160,7 @@ int SubtitleServiceLinux::SetTeleCmd(subtitle_module_param_t param) {
                 break;
         }
     } else {
-        ALOGE("%s: invalid Subtitle cmd: %d\n", __FUNCTION__, moduleId);
+        SUBTITLE_LOGE("%s: invalid Subtitle cmd: %d\n", __FUNCTION__, moduleId);
         ret = -1;
     }
     return ret;
@@ -169,7 +169,7 @@ int SubtitleServiceLinux::SetTeleCmd(subtitle_module_param_t param) {
 int SubtitleServiceLinux::SetCmd(subtitle_module_param_t param, native_handle_t *handle) {
     int ret = 0;
     int moduleId = param.moduleId;
-    ALOGD(" SubtitleServiceLinux.cpp %s line %d moduleId = %d\n", __FUNCTION__, __LINE__,
+    SUBTITLE_LOGI(" SubtitleServiceLinux.cpp %s line %d moduleId = %d\n", __FUNCTION__, __LINE__,
           moduleId);
     if ((moduleId >= SUBTITLE_MODULE_CMD_START) && (moduleId <= SUBTITLE_CMD_MAX)) {
         int paramData[32] = {0};
@@ -177,7 +177,7 @@ int SubtitleServiceLinux::SetCmd(subtitle_module_param_t param, native_handle_t 
         for (i = 0; i < param.paramLength; i++) {
             paramData[i] = param.paramBuf[i];
         }
-        ALOGI("in %s, moduleId = %d,paramData[0]=%d, paramData[1]=%d", __FUNCTION__,
+        SUBTITLE_LOGI("in %s, moduleId = %d,paramData[0]=%d, paramData[1]=%d", __FUNCTION__,
               moduleId, paramData[0], paramData[1]);
         switch (moduleId) {
             case SUBTITLE_OPENCONNECTION:
@@ -191,42 +191,42 @@ int SubtitleServiceLinux::SetCmd(subtitle_module_param_t param, native_handle_t 
                                               (OpenType) paramData[2], handle);
                 break;
             case SUBTITLE_CLOSE:
-                ALOGD(" SubtitleServiceLinux  %s, line %d SUBTITLE_CLOSE", __FUNCTION__,
+                SUBTITLE_LOGI(" SubtitleServiceLinux  %s, line %d SUBTITLE_CLOSE", __FUNCTION__,
                       __LINE__);
                 ret = mpSubtitlecontrol->close(paramData[0]);
                 break;
             case SUBTITLE_RESETFORSEEK:
-                ALOGD(" SubtitleServiceLinux  %s, line %d SUBTITLE_RESETFORSEEK",
+                SUBTITLE_LOGI(" SubtitleServiceLinux  %s, line %d SUBTITLE_RESETFORSEEK",
                       __FUNCTION__, __LINE__);
                 break;
             case SUBTITLE_UPDATEVIDEOPTS:
-                ALOGD(" SubtitleServiceLinux  %s, line %d SUBTITLE_UPDATEVIDEOPTS",
+                SUBTITLE_LOGI(" SubtitleServiceLinux  %s, line %d SUBTITLE_UPDATEVIDEOPTS",
                       __FUNCTION__, __LINE__);
                 ret = mpSubtitlecontrol->updateVideoPos(paramData[0], paramData[1]);
                 break;
             case SUBTITLE_SETPAGEID:
-                ALOGD(" SubtitleServiceLinux  %s, line %d SUBTITLE_SETPAGEID", __FUNCTION__,
+                SUBTITLE_LOGI(" SubtitleServiceLinux  %s, line %d SUBTITLE_SETPAGEID", __FUNCTION__,
                       __LINE__);
                 ret = mpSubtitlecontrol->setPageId(paramData[0], paramData[1]);
                 break;
             case SUBTITLE_SETANCPAGEID:
-                ALOGD(" SubtitleServiceLinux  %s, line %d", __FUNCTION__, __LINE__);
+                SUBTITLE_LOGI(" SubtitleServiceLinux  %s, line %d", __FUNCTION__, __LINE__);
                 ret = mpSubtitlecontrol->setAncPageId(paramData[0], paramData[1]);
                 break;
             case SBUTITLE_SETCHANNELID:
-                ALOGD(" SubtitleServiceLinux  %s, line %d SBUTITLE_SETCHANNELID",
+                SUBTITLE_LOGI(" SubtitleServiceLinux  %s, line %d SBUTITLE_SETCHANNELID",
                       __FUNCTION__, __LINE__);
                 ret = mpSubtitlecontrol->setChannelId(paramData[0], paramData[1]);
                 break;
             case SUBTITLE_SETCLOSECAPTIONVFMT:
-                ALOGD(" SubtitleServiceLinux  %s, line %d", __FUNCTION__, __LINE__);
+                SUBTITLE_LOGI(" SubtitleServiceLinux  %s, line %d", __FUNCTION__, __LINE__);
                 break;
             case SUBTITLE_USERDATAOPEN:
-                ALOGD(" SubtitleServiceLinux  %s, line %d", __FUNCTION__, __LINE__);
+                SUBTITLE_LOGI(" SubtitleServiceLinux  %s, line %d", __FUNCTION__, __LINE__);
                 ret = mpSubtitlecontrol->userDataOpen(paramData[0]);
                 break;
             case SUBTITLE_USERDATACLOSE:
-                ALOGD(" SubtitleServiceLinux  %s, line %d", __FUNCTION__, __LINE__);
+                SUBTITLE_LOGI(" SubtitleServiceLinux  %s, line %d", __FUNCTION__, __LINE__);
                 ret = mpSubtitlecontrol->userDataClose(paramData[0]);
                 break;
             case SUBTITLE_SETSUBTYPE:
@@ -242,11 +242,11 @@ int SubtitleServiceLinux::SetCmd(subtitle_module_param_t param, native_handle_t 
                 ret = mpSubtitlecontrol->setSubPid(paramData[0], paramData[1]);
                 break;
             default:
-                ALOGE("Can not be recognized moduleId: %d", moduleId);
+                SUBTITLE_LOGE("Can not be recognized moduleId: %d", moduleId);
                 break;
         }
     } else {
-        ALOGE("%s: invalid Subtitle cmd: %d\n", __FUNCTION__, moduleId);
+        SUBTITLE_LOGE("%s: invalid Subtitle cmd: %d\n", __FUNCTION__, moduleId);
         ret = -1;
     }
 
@@ -291,7 +291,7 @@ int SubtitleServiceLinux::GetCmd(subtitle_module_param_t param) {
                 break;
         }
     } else {
-        ALOGE("%s: invalid SUBTITLE cmd: %d!\n", __FUNCTION__, moduleId);
+        SUBTITLE_LOGE("%s: invalid SUBTITLE cmd: %d!\n", __FUNCTION__, moduleId);
         ret = -1;
     }
 
@@ -302,17 +302,17 @@ void SubtitleServiceLinux::onRemoteDead(int sessionId) {
     if (mpSubtitlecontrol && !mpSubtitlecontrol->isClosed(sessionId)) {
         if (mpSubtitlecontrol->close(sessionId) == Result::OK
             && mpSubtitlecontrol->closeConnection(sessionId) == Result::OK) {
-            ALOGD("onRemoteDead, self close OK for id %d", sessionId);
+            SUBTITLE_LOGI("onRemoteDead, self close OK for id %d", sessionId);
         } else {
-            ALOGD("onRemoteDead, self close failed for id %d", sessionId);
+            SUBTITLE_LOGI("onRemoteDead, self close failed for id %d", sessionId);
         }
     } else {
-        ALOGD("onRemoteDead, already closed for id %d", sessionId);
+        SUBTITLE_LOGI("onRemoteDead, already closed for id %d", sessionId);
     }
 }
 
 int SubtitleServiceLinux::ParserSubtitleCommand(const char *commandData, native_handle_t *handle) {
-    ALOGD(" SubtitleServiceLinux %s: cmd data is %s\n", __FUNCTION__, commandData);
+    SUBTITLE_LOGI(" SubtitleServiceLinux %s: cmd data is %s\n", __FUNCTION__, commandData);
 
     int cmd_size = 0;
     int ret = 0;
@@ -327,7 +327,7 @@ int SubtitleServiceLinux::ParserSubtitleCommand(const char *commandData, native_
     for (i = 0; i < subtitleParam.paramLength; i++) {
         subtitleParam.paramBuf[i] = atoi(mSubtitleCommand[i + 3].c_str());
     }
-    ALOGD(" SubtitleServiceLinux %s: cmd cmmand0 is %s, command1 is %s\n", __FUNCTION__,
+    SUBTITLE_LOGI(" SubtitleServiceLinux %s: cmd command0 is %s, command1 is %s\n", __FUNCTION__,
           mSubtitleCommand[0].c_str(), mSubtitleCommand[1].c_str());
     if (strcmp(mSubtitleCommand[0].c_str(), "subtitle") == 0) {
         if ((strcmp(mSubtitleCommand[1].c_str(), "ctrl") == 0) ||
@@ -341,11 +341,11 @@ int SubtitleServiceLinux::ParserSubtitleCommand(const char *commandData, native_
         } else if (strcmp(mSubtitleCommand[1].c_str(), "afdctrl") == 0) {
             ret = GetCmd(subtitleParam);
         } else {
-            ALOGD("%s: invalid cmd\n", __FUNCTION__);
+            SUBTITLE_LOGI("%s: invalid cmd\n", __FUNCTION__);
             ret = 0;
         }
     } else {
-        ALOGD("%s: invalie cmdType\n", __FUNCTION__);
+        SUBTITLE_LOGI("%s: invalie cmdType\n", __FUNCTION__);
     }
 
     return ret;

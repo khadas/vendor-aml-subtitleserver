@@ -29,7 +29,7 @@
 #include <fcntl.h>
 #include <string>
 //#include "trace_support.h"
-#include <utils/Log.h>
+#include "SubtitleLog.h"
 #include <utils/CallStack.h>
 
 #include <UserDataAfd.h>
@@ -39,7 +39,7 @@
 UserDataAfd *UserDataAfd::sInstance = nullptr;
 int UserDataAfd::sNewAfdValue = -1;
 void UserDataAfd::notifyCallerAfdChange(int afd) {
-    //LOGI("afd_evt_callback, afdValue:%x", afd);
+    //SUBTITLE_LOGI("afd_evt_callback, afdValue:%x", afd);
     if (mNotifier != nullptr) {
         mNotifier->onVideoAfdChange((afd&0x7), mPlayerId);
     }
@@ -62,21 +62,21 @@ void afd_evt_callback(long devno, int eventType, void *param, void *userdata) {
     if (instance != nullptr && afdValue != UserDataAfd::sNewAfdValue) {
         instance->notifyCallerAfdChange(afdValue);
         UserDataAfd::sNewAfdValue = afdValue;
-        LOGI("AFD callback, value:0x%x", UserDataAfd::sNewAfdValue);
+        SUBTITLE_LOGI("AFD callback, value:0x%x", UserDataAfd::sNewAfdValue);
     }
 }
 
 UserDataAfd::UserDataAfd() {
     mNotifier = nullptr;
     mPlayerId = -1;
-    LOGI("creat UserDataAfd");
+    SUBTITLE_LOGI("creat UserDataAfd");
     sInstance = this;
     mThread = nullptr;
 
 }
 
 UserDataAfd::~UserDataAfd() {
-    ALOGI("~UserDataAfd");
+    SUBTITLE_LOGI("~UserDataAfd");
     sInstance = nullptr;
     mPlayerId = -1;
     if (mThread != nullptr) {
@@ -88,7 +88,7 @@ UserDataAfd::~UserDataAfd() {
 
 int UserDataAfd::start(ParserEventNotifier *notify)
 {
-    LOGI("startUserData mPlayerId = %d", mPlayerId);
+    SUBTITLE_LOGI("startUserData mPlayerId = %d", mPlayerId);
 
     // TODO: should impl a real status/notify manner
     std::unique_lock<std::mutex> autolock(mMutex);
@@ -112,12 +112,12 @@ void UserDataAfd::run() {
     }
     UserDataAfd::sNewAfdValue = -1;
     if (AM_USERDATA_Open(USERDATA_DEVICE_NUM, &para) != AM_SUCCESS) {
-         LOGI("Cannot open userdata device %d", USERDATA_DEVICE_NUM);
+         SUBTITLE_LOGI("Cannot open userdata device %d", USERDATA_DEVICE_NUM);
          return;
     }
 
     //add notify afd change
-    LOGI("start afd running mPlayerId = %d",mPlayerId);
+    SUBTITLE_LOGI("start afd running mPlayerId = %d",mPlayerId);
     AM_USERDATA_GetMode(USERDATA_DEVICE_NUM, &mMode);
     AM_USERDATA_SetMode(USERDATA_DEVICE_NUM, mMode | AM_USERDATA_MODE_AFD);
     AM_EVT_Subscribe(USERDATA_DEVICE_NUM, AM_USERDATA_EVT_AFD, afd_evt_callback, NULL);
@@ -125,7 +125,7 @@ void UserDataAfd::run() {
 
 
 int UserDataAfd::stop() {
-    LOGI("stopUserData");
+    SUBTITLE_LOGI("stopUserData");
     // TODO: should impl a real status/notify manner
     // this is too simple...
     {

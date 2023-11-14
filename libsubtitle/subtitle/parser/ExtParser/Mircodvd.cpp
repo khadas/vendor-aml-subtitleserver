@@ -39,12 +39,12 @@ Mircodvd::~Mircodvd() {
 std::shared_ptr<ExtSubItem> Mircodvd::decodedItem() {
     char *line = (char *)MALLOC(LINE_LEN+1);
     if (!line) {
-        LOGE("[%s::%d] line malloc error!\n", __FUNCTION__, __LINE__);
+        SUBTITLE_LOGE("[%s::%d] line malloc error!\n", __FUNCTION__, __LINE__);
         return nullptr;
     }
     char *line2 = (char *)MALLOC(LINE_LEN);
     if (!line2) {
-        LOGE("[%s::%d] line2 malloc error!\n", __FUNCTION__, __LINE__);
+        SUBTITLE_LOGE("[%s::%d] line2 malloc error!\n", __FUNCTION__, __LINE__);
         free(line);
         return nullptr;
     }

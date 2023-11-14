@@ -44,7 +44,7 @@ std::shared_ptr<Parser> ParserFactory::create(
             std::shared_ptr<DataSource> source) {
     int type = subParam->subType;
 
-    ALOGD("ParserFactory::create: type= %d", type);
+    SUBTITLE_LOGI("ParserFactory::create: type= %d", type);
     // TODO: unless we can determine CC type, or default start CC parser
     if (type == TYPE_SUBTITLE_INVALID) {
         type = TYPE_SUBTITLE_CLOSED_CAPTION;

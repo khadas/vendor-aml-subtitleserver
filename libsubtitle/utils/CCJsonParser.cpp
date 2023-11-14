@@ -27,7 +27,7 @@
 #include "cJSON.h"
 #include "CCJsonParser.h"
 
-#include <utils/Log.h>
+#include "SubtitleLog.h"
 
 bool CCJsonParser::populateData(std::string &inputText, std::vector<std::string> &output) {
     if (inputText.empty()) {

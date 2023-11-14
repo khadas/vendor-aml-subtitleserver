@@ -60,7 +60,7 @@ void ExtParserUtils::detectEncoding() {
         // NO BOM, auto detect, almost all use utf8, we current NONE treat as utf8
     }
 
-    ALOGD("%x %x %x mEncoding=%d", first[0], first[1], first[2], mEncoding);
+    SUBTITLE_LOGI("%x %x %x mEncoding=%d", first[0], first[1], first[2], mEncoding);
     mDataSource->lseek(0, SEEK_SET);
 }
 

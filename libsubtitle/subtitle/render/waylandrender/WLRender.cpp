@@ -29,7 +29,7 @@
 #include "WLRender.h"
 
 #include <thread>
-#include <utils/Log.h>
+#include "SubtitleLog.h"
 
 #include "WLGLDevice.h"
 #include <Parser.h>
@@ -52,18 +52,18 @@ void WLRender::Clear() {
 }
 
 WLRender::WLRender() {
-    ALOGD("WLRender +++");
+    SUBTITLE_LOGI("WLRender +++");
     std::thread thread(WLRender::threadFunc, this);
     thread.detach();
 }
 
 WLRender::~WLRender() {
-    ALOGD("WLRender ---");
+    SUBTITLE_LOGI("WLRender ---");
     requestExit();
 }
 
 void WLRender::threadFunc(void *data) {
-    ALOGD("WLRender threadFunc start");
+    SUBTITLE_LOGI("WLRender threadFunc start");
     WLRender* render = static_cast<WLRender *>(data);
 
     if (render->mLooper == nullptr) {
@@ -78,11 +78,11 @@ void WLRender::threadFunc(void *data) {
     }
 
     render->onThreadExit();
-    ALOGD("WLRender thread exit !!!");
+    SUBTITLE_LOGI("WLRender thread exit !!!");
 }
 
 void WLRender::AMLHandler::handleMessage(const AMLMessage &message) {
-    ALOGD("handleMessage: %d", message.what);
+    SUBTITLE_LOGI("handleMessage: %d", message.what);
     WLRender* render = mWk_WLRender;
     if (mWk_WLRender == nullptr) {
         return;
@@ -115,14 +115,14 @@ void WLRender::requestExit() {
 void WLRender::wlInit() {
     mWLDevice = std::make_shared<WLGLDevice>();
     if (!mWLDevice->initCheck()) {
-        ALOGE("wlInit, initCheck failed");
+        SUBTITLE_LOGE("wlInit, initCheck failed");
         mLooper->removeMessages(mHandler);
         requestExit();
         return;
     }
 
     sendMessage(AMLMessage(kWhat_clear));
-    ALOGD("RenderDevice init OK.");
+    SUBTITLE_LOGI("RenderDevice init OK.");
 }
 
 bool WLRender::showSubtitleItem(std::shared_ptr<AML_SPUVAR> spu, int type) {
@@ -164,7 +164,7 @@ void WLRender::drawItems() {
     android::AutoMutex _l(mRenderMutex);
 
     if (mShowingSubs.empty()) {
-        ALOGW("No any item can be draw.");
+        SUBTITLE_LOGE("No any item can be draw.");
         clearScreen();
         return;
     }
@@ -191,7 +191,7 @@ void WLRender::drawItems() {
                 std::vector<std::string> ccData;
                 std::string input = text;
                 if (!CCJsonParser::populateData(input, ccData)) {
-                    ALOGE("No valid data");
+                    SUBTITLE_LOGE("No valid data");
                     continue;
                 }
 
@@ -204,7 +204,7 @@ void WLRender::drawItems() {
             }
 
 
-            ALOGD("Text type: '%s'", text);
+            SUBTITLE_LOGI("Text type: '%s'", text);
 
             // Using 720p to show subtitle for reduce mem.
             originDisplayRect.set(0, 0, 1280, 720);
@@ -220,7 +220,7 @@ void WLRender::drawItems() {
 
             mWLDevice->drawMultiText(textParams, originDisplayRect, rect, screenRect);
         } else {
-            ALOGD("Image type");
+            SUBTITLE_LOGI("Image type");
 
             // Show full screen for Teletext
             bool showFullScreen =
@@ -232,7 +232,7 @@ void WLRender::drawItems() {
         }
     }
 
-    ALOGD("After draw items: %d", mShowingSubs.size());
+    SUBTITLE_LOGI("After draw items: %d", mShowingSubs.size());
 }
 
 bool WLRender::isText(std::shared_ptr<AML_SPUVAR> &spu) {
@@ -247,12 +247,12 @@ bool WLRender::isText(std::shared_ptr<AML_SPUVAR> &spu) {
 }
 
 void WLRender::onThreadExit() {
-    ALOGD("%s", __FUNCTION__ );
+    SUBTITLE_LOGI("%s", __FUNCTION__ );
     mWLDevice.reset();
 }
 
 void WLRender::clearScreen() {
-    ALOGD("clearScreen");
+    SUBTITLE_LOGI("clearScreen");
     mWLDevice->drawColor(0, 0, 0, 0);
 }
 

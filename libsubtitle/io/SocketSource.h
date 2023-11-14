@@ -31,10 +31,13 @@
 #include <fcntl.h>
 #include <string>
 #include <mutex>
+#include "SubtitleLog.h"
+#include <utils/CallStack.h>
+#include <thread>
+
 #include "DataSource.h"
 #include "InfoChangeListener.h"
 #include "Segment.h"
-#include <thread>
 
 // re-design later
 // still don't know how to impl this

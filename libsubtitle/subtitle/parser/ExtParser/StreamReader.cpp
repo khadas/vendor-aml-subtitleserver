@@ -40,11 +40,11 @@ static inline void dump(const char *buf, int size) {
         sprintf(chars, "%02x ", buf[i]);
         strcat(str, chars);
         if (i%8 == 7) {
-            ALOGD("%s", str);
+            SUBTITLE_LOGI("%s", str);
             str[0] = str[1] = 0;
         }
     }
-    ALOGD("%s", str);
+    SUBTITLE_LOGI("%s", str);
 }
 
 
@@ -321,7 +321,7 @@ char *ExtSubStreamReader::getLine(char *s/*, int fd*/) {
     if (!mBuffer) {
         mBuffer = (char *)MALLOC(LINE_LEN*2);
         if (mBuffer == nullptr) {
-            ALOGE("1???");
+            SUBTITLE_LOGE("1???");
             return nullptr;
         }
 
@@ -349,7 +349,7 @@ char *ExtSubStreamReader::getLine(char *s/*, int fd*/) {
             } else {
                 offset++;
                 if (offset > mBufferSize) {
-                    ALOGE("Error! Cannot find end of line, discard following line.");
+                    SUBTITLE_LOGE("Error! Cannot find end of line, discard following line.");
                     return nullptr;
                 }
                 continue;
@@ -377,7 +377,7 @@ char *ExtSubStreamReader::getLine(char *s/*, int fd*/) {
                 }
             }
         } else {
-            ALOGE("Error! invalid encoding, current not support");
+            SUBTITLE_LOGE("Error! invalid encoding, current not support");
             return nullptr;
         }
 
@@ -386,7 +386,7 @@ char *ExtSubStreamReader::getLine(char *s/*, int fd*/) {
             lineLen = offset - mFileRead;
             MEMCPY(s, mBuffer + mFileRead, lineLen);
             s[lineLen] = '\0';
-            //ALOGD("found: %p %s lineLen=%d [%d %d] \n", mBuffer + mFileRead, s, lineLen, offset, mFileRead);
+            //SUBTITLE_LOGI("found: %p %s lineLen=%d [%d %d] \n", mBuffer + mFileRead, s, lineLen, offset, mFileRead);
 
             // eat the last newline!
             mFileRead = offset + lineCharLen;
@@ -395,7 +395,7 @@ char *ExtSubStreamReader::getLine(char *s/*, int fd*/) {
             // not found end of line. resume reading data and do again.
 
             if ((mBufferSize -mFileRead) >= LINE_LEN) {
-                ALOGE("Error! line is too long( > %d byte), ignore", LINE_LEN);
+                SUBTITLE_LOGE("Error! line is too long( > %d byte), ignore", LINE_LEN);
                 free(mBuffer);
                 mBufferSize = mFileRead = 0;
                 mBuffer = nullptr;
@@ -411,7 +411,7 @@ char *ExtSubStreamReader::getLine(char *s/*, int fd*/) {
                 // resume check again...
                 mBufferSize = remainderSize + read;
                 mFileRead = offset = 0;
-                ALOGD("read more: %d", read);
+                SUBTITLE_LOGI("read more: %d", read);
                 continue;
             } else {
                 // no more data, then, then the remainder is the last line in sub file.
@@ -422,7 +422,7 @@ char *ExtSubStreamReader::getLine(char *s/*, int fd*/) {
                     free(mBuffer);
                     mBufferSize = mFileRead = 0;
                     mBuffer = nullptr;
-                    ALOGE("End of line found!");
+                    SUBTITLE_LOGE("End of line found!");
                     break;
                 } else {
                     return nullptr;
@@ -439,7 +439,7 @@ char *ExtSubStreamReader::getLine(char *s/*, int fd*/) {
     } else if (lineLen == 0) { // a blank new line
         return s;
     } else {
-        ALOGE("??? lineLen=%d %d %d", lineLen, offset, mFileRead);
+        SUBTITLE_LOGE("??? lineLen=%d %d %d", lineLen, offset, mFileRead);
         return nullptr;
     }
 }

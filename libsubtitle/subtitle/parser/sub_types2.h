@@ -42,7 +42,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 //#include "trace_support.h"
-#include <utils/Log.h>
+#include "SubtitleLog.h"
 #include <utils/CallStack.h>
 
 #define CC_JSON_BUFFER_SIZE 8192

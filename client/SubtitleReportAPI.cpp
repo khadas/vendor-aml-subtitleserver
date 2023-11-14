@@ -24,7 +24,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define LOG_NDEBUG 0
 #define LOG_TAG "SocketAPI"
 #include <mutex>
 #include <stdint.h>
@@ -32,6 +31,8 @@
 #include "SubtitleReportAPI.h"
 #include <SubtitleType.h>
 #include <fcntl.h>
+#include "SubtitleLog.h"
+#include <utils/CallStack.h>
 #include "SubtitleClientLinux.h"
 #include "AmSocketClient.h"
 
@@ -76,7 +77,6 @@ typedef enum {
         payload data: TO BE PARSED data
  */
 
-#define LOGIT 1
 const static unsigned int START_FLAG = 0xF0D0C0B1;
 const static unsigned int MAGIC_FLAG = 0xCFFFFFFB;
 
@@ -107,7 +107,7 @@ static void socketSendData(SubtitleReportContext *ctx, const char *mbuf, size_t 
     int64_t start_time = 0;
     int data_size = length;
     if (length <= 0) {
-            ALOGE("[sendToSubtitleService]not enough data.data_size:%d\n", length);
+            SUBTITLE_LOGE("[sendToSubtitleService]not enough data.data_size:%d\n", length);
         return;
     }
     sub_type = CODEC_ID_DVB_SUBTITLE;//streamCodecID;
@@ -131,7 +131,7 @@ static void socketSendData(SubtitleReportContext *ctx, const char *mbuf, size_t 
         mSubType = 4;
     }
    // if (mDebug) {
-   //     ALOGE("[sendToSubtitleService]sub_type:0x%x, data_size:%d, sub_pts:%" PRId64 "\n", sub_type, data_size, pts);
+   //     SUBTITLE_LOGE("[sendToSubtitleService]sub_type:0x%x, data_size:%d, sub_pts:%" PRId64 "\n", sub_type, data_size, pts);
   //  }
 
     if (sub_type == 0x17000) {
@@ -188,7 +188,7 @@ static void socketSendData(SubtitleReportContext *ctx, const char *mbuf, size_t 
         usleep(500);
          ctx->mSocketClient->socketSend(data, size);
     } else {
-         ALOGE("[sendToSubtitleService]  mClient == NULL\n");
+         SUBTITLE_LOGE("[sendToSubtitleService]  mClient == NULL\n");
     }
   if (data != nullptr) {
       free(data);
@@ -201,16 +201,16 @@ static void socketSendData(SubtitleReportContext *ctx, const char *mbuf, size_t 
 SubSourceHandle SubSource_Create(int sId) {
     SubtitleReportContext *ctx = new SubtitleReportContext();
     if (ctx == nullptr) return nullptr;
-    if (LOGIT) ALOGD("SubSource Create %d", sId);
+    SUBTITLE_LOGI("SubSource Create %d", sId);
     ctx->mLock.lock();
-    ALOGD("ctx->mSocketClient: %p", ctx->mSocketClient.get());
+    SUBTITLE_LOGI("ctx->mSocketClient: %p", ctx->mSocketClient.get());
     if (ctx->mSocketClient == NULL) {
         std::unique_ptr<AmSocketClient> pTemp(new AmSocketClient);
         ctx->mSocketClient = std::move(pTemp);//unique_ptr<AmSocketClient>;//new AmSocketClient();
         // socket may not ready due to 2 process synchr, checking and retry
         int retry = 100;
         while (retry-- >= 0) {
-            ALOGD("socketConnect..., %d", retry);
+            SUBTITLE_LOGI("socketConnect..., %d", retry);
             if (ctx->mSocketClient->socketConnect() == 0) {
                 break;
             }
@@ -227,7 +227,7 @@ SubSourceStatus SubSource_Destroy(SubSourceHandle handle) {
     SubtitleReportContext *ctx = (SubtitleReportContext *) handle;
     if (ctx == nullptr) return SUB_STAT_INV;
 
-    if (LOGIT) ALOGD("SubSource destroy %d", ctx->sId);
+    SUBTITLE_LOGI("SubSource destroy %d", ctx->sId);
 
     ctx->mLock.lock();
     // ctx->mRemote = nullptr;
@@ -244,7 +244,7 @@ SubSourceStatus SubSource_Reset(SubSourceHandle handle) {
     SubtitleReportContext *ctx = (SubtitleReportContext *) handle;
     if (ctx == nullptr) return SUB_STAT_INV;
 
-    if (LOGIT) ALOGD("SubSource reset %d", ctx->sId);
+    SUBTITLE_LOGI("SubSource reset %d", ctx->sId);
 
     std::lock_guard<std::mutex> guard(ctx->mLock);
 
@@ -261,7 +261,7 @@ SubSourceStatus SubSource_Stop(SubSourceHandle handle) {
     SubtitleReportContext *ctx = (SubtitleReportContext *) handle;
     if (ctx == nullptr) return SUB_STAT_INV;
 
-    if (LOGIT) ALOGD("SubSource destroy %d", ctx->sId);
+    SUBTITLE_LOGI("SubSource destroy %d", ctx->sId);
     std::lock_guard<std::mutex> guard(ctx->mLock);
     char buffer[64];
     memset(buffer, 0, 64);
@@ -277,9 +277,7 @@ SubSourceStatus SubSource_ReportRenderTime(SubSourceHandle handle, int64_t timeU
     static int count = 0;
     if (ctx == nullptr) return SUB_STAT_INV;
 
-    if (LOGIT) {
-        if (count++ %1000 == 0) ALOGD("SubSource ReportRenderTime %d 0x%llx", ctx->sId, timeUs);
-    }
+    if (count++ %1000 == 0) SUBTITLE_LOGI("SubSource ReportRenderTime %d 0x%llx", ctx->sId, timeUs);
 
     std::lock_guard<std::mutex> guard(ctx->mLock);
     char buffer[64];
@@ -293,7 +291,7 @@ SubSourceStatus SubSource_ReportStartPts(SubSourceHandle handle, int64_t pts) {
     SubtitleReportContext *ctx = (SubtitleReportContext *) handle;
     if (ctx == nullptr) return SUB_STAT_INV;
 
-    if (LOGIT) ALOGD("SubSource ReportStartPts %d 0x%llx", ctx->sId, pts);
+    SUBTITLE_LOGI("SubSource ReportStartPts %d 0x%llx", ctx->sId, pts);
 
     std::lock_guard<std::mutex> guard(ctx->mLock);
     char buffer[64];
@@ -307,7 +305,7 @@ SubSourceStatus SubSource_ReportTotalTracks(SubSourceHandle handle, int trackNum
     SubtitleReportContext *ctx = (SubtitleReportContext *) handle;
     if (ctx == nullptr) return SUB_STAT_INV;
 
-    if (LOGIT) ALOGD("SubSource ReportTotalTracks %d 0x%x", ctx->sId, trackNum);
+    SUBTITLE_LOGI("SubSource ReportTotalTracks %d 0x%x", ctx->sId, trackNum);
 
     std::lock_guard<std::mutex> guard(ctx->mLock);
     char buffer[64];
@@ -322,7 +320,7 @@ SubSourceStatus SubSource_ReportType(SubSourceHandle handle, int type) {
     SubtitleReportContext *ctx = (SubtitleReportContext *) handle;
     if (ctx == nullptr) return SUB_STAT_INV;
 
-    if (LOGIT) ALOGD("SubSource ReportType %d 0x%x", ctx->sId, type);
+    SUBTITLE_LOGI("SubSource ReportType %d 0x%x", ctx->sId, type);
 
     std::lock_guard<std::mutex> guard(ctx->mLock);
     char buffer[64];
@@ -342,7 +340,7 @@ SubSourceStatus SubSource_ReportSubTypeString(SubSourceHandle handle, const char
     char *buffer = new char[strlen(type)+1+HEADER_SIZE]();
     if (buffer == nullptr) return SUB_STAT_INV;
 
-    if (LOGIT) ALOGD("SubSource ReportTypeString %d %s", ctx->sId, type);
+    SUBTITLE_LOGI("SubSource ReportTypeString %d %s", ctx->sId, type);
 
     makeHeader(buffer, ctx->sId, SUBTITLE_TYPE_STRING, strlen(type)+1);
     memcpy(buffer+HEADER_SIZE, type, strlen(type));
@@ -354,7 +352,7 @@ SubSourceStatus SubSource_ReportLauguageString(SubSourceHandle handle, const cha
     SubtitleReportContext *ctx = (SubtitleReportContext *) handle;
     std::lock_guard<std::mutex> guard(ctx->mLock);
     if (ctx == nullptr) return SUB_STAT_INV;
-    if (LOGIT) ALOGD("SubSource ReportLangString %d %s", ctx->sId, lang);
+    SUBTITLE_LOGI("SubSource ReportLangString %d %s", ctx->sId, lang);
 
     char *buffer = new char[strlen(lang)+1+HEADER_SIZE]();
     if (buffer == nullptr) return SUB_STAT_INV;
@@ -369,7 +367,7 @@ SubSourceStatus SubSource_ReportLauguageString(SubSourceHandle handle, const cha
 SubSourceStatus SubSource_SendData(SubSourceHandle handle, const char *mbuf, int length, int64_t pts, enum CodecID sub_type) {
     SubtitleReportContext *ctx = (SubtitleReportContext *) handle;
     if (ctx == nullptr) return SUB_STAT_INV;
-    if (LOGIT) ALOGD("SubSource SubSource_SendData %d %d", ctx->sId, length);
+    SUBTITLE_LOGI("SubSource SubSource_SendData %d %d", ctx->sId, length);
 
     std::lock_guard<std::mutex> guard(ctx->mLock);
     float duration = 0;
@@ -377,7 +375,7 @@ SubSourceStatus SubSource_SendData(SubSourceHandle handle, const char *mbuf, int
     int64_t start_time = 0;
     int data_size = length;
     if (length <= 0) {
-            ALOGE("[sendToSubtitleService]not enough data.data_size:%d\n", length);
+            SUBTITLE_LOGE("[sendToSubtitleService]not enough data.data_size:%d\n", length);
         return SUB_STAT_INV;
     }
 //    sub_type = CODEC_ID_DVB_SUBTITLE;//streamCodecID;
@@ -405,7 +403,7 @@ SubSourceStatus SubSource_SendData(SubSourceHandle handle, const char *mbuf, int
         mSubType = 4;
     }
    // if (mDebug) {
-   //    ALOGE("[sendToSubtitleService]sub_type:0x%x, data_size:%d, sub_pts:%" PRId64 "\n", sub_type, data_size, pts);
+   //    SUBTITLE_LOGE("[sendToSubtitleService]sub_type:0x%x, data_size:%d, sub_pts:%" PRId64 "\n", sub_type, data_size, pts);
    // }
 
     if (sub_type == CODEC_ID_DVD_SUBTITLE) {
@@ -448,7 +446,7 @@ SubSourceStatus SubSource_SendData(SubSourceHandle handle, const char *mbuf, int
     char * data = (char *)malloc(size);
     memset(data, 0, size );
 
-    ALOGD("SubSource_SendData, data_length= %d", data_length);
+    SUBTITLE_LOGI("SubSource_SendData, data_length= %d", data_length);
     makeHeader(data, ctx->sId, SUBTITLE_SUB_DATA, data_length);
 
     /*int sessionId = ctx->sId;
@@ -467,13 +465,13 @@ SubSourceStatus SubSource_SendData(SubSourceHandle handle, const char *mbuf, int
         usleep(500);
          ctx->mSocketClient->socketSend(data, size);
     } else {
-         ALOGE("[sendToSubtitleService]  mClient == NULL\n");
+         SUBTITLE_LOGE("[sendToSubtitleService]  mClient == NULL\n");
     }
     if (data != nullptr) {
       free(data);
       data = nullptr;
     }
-    if (LOGIT) ALOGD("SubSource SubSource_SendData end %d %d", ctx->sId, size);
+    SUBTITLE_LOGI("SubSource SubSource_SendData end %d %d", ctx->sId, size);
 
     return SUB_STAT_OK;
 }

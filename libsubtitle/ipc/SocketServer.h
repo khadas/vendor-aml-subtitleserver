@@ -26,7 +26,7 @@
 
 #ifndef __SUBTITLE_SOCKETSERVER_H__
 #define __SUBTITLE_SOCKETSERVER_H__
-#include <utils/Log.h>
+#include "SubtitleLog.h"
 #include <utils/Thread.h>
 #include <mutex>
 #include <thread>

@@ -37,12 +37,12 @@ Mplayer2::~Mplayer2() {
 std::shared_ptr<ExtSubItem> Mplayer2::decodedItem() {
     char *line = (char *)MALLOC(LINE_LEN+1);
     if (!line) {
-        LOGE("[%s::%d] line malloc error!\n", __FUNCTION__, __LINE__);
+        SUBTITLE_LOGE("[%s::%d] line malloc error!\n", __FUNCTION__, __LINE__);
         return nullptr;
     }
     char *line2 = (char *)MALLOC(LINE_LEN);
     if (!line2) {
-        LOGE("[%s::%d] line2 malloc error!\n", __FUNCTION__, __LINE__);
+        SUBTITLE_LOGE("[%s::%d] line2 malloc error!\n", __FUNCTION__, __LINE__);
         free(line);
         return nullptr;
     }
@@ -50,7 +50,7 @@ std::shared_ptr<ExtSubItem> Mplayer2::decodedItem() {
     memset(line2, 0, LINE_LEN);
     while (mReader->getLine(line)) {
         int start =0, end = 0;
-        ALOGD(" read: %s", line);
+        SUBTITLE_LOGI(" read: %s", line);
         if (sscanf(line, "[%d][%d]%[^\r\n]", &start, &end, line2) < 3) {
                 continue;
         }

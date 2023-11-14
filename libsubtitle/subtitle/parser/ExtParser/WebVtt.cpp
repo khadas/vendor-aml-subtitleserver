@@ -27,14 +27,14 @@
 #define LOG_TAG "WebVtt"
 #include <regex>
 
-#include <utils/Log.h>
+#include "SubtitleLog.h"
 #include <utils/CallStack.h>
 #include "WebVtt.h"
 //#include "trace_support.h"
 
 
 SimpleWebVtt::SimpleWebVtt(std::shared_ptr<DataSource> source): TextSubtitle(source) {
-    ALOGE("SimpleWebVtt Subtitle");
+    SUBTITLE_LOGE("SimpleWebVtt Subtitle");
 }
 
 SimpleWebVtt::~SimpleWebVtt() {

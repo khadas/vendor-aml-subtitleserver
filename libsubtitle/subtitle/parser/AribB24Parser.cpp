@@ -19,8 +19,7 @@
 #include <string.h>
 #include <time.h>
 #include <limits.h>
-#include "bprint.h"
-#include <android/log.h>
+#include "SubtitleLog.h"
 #include <utils/CallStack.h>
 
 #include <unistd.h>
@@ -30,18 +29,13 @@
 #include <algorithm>
 #include <functional>
 
+#include "bprint.h"
 #include "ParserFactory.h"
 #include "streamUtils.h"
 
 #include "VideoInfo.h"
 
 #include "AribB24Parser.h"
-
-#define  TRACE()    LOGI("[%s::%d]\n",__FUNCTION__,__LINE__)
-
-#define LOGI ALOGI
-#define LOGD ALOGD
-#define LOGE ALOGE
 
 #define MAX_BUFFERED_PAGES 25
 #define BITMAP_CHAR_WIDTH  12
@@ -69,14 +63,14 @@ bool static inline isMore32Bit(int64_t pts) {
 
 static void save2BitmapFile(const char *filename, uint32_t *bitmap, int w, int h)
 {
-    LOGI("png_save2:%s\n",filename);
+    SUBTITLE_LOGI("png_save2:%s\n",filename);
     FILE *f;
     char fname[40];
 
     snprintf(fname, sizeof(fname), "%s.bmp", filename);
     f = fopen(fname, "w");
     if (!f) {
-        ALOGE("Error cannot open file %s!", fname);
+        SUBTITLE_LOGE("Error cannot open file %s!", fname);
         return;
     }
     fprintf(f, "P6\n%d %d\n%d\n", w, h, 255);
@@ -106,7 +100,7 @@ static int genSubBitmap(AribB24Context *ctx, AVSubtitleRect *subRect, vbi_page *
 // This is callback function registered to arib24.
 // arib24 callback from: arib b24DecodeFrame, so should not add lock in this
 static void messages_callback_handler(void *arib_b24_opaque, const char *arib_b24_message) {
-    LOGI("[messages_callback_handler]\n");
+    SUBTITLE_LOGI("[messages_callback_handler]\n");
 }
 
 AribB24Parser::AribB24Parser(std::shared_ptr<DataSource> source) {
@@ -122,7 +116,7 @@ AribB24Parser::AribB24Parser(std::shared_ptr<DataSource> source) {
 }
 
 AribB24Parser::~AribB24Parser() {
-    LOGI("%s", __func__);
+    SUBTITLE_LOGI("%s", __func__);
     mState = SUB_STOP;
     stopParser();
 
@@ -322,12 +316,12 @@ int AribB24Parser::aribB24DecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char *src
 
     if (status == ARIBCC_DECODE_STATUS_GOT_CAPTION) {
         if (mContext->languageCode == ARIB_B24_POR) caption.iso6392_language_code = ARIBCC_MAKE_LANG('p', 'o', 'r');
-        LOGD(" %s aribcc_decoder_decode() returned with caption! caption.text:%s caption.iso6392_language_code:0x%x\n", __FUNCTION__, caption.text, caption.iso6392_language_code);
+        SUBTITLE_LOGI(" %s aribcc_decoder_decode() returned with caption! caption.text:%s caption.iso6392_language_code:0x%x\n", __FUNCTION__, caption.text, caption.iso6392_language_code);
     }
 
     if (caption.text) {
         str = caption.text;
-        LOGD(" %s aribcc_decoder_decode() str:%s\n", __FUNCTION__, str.c_str());
+        SUBTITLE_LOGI(" %s aribcc_decoder_decode() str:%s\n", __FUNCTION__, str.c_str());
         spu->buffer_size = str.length();
         if (caption.wait_duration == ARIBCC_DURATION_INDEFINITE) {
             //p_spu->b_ephemer = true;
@@ -336,7 +330,7 @@ int AribB24Parser::aribB24DecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char *src
             spu->m_delay = spu->pts + ARIB_B24_TICK_FROM_MS(caption.wait_duration);
         }
         pbuf = (uint32_t *)malloc(str.length());
-        LOGI("@@[%s::%d]malloc ptr=%p, size=%d spu->m_delay:%lld caption.pts:%lld caption.wait_duration:%lld\n", __FUNCTION__, __LINE__, pbuf, spu->buffer_size, spu->m_delay, caption.pts, caption.wait_duration);
+        SUBTITLE_LOGI("@@[%s::%d]malloc ptr=%p, size=%d spu->m_delay:%lld caption.pts:%lld caption.wait_duration:%lld\n", __FUNCTION__, __LINE__, pbuf, spu->buffer_size, spu->m_delay, caption.pts, caption.wait_duration);
         if (!pbuf) {
             LOGE("%s fail \n", __FUNCTION__);
             free(pbuf);
@@ -370,7 +364,7 @@ int AribB24Parser::aribB24DecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char *src
         return ARIB_B24_FAILURE;
     } else if (render_status == ARIBCC_RENDER_STATUS_GOT_IMAGE ||
                render_status == ARIBCC_RENDER_STATUS_GOT_IMAGE_UNCHANGED) {
-        LOGD(" %s aribcc_renderer_render() ImageCount: %u\n", __FUNCTION__, render_result.image_count);
+        SUBTITLE_LOGI(" %s aribcc_renderer_render() ImageCount: %u\n", __FUNCTION__, render_result.image_count);
     }
 
         for (uint32_t i = 0; i < render_result.image_count; i++) {
@@ -379,7 +373,7 @@ int AribB24Parser::aribB24DecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char *src
             spu->spu_width = image->width;
             spu->spu_height = image->height;
             pbuf = (uint32_t *)malloc(image->bitmap_size);
-            LOGI("@@[%s::%d]malloc ptr=%p, size=%d\n", __FUNCTION__, __LINE__, pbuf, spu->buffer_size);
+            SUBTITLE_LOGI("@@[%s::%d]malloc ptr=%p, size=%d\n", __FUNCTION__, __LINE__, pbuf, spu->buffer_size);
             if (!pbuf) {
                 LOGE("%s fail, image->width=%d, image->height=%d \n", __FUNCTION__, image->width, image->height);
                 free(pbuf);
@@ -396,12 +390,12 @@ int AribB24Parser::aribB24DecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char *src
             memcpy(spu->spu_data, image->bitmap, spu->buffer_size);
             if (mDumpSub) {
                 snprintf(filename, sizeof(filename), "./data/subtitleDump/arib_b24_%d", mIndex);
-                LOGD(" %s aribcc_renderer_render() mIndex:%d image->width:%d image->height:%d\n", __FUNCTION__, mIndex, image->width, image->height);
+                SUBTITLE_LOGI(" %s aribcc_renderer_render() mIndex:%d image->width:%d image->height:%d\n", __FUNCTION__, mIndex, image->width, image->height);
                 save2BitmapFile(filename, (uint32_t *)spu->spu_data, image->width, image->height);
             }
             if (mDumpSub) {
                 snprintf(filenamepng, sizeof(filenamepng), "./data/subtitleDump/arib_b24_%d.png", mIndex);
-                LOGD(" %s aribcc_renderer_render() mIndex:%d image->width:%d image->height:%d\n", __FUNCTION__, mIndex, image->width, image->height);
+                SUBTITLE_LOGI(" %s aribcc_renderer_render() mIndex:%d image->width:%d image->height:%d\n", __FUNCTION__, mIndex, image->width, image->height);
                 png_writer_write_image_c(filenamepng, image);
             }
             ++mIndex;
@@ -415,7 +409,7 @@ int AribB24Parser::getAribB24Spu() {
     char tmpbuf[8] = {0};
     int64_t packetHeader = 0;
 
-    if (mDumpSub) LOGI("enter get_dvb_arib b24_spu\n");
+    if (mDumpSub) SUBTITLE_LOGI("enter get_dvb_arib b24_spu\n");
     int ret = -1;
 
     while (mDataSource->read(tmpbuf, 1) == 1) {
@@ -427,7 +421,7 @@ int AribB24Parser::getAribB24Spu() {
         spu->sync_bytes = AML_PARSER_SYNC_WORD;
 
         packetHeader = ((packetHeader<<8) & 0x000000ffffffffff) | tmpbuf[0];
-        if (mDumpSub) LOGI("## get_dvb_spu %x, %llx,-------------\n",tmpbuf[0], packetHeader);
+        if (mDumpSub) SUBTITLE_LOGI("## get_dvb_spu %x, %llx,-------------\n",tmpbuf[0], packetHeader);
 
         if ((packetHeader & 0xffffffff) == 0x000001bd) {
             ret = hwDemuxParse(spu);
@@ -457,7 +451,7 @@ int AribB24Parser::hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
             if (mDataSource->read(tmpbuf, 3) == 3) {
                 packetLen -= 3;
                 pesHeaderLen = tmpbuf[2];
-                LOGI("get_dvb_arib b24_spu-packetLen:%d, pesHeaderLen:%d\n", packetLen,pesHeaderLen);
+                SUBTITLE_LOGI("get_dvb_arib b24_spu-packetLen:%d, pesHeaderLen:%d\n", packetLen,pesHeaderLen);
 
                 if (packetLen >= pesHeaderLen) {
                     if ((tmpbuf[1] & 0xc0) == 0x80) {
@@ -520,7 +514,7 @@ int AribB24Parser::hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
             spu->subtitle_type = TYPE_SUBTITLE_ARIB_B24;
             spu->pts = dvbPts;
             if (isMore32Bit(spu->pts) && !isMore32Bit(mDataSource->getSyncTime())) {
-                ALOGD("SUB PTS is greater than 32 bits, before subpts: %lld, vpts:%lld", spu->pts, mDataSource->getSyncTime());
+                SUBTITLE_LOGI("SUB PTS is greater than 32 bits, before subpts: %lld, vpts:%lld", spu->pts, mDataSource->getSyncTime());
                 spu->pts &= TSYNC_32_BIT_PTS;
             }
             //If gap time is large than 9 secs, think pts skip,notify info
@@ -529,19 +523,19 @@ int AribB24Parser::hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
             }
             buf = (char *)malloc(packetLen);
             if (buf) {
-                LOGI("packetLen is %d, pts is %llx, delay is %llx\n", packetLen, spu->pts, tempPts);
+                SUBTITLE_LOGI("packetLen is %d, pts is %llx, delay is %llx\n", packetLen, spu->pts, tempPts);
             } else {
-                LOGI("packetLen buf malloc fail!!!\n");
+                SUBTITLE_LOGI("packetLen buf malloc fail!!!\n");
             }
 
             if (buf) {
                 memset(buf, 0x0, packetLen);
                 if (mDataSource->read(buf, packetLen) == packetLen) {
                     ret = aribB24DecodeFrame(spu, buf, packetLen);
-                    LOGI(" @@@@@@@hwDemuxParse parse ret:%d, buffer_size:%d", ret, spu->buffer_size);
+                    SUBTITLE_LOGI(" @@@@@@@hwDemuxParse parse ret:%d, buffer_size:%d", ret, spu->buffer_size);
                     if (ret != -1 && spu->buffer_size > 0) {
-                        LOGI("dump-pts-hwdmx!success pts(%lld) %d frame was add\n", spu->pts, mIndex);
-                        LOGI(" addDecodedItem buffer_size=%d",
+                        SUBTITLE_LOGI("dump-pts-hwdmx!success pts(%lld) %d frame was add\n", spu->pts, mIndex);
+                        SUBTITLE_LOGI(" addDecodedItem buffer_size=%d",
                                 spu->buffer_size);
                         addDecodedItem(std::shared_ptr<AML_SPUVAR>(spu));
                         {   // for signal notification.
@@ -552,13 +546,13 @@ int AribB24Parser::hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
                         if (buf) free(buf);
                         return 0;
                     } else {
-                        LOGI("dump-pts-hwdmx!error pts(%lld) frame was abandon ret=%d bufsize=%d\n", spu->pts, ret, spu->buffer_size);
+                        SUBTITLE_LOGI("dump-pts-hwdmx!error pts(%lld) frame was abandon ret=%d bufsize=%d\n", spu->pts, ret, spu->buffer_size);
                         if (buf) free(buf);
                         return -1;
                     }
                 }
-                LOGI("packetLen buf free=%p\n", buf);
-                LOGI("@@[%s::%d]free ptr=%p\n", __FUNCTION__, __LINE__, buf);
+                SUBTITLE_LOGI("packetLen buf free=%p\n", buf);
+                SUBTITLE_LOGI("@@[%s::%d]free ptr=%p\n", __FUNCTION__, __LINE__, buf);
                 free(buf);
             }
         }
@@ -576,7 +570,7 @@ int AribB24Parser::softDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
 
     // read package header info
     if (mDataSource->read(tmpbuf, 19) == 19) {
-        if (mDumpSub) LOGI("## %s get_dvb_spu %x,%x,%x,  %x,%x,%x,  %x,%x,-------------\n",
+        if (mDumpSub) SUBTITLE_LOGI("## %s get_dvb_spu %x,%x,%x,  %x,%x,%x,  %x,%x,-------------\n",
                 __FUNCTION__,
                 tmpbuf[0], tmpbuf[1], tmpbuf[2], tmpbuf[3],
                 tmpbuf[4], tmpbuf[5], tmpbuf[6], tmpbuf[7]);
@@ -587,8 +581,8 @@ int AribB24Parser::softDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
 
         spu->subtitle_type = TYPE_SUBTITLE_ARIB_B24;
         spu->pts = dvbPts;
-        if (mDumpSub) LOGI("## %s spu-> pts:%lld,dvPts:%lld\n", __FUNCTION__, spu->pts, dvbPts);
-        if (mDumpSub) LOGI("## %s datalen=%d,pts=%llx,delay=%llx,diff=%llx, data: %x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x\n",
+        if (mDumpSub) SUBTITLE_LOGI("## %s spu-> pts:%lld,dvPts:%lld\n", __FUNCTION__, spu->pts, dvbPts);
+        if (mDumpSub) SUBTITLE_LOGI("## %s datalen=%d,pts=%llx,delay=%llx,diff=%llx, data: %x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x\n",
                 __FUNCTION__, dataLen, dvbPts, spu->m_delay, ptsDiff,
                 tmpbuf[0], tmpbuf[1], tmpbuf[2], tmpbuf[3], tmpbuf[4],
                 tmpbuf[5], tmpbuf[6], tmpbuf[7], tmpbuf[8], tmpbuf[9],
@@ -599,16 +593,16 @@ int AribB24Parser::softDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
             LOGE("[%s::%d]malloc error! \n", __FUNCTION__,__LINE__);
             return -1;
         }
-        if (mDumpSub) LOGI("@@[%s::%d]malloc ptr=%p, size = %d\n",__FUNCTION__, __LINE__, data, dataLen);
+        if (mDumpSub) SUBTITLE_LOGI("@@[%s::%d]malloc ptr=%p, size = %d\n",__FUNCTION__, __LINE__, data, dataLen);
         memset(data, 0x0, dataLen);
         ret = mDataSource->read(data, dataLen);
-        if (mDumpSub) LOGI("## ret=%d,dataLen=%d, %x,%x,%x,%x,%x,%x,%x,%x,---------\n",
+        if (mDumpSub) SUBTITLE_LOGI("## ret=%d,dataLen=%d, %x,%x,%x,%x,%x,%x,%x,%x,---------\n",
                 ret, dataLen, data[0], data[1], data[2], data[3],
                 data[4], data[5], data[6], data[7]);
 
         ret = aribB24DecodeFrame(spu, data, dataLen);
         if (ret != -1 && spu->buffer_size > 0) {
-            if (mDumpSub) LOGI("dump-pts-swdmx!success pts(%lld) mIndex:%d frame was add\n", spu->pts, mIndex);
+            if (mDumpSub) SUBTITLE_LOGI("dump-pts-swdmx!success pts(%lld) mIndex:%d frame was add\n", spu->pts, mIndex);
             addDecodedItem(std::shared_ptr<AML_SPUVAR>(spu));
             {
                 std::unique_lock<std::mutex> autolock(mMutex);
@@ -616,7 +610,7 @@ int AribB24Parser::softDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
                 mCv.notify_all();
             }
         } else {
-            if (mDumpSub) LOGI("dump-pts-swdmx!error this pts(%lld) frame was abandon\n", spu->pts);
+            if (mDumpSub) SUBTITLE_LOGI("dump-pts-swdmx!error this pts(%lld) frame was abandon\n", spu->pts);
         }
 
         if (data) {
@@ -644,14 +638,14 @@ int AribB24Parser::atvHwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
             }
             memset(data, 0x0, ATV_ARIB_B24_DATA_LEN);
             ret = mDataSource->read(data, ATV_ARIB_B24_DATA_LEN);
-            if (mDumpSub) LOGI("[%s::%d] ret=%d,dataLen=%d, %x,%x,%x,%x,%x,%x,%x,%x,---------\n",
+            if (mDumpSub) SUBTITLE_LOGI("[%s::%d] ret=%d,dataLen=%d, %x,%x,%x,%x,%x,%x,%x,%x,---------\n",
                     __FUNCTION__, __LINE__, ret, ATV_ARIB_B24_DATA_LEN, data[0], data[1], data[2], data[3],
                     data[4], data[5], data[6], data[7]);
 
             ret = aribB24DecodeFrame(spu, data, ATV_ARIB_B24_DATA_LEN);
 
             if (ret != -1 && spu->buffer_size > 0) {
-                if (mDumpSub) LOGI("[%s::%d]dump-pts-atvHwDmx!success pts(%lld) mIndex:%d frame was add\n", __FUNCTION__,__LINE__, spu->pts, ++mIndex);
+                if (mDumpSub) SUBTITLE_LOGI("[%s::%d]dump-pts-atvHwDmx!success pts(%lld) mIndex:%d frame was add\n", __FUNCTION__,__LINE__, spu->pts, ++mIndex);
                 if (spu->spu_origin_display_w <= 0 || spu->spu_origin_display_h <= 0) {
                     spu->spu_origin_display_w = VideoInfo::Instance()->getVideoWidth();
                     spu->spu_origin_display_h = VideoInfo::Instance()->getVideoHeight();
@@ -659,7 +653,7 @@ int AribB24Parser::atvHwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
                 //ttx,need immediatePresent show
                 addDecodedItem(std::shared_ptr<AML_SPUVAR>(spu));
             } else {
-                if (mDumpSub) LOGI("[%s::%d]dump-pts-atvHwDmx!error this pts(%lld) frame was abandon\n", __FUNCTION__,__LINE__, spu->pts);
+                if (mDumpSub) SUBTITLE_LOGI("[%s::%d]dump-pts-atvHwDmx!error this pts(%lld) frame was abandon\n", __FUNCTION__,__LINE__, spu->pts);
             }
 
             if (data) {
@@ -705,7 +699,7 @@ int AribB24Parser::getSpu() {
     if (mState == SUB_INIT) {
         mState = SUB_PLAYING;
     } else if (mState == SUB_STOP) {
-        ALOGD(" mState == SUB_STOP \n\n");
+        SUBTITLE_LOGI(" mState == SUB_STOP \n\n");
         return 0;
     }
 

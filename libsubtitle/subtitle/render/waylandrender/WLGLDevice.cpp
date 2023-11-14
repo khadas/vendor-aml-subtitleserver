@@ -34,7 +34,7 @@
 #include <wayland-egl.h>
 
 #include <cstdlib>
-#include <utils/Log.h>
+#include "SubtitleLog.h"
 #include <cstring>
 #include <vector>
 #include <string>
@@ -46,11 +46,6 @@ using namespace Cairo;
 #define ENV_XDG_RUNTIME_DIR "XDG_RUNTIME_DIR"
 #define ENV_WAYLAND_DISPLAY "WAYLAND_DISPLAY"
 #define SUBTITLE_OVERLAY_NAME "subtitle-overlay"
-
-#ifdef ALOGD
-#undef ALOGD
-#endif
-#define ALOGD(...) ALOGI(__VA_ARGS__)
 
 class RdkShellCmd {
 public:
@@ -67,7 +62,7 @@ private:
         FILE* pFile = popen(cmd, "r");
         char buf[128];
         char* retStr = fgets(buf, sizeof(buf), pFile);
-        ALOGD("[%s] ret= %s", method, retStr);
+        SUBTITLE_LOGI("[%s] ret= %s", method, retStr);
         pclose(pFile);
     }
 };
@@ -84,12 +79,12 @@ static struct DisplayEnv {
 };
 
 WLGLDevice::WLGLDevice() {
-    ALOGD("WLGLDevice +++");
+    SUBTITLE_LOGI("WLGLDevice +++");
     mInited = init();
 }
 
 WLGLDevice::~WLGLDevice() {
-    ALOGD("WLGLDevice ---");
+    SUBTITLE_LOGI("WLGLDevice ---");
     releaseEGL();
     releaseWL();
 }
@@ -103,15 +98,15 @@ bool WLGLDevice::connectDisplay() {
     auto funcConnectFromPresetEnv = [&]()->bool {
         const char *runtimeDir = getenv(ENV_XDG_RUNTIME_DIR);
         const char *waylandDisplay = getenv(ENV_WAYLAND_DISPLAY);
-        ALOGD("connectDisplay, current env= {%s, %s}", runtimeDir, waylandDisplay);
+        SUBTITLE_LOGI("connectDisplay, current env= {%s, %s}", runtimeDir, waylandDisplay);
         if (runtimeDir != nullptr && strlen(runtimeDir) > 0
             && waylandDisplay != nullptr && strlen(waylandDisplay) > 0) {
-            ALOGD("createDisplay with preset env");
+            SUBTITLE_LOGI("createDisplay with preset env");
             if (createDisplay()) {
-                ALOGD("createDisplay success for {%s, %s}", runtimeDir, waylandDisplay);
+                SUBTITLE_LOGI("createDisplay success for {%s, %s}", runtimeDir, waylandDisplay);
                 return true;
             } else {
-                ALOGE("createDisplay failed for {%s, %s}", runtimeDir, waylandDisplay);
+                SUBTITLE_LOGE("createDisplay failed for {%s, %s}", runtimeDir, waylandDisplay);
             }
         }
 
@@ -119,17 +114,17 @@ bool WLGLDevice::connectDisplay() {
     };
 
     auto funcConnectFromCandidatesEnvs = [&]()->bool {
-        ALOGD("createDisplay with candidate envs");
+        SUBTITLE_LOGI("createDisplay with candidate envs");
         int n = sizeof(sCandidateEnvs) / sizeof(sCandidateEnvs[0]);
         for (int i = 0; i < n; ++i) {
             struct DisplayEnv& env = sCandidateEnvs[i];
             setupEnv(env.xdg_runtime_dir, env.wayland_display);
 
             if (createDisplay()) {
-                ALOGD("createDisplay success for {%s, %s}", env.xdg_runtime_dir, env.wayland_display);
+                SUBTITLE_LOGI("createDisplay success for {%s, %s}", env.xdg_runtime_dir, env.wayland_display);
                 return true;
             } else {
-                ALOGE("createDisplay failed for {%s, %s}", env.xdg_runtime_dir, env.wayland_display);
+                SUBTITLE_LOGE("createDisplay failed for {%s, %s}", env.xdg_runtime_dir, env.wayland_display);
             }
         }
 
@@ -141,19 +136,19 @@ bool WLGLDevice::connectDisplay() {
 
 bool WLGLDevice::initDisplay() {
     if (!connectDisplay()) {
-        ALOGE("Display init failed");
+        SUBTITLE_LOGE("Display init failed");
         return false;
     }
 
     if (!initEGL()) {
-        ALOGE("initEGL failed.");
+        SUBTITLE_LOGE("initEGL failed.");
         return false;
     }
     return true;
 }
 
 void WLGLDevice::setupEnv(const char* runtimeDir, const char* waylandDisplay) {
-    ALOGD("setupEnv, ENV_XDG_RUNTIME_DIR= %s, ENV_WAYLAND_DISPLAY= %s",
+    SUBTITLE_LOGI("setupEnv, ENV_XDG_RUNTIME_DIR= %s, ENV_WAYLAND_DISPLAY= %s",
             runtimeDir, waylandDisplay);
 
     setenv(ENV_XDG_RUNTIME_DIR, runtimeDir, 1);
@@ -163,7 +158,7 @@ void WLGLDevice::setupEnv(const char* runtimeDir, const char* waylandDisplay) {
 bool WLGLDevice::createDisplay() {
     display = wl_display_connect(nullptr);
     if (!display) {
-        ALOGE("%s: display connect failed", __FUNCTION__ );
+        SUBTITLE_LOGE("%s: display connect failed", __FUNCTION__ );
         return false;
     }
 
@@ -174,15 +169,15 @@ bool WLGLDevice::createDisplay() {
 
     struct wl_registry *registry = wl_display_get_registry(display);
     if (!registry) {
-        ALOGE("%s: wl_display_get_registry failed", __FUNCTION__ );
+        SUBTITLE_LOGE("%s: wl_display_get_registry failed", __FUNCTION__ );
         return false;
     }
     wl_registry_add_listener(registry, &registry_listener, this);
 
-    ALOGD("wl_display_roundtrip 111");
+    SUBTITLE_LOGI("wl_display_roundtrip 111");
     wl_display_roundtrip(display);
     wl_registry_destroy(registry);
-    ALOGD("wl_display_roundtrip 222");
+    SUBTITLE_LOGI("wl_display_roundtrip 222");
     return true;
 }
 
@@ -220,7 +215,7 @@ void WLGLDevice::getScreenSize(size_t *width, size_t *height) {
     if (env) {
         int w = 0, h = 0;
         if (sscanf(env, "%dx%d", &w, &h) == 2) {
-            ALOGD("getScreenSize, from env WESTEROS_GL_GRAPHICS_MAX_SIZE: [%dx%d]", w, h);
+            SUBTITLE_LOGI("getScreenSize, from env WESTEROS_GL_GRAPHICS_MAX_SIZE: [%dx%d]", w, h);
             if ((w > 0) && (h > 0)) {
                 *width = w;
                 *height = h;
@@ -234,7 +229,7 @@ void WLGLDevice::getScreenSize(size_t *width, size_t *height) {
         eglQuerySurface(display, surface, EGL_WIDTH, &w);
         eglQuerySurface(display, surface, EGL_HEIGHT, &h);
 
-        ALOGD("getScreenSize, from eglQuerySurface: [%dx%d]", w, h);
+        SUBTITLE_LOGI("getScreenSize, from eglQuerySurface: [%dx%d]", w, h);
 
         if ((w > 0) && (h > 0)) {
             *width = w;
@@ -243,7 +238,7 @@ void WLGLDevice::getScreenSize(size_t *width, size_t *height) {
         }
     }
 
-    ALOGD("getScreenSize, from defult: [%dx%d]", WIDTH, HEIGHT);
+    SUBTITLE_LOGI("getScreenSize, from defult: [%dx%d]", WIDTH, HEIGHT);
     *width = WIDTH;
     *height = HEIGHT;
 }
@@ -263,26 +258,26 @@ bool WLGLDevice::initEGL() {
 
     eglDisplay = eglGetDisplay(display);
     if (!eglDisplay) {
-        ALOGE("eglGetDisplay failed");
+        SUBTITLE_LOGE("eglGetDisplay failed");
         return false;
     }
 
     ret = eglInitialize(eglDisplay, nullptr, nullptr);
     if (!ret) {
-        ALOGE("eglInitialize failed");
+        SUBTITLE_LOGE("eglInitialize failed");
         return false;
     }
 
     EGLint config_nums;
     ret = eglChooseConfig(eglDisplay, config_attribs, &config, 1, &config_nums);
     if (!ret || config_nums < 1) {
-        ALOGE("eglChooseConfig failed");
+        SUBTITLE_LOGE("eglChooseConfig failed");
         return false;
     }
 
     eglContext = eglCreateContext(eglDisplay, config, NULL, NULL);
     if (!eglContext) {
-        ALOGE("eglCreateContext failed");
+        SUBTITLE_LOGE("eglCreateContext failed");
         return false;
     }
 
@@ -291,7 +286,7 @@ bool WLGLDevice::initEGL() {
     mScreenRect.set(0, 0, width, height);
     mScreenGLRect.set(0, height, width, 0);
 
-    ALOGD("getScreenSize: [%d, %d]", (int)width, (int)height);
+    SUBTITLE_LOGI("getScreenSize: [%d, %d]", (int)width, (int)height);
 
     surface = wl_compositor_create_surface(compositor);
     shellSurface = wl_shell_get_shell_surface(shell, surface);
@@ -301,12 +296,12 @@ bool WLGLDevice::initEGL() {
     wlEglWindow = wl_egl_window_create (surface, width, height);
     eglSurface = eglCreateWindowSurface(eglDisplay, config, wlEglWindow, NULL);
     if (!eglSurface) {
-        ALOGE("eglCreateWindowSurface failed");
+        SUBTITLE_LOGE("eglCreateWindowSurface failed");
         return false;
     }
 
     if (eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext) == EGL_FALSE) {
-        ALOGE("eglMakeCurrent failed");
+        SUBTITLE_LOGE("eglMakeCurrent failed");
         return false;
     }
 
@@ -316,12 +311,12 @@ bool WLGLDevice::initEGL() {
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    ALOGD("initEGL OK");
+    SUBTITLE_LOGI("initEGL OK");
     return true;
 }
 
 bool WLGLDevice::initTexture(void* data, WLRect &videoOriginRect, WLRect &cropRect) {
-    ALOGD("sourceCrop glRect= [%d, %d, %d, %d]", cropRect.x(), cropRect.y(),
+    SUBTITLE_LOGI("sourceCrop glRect= [%d, %d, %d, %d]", cropRect.x(), cropRect.y(),
             cropRect.width(), cropRect.height());
     if (data == nullptr || cropRect.isEmpty())
         return false;
@@ -337,7 +332,7 @@ bool WLGLDevice::initTexture(void* data, WLRect &videoOriginRect, WLRect &cropRe
     //mTexture.crop.set(videoOriginRect);
 
     WLGLRect glRect(videoOriginRect, mScreenGLRect);
-    ALOGD("videoOriginRect glRect= [%d, %d, %d, %d]", glRect.x(), glRect.y(), glRect.width(), glRect.height());
+    SUBTITLE_LOGI("videoOriginRect glRect= [%d, %d, %d, %d]", glRect.x(), glRect.y(), glRect.width(), glRect.height());
     GLint crop[4] = { glRect.x(), glRect.height(), glRect.width(), -glRect.height() };
 
     //Video original crop
@@ -354,7 +349,7 @@ bool WLGLDevice::initTexture(void* data, WLRect &videoOriginRect, WLRect &cropRe
     // Avoid data is out of display frame
     WLRect subCrop;
     if (!videoOriginRect.intersect(cropRect, &subCrop)) {
-        ALOGE("Final subCrop is empty, return");
+        SUBTITLE_LOGE("Final subCrop is empty, return");
         return false;
     }
     subCrop.log("Final subCrop");
@@ -444,7 +439,7 @@ void WLGLDevice::drawColor(float r, float g, float b, float a, bool flush) {
 void WLGLDevice::drawColor(float r, float g, float b, float a, WLRect &rect, bool flush) {
     WLRect intersectRect = WLRect();
     if (rect.isEmpty() || !mScreenRect.intersect(rect, &intersectRect)) {
-        ALOGW("%s, Rect checked failed", __FUNCTION__ );
+        SUBTITLE_LOGE("%s, Rect checked failed", __FUNCTION__ );
         return;
     }
 
@@ -464,12 +459,12 @@ void WLGLDevice::drawColor(float r, float g, float b, float a, WLRect &rect, boo
 
 bool WLGLDevice::drawImage(void *img, WLRect &videoOriginRect, WLRect &src, WLRect &dst, bool flush) {
     if (!initTexture(img, videoOriginRect, src)) {
-        ALOGE("%s: initTexture failed", __FUNCTION__ );
+        SUBTITLE_LOGE("%s: initTexture failed", __FUNCTION__ );
         return false;
     }
 
     WLGLRect targetRect(dst, mScreenGLRect);
-    ALOGV("drawImage, targetRect= [%d, %d, %d, %d]", targetRect.x(), targetRect.y(),
+    SUBTITLE_LOGI("drawImage, targetRect= [%d, %d, %d, %d]", targetRect.x(), targetRect.y(),
           targetRect.width(), targetRect.height());
 
     clear();
@@ -545,12 +540,12 @@ void WLGLDevice::drawMultiText(TextParams &textParams, WLRect &videoOriginRect,
 
     isTextMultiPart = false;
     int textPart = contents.size();
-    ALOGD("[%s], contents, size= %d", __FUNCTION__, textPart);
+    SUBTITLE_LOGI("[%s], contents, size= %d", __FUNCTION__, textPart);
 
     if (!contents.empty()) {
         int marginBottom = MIN_TEXT_MARGIN_BOTTOM;
         for (auto it = contents.rbegin(); it != contents.rend(); it++) {
-            ALOGD("[%s], content= %s", __FUNCTION__, it->c_str());
+            SUBTITLE_LOGI("[%s], content= %s", __FUNCTION__, it->c_str());
             bool flush = (it + 1) == contents.rend();
             textParams.content = it->c_str();
 
@@ -581,7 +576,7 @@ WLRect WLGLDevice::drawText(TextParams& textParams, WLRect &videoOriginRect,
 
     const char* content = textParams.content;
     if (content == nullptr || strlen(content) <= 0) {
-        ALOGE("Empty text, do not render");
+        SUBTITLE_LOGE("Empty text, do not render");
         if (flush) clear();
         return WLRect::empty();
     }
@@ -591,10 +586,12 @@ WLRect WLGLDevice::drawText(TextParams& textParams, WLRect &videoOriginRect,
     font.size = textParams.fontSize;
 
     BoundingBox fontBox = getFontBox(content, videoOriginRect, font);
-    ALOGD("fontBox= [%f, %f, %f, %f]", fontBox.x, fontBox.y, fontBox.x2, fontBox.y2);
+    SUBTITLE_LOGI("fontBox= [%f, %f, %f, %f]", fontBox.x, fontBox.y, fontBox.x2, fontBox.y2);
     if (fontBox.isEmpty()) {
         if (flush) clear();
-        ALOGE_IF(strlen(content) > 0, "No support text type rendering");
+        if (strlen(content) > 0) {
+            SUBTITLE_LOGE("No support text type rendering");
+        }
         return WLRect::empty();
     }
 
@@ -632,7 +629,7 @@ WLRect WLGLDevice::drawText(TextParams& textParams, WLRect &videoOriginRect,
 
     uint8_t * data = textSurface.data();
     if (!data || !drawImage(data, videoOriginRect, srcRect, dst, flush)) {
-        ALOGE("%s, No valid data will to be drew", __FUNCTION__);
+        SUBTITLE_LOGE("%s, No valid data will to be drew", __FUNCTION__);
         if (flush) clear();
         return WLRect::empty();
     }
@@ -644,9 +641,13 @@ void WLGLDevice::glAssert(const char* where) {
     GLenum err = glGetError();
 
     if (where == nullptr) {
-        ALOGE_IF(err != GL_NO_ERROR, "GL error(err_code: %d): [%s]", err, __FUNCTION__);
+        if (err != GL_NO_ERROR) {
+            SUBTITLE_LOGE("GL error(err_code: %d): [%s]", err, __FUNCTION__);
+        }
     } else {
-        ALOGE_IF(err != GL_NO_ERROR, "GL error(err_code: %d): [%s]", err, where);
+        if (err != GL_NO_ERROR) {
+            SUBTITLE_LOGE("GL error(err_code: %d): [%s]", err, where);
+        }
     }
 
 }

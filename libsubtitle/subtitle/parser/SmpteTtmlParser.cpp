@@ -20,7 +20,7 @@
 #include <time.h>
 #include <limits.h>
 #include "bprint.h"
-#include <android/log.h>
+#include "SubtitleLog.h"
 #include <utils/CallStack.h>
 
 #include <unistd.h>
@@ -38,12 +38,6 @@
 
 #include "SmpteTtmlParser.h"
 #include "tinyxml2.h"
-
-#define  TRACE()    LOGI("[%s::%d]\n",__FUNCTION__,__LINE__)
-
-#define LOGI ALOGI
-#define LOGD ALOGD
-#define LOGE ALOGE
 
 #define MAX_BUFFERED_PAGES 25
 #define BITMAP_CHAR_WIDTH  12
@@ -64,13 +58,13 @@ bool static inline isMore32Bit(int64_t pts) {
 bool save2PngFile(const char* filename, const void* data, size_t dataSize) {
     FILE* fp = fopen(filename, "wb");
     if (!fp) {
-        ALOGE("Error cannot open file %s!", filename);
+        SUBTITLE_LOGE("Error cannot open file %s!", filename);
         return false;
     }
 
     // write binary data to file
     if (fwrite(data, 1, dataSize, fp) != dataSize) {
-        ALOGE("Error: Failed to write data to file:%s!", filename);
+        SUBTITLE_LOGE("Error: Failed to write data to file:%s!", filename);
         fclose(fp);
         return false;
     }
@@ -111,7 +105,7 @@ static int smpte_ttml_parse_timecode(const char * beginTimeString, const char * 
             endHours = 0, endMinutes = 0, endSeconds = 0, endMilliseconds = 0,
             time = 0;
 
-  LOGI("%s begin time string: %s, end time string: %s\n",__FUNCTION__, beginTimeString, endTimeString);
+  SUBTITLE_LOGI("%s begin time string: %s, end time string: %s\n",__FUNCTION__, beginTimeString, endTimeString);
   bool beginSuccess = sscanf(beginTimeString, "%d:%d:%d.%d", &beginHours, &beginMinutes, &beginSeconds, &beginMilliseconds) == 4;
   bool endSuccess = sscanf(endTimeString, "%d:%d:%d.%d", &endHours, &endMinutes, &endSeconds, &endMilliseconds) == 4;
   if (!beginSuccess || beginHours < 0 || beginHours > 23 || beginMinutes < 0 || beginMinutes > 59 || beginSeconds < 0 || beginSeconds > 59 || beginMilliseconds < 0 || beginMilliseconds > 999) {
@@ -206,10 +200,10 @@ void decodePng(std::shared_ptr<AML_SPUVAR> spu, const char* png_data, size_t png
     int color_type = png_get_color_type(png_ptr, info_ptr);
 
     // Some simple output, you can do other processing as needed
-    LOGI("%s Image Width: %d\n", __FUNCTION__ , width);
-    LOGI("%s Image Height: %d\n", __FUNCTION__ , height);
-    LOGI("%s Bit Depth: %d\n", __FUNCTION__ , bit_depth);
-    LOGI("%s Color Type: %d\n", __FUNCTION__ , color_type);
+    SUBTITLE_LOGI("%s Image Width: %d\n", __FUNCTION__ , width);
+    SUBTITLE_LOGI("%s Image Height: %d\n", __FUNCTION__ , height);
+    SUBTITLE_LOGI("%s Bit Depth: %d\n", __FUNCTION__ , bit_depth);
+    SUBTITLE_LOGI("%s Color Type: %d\n", __FUNCTION__ , color_type);
 
     // convert to RGB image (if not)
     if (color_type == PNG_COLOR_TYPE_PALETTE)
@@ -293,7 +287,7 @@ SmpteTtmlParser *SmpteTtmlParser::getCurrentInstance() {
 }
 
 SmpteTtmlParser::~SmpteTtmlParser() {
-    LOGI("%s", __func__);
+    SUBTITLE_LOGI("%s", __func__);
     stopParser();
     sInstance = nullptr;
 
@@ -400,13 +394,13 @@ int SmpteTtmlParser::SmpteTtmlDecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char 
     tinyxml2::XMLDocument doc;
     int ret = doc.Parse(buf, bufSize);
     if (ret != tinyxml2::XML_SUCCESS) {
-        ALOGE("%s ret:%d Failed to parse XML", __FUNCTION__, ret);
+        SUBTITLE_LOGE("%s ret:%d Failed to parse XML", __FUNCTION__, ret);
         return -1;
     }
 
     tinyxml2::XMLElement* root = doc.RootElement();
     if (root == NULL) {
-        ALOGE("%s Failed to load file: No root element.", __FUNCTION__);
+        SUBTITLE_LOGE("%s Failed to load file: No root element.", __FUNCTION__);
         doc.Clear();
         return -1;
     }
@@ -415,7 +409,7 @@ int SmpteTtmlParser::SmpteTtmlDecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char 
     tinyxml2::XMLElement *head = root->FirstChildElement("head");
     if (head == nullptr) head = root->FirstChildElement("tt:head");
     if (head == nullptr) {
-        ALOGE("%s Error. no head found!", __FUNCTION__);
+        SUBTITLE_LOGE("%s Error. no head found!", __FUNCTION__);
         doc.Clear();
         return -1;
     }
@@ -425,7 +419,7 @@ int SmpteTtmlParser::SmpteTtmlDecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char 
     if (smpteInformationParagraph != nullptr) {
         const tinyxml2::XMLAttribute *smpteInformationModeParagraphAttribute = smpteInformationParagraph->FindAttribute("smpte:mode");
         if (smpteInformationModeParagraphAttribute == nullptr ) {
-            ALOGE("smpteInformationModeParagraphAttribute is Null!\n");
+            SUBTITLE_LOGE("smpteInformationModeParagraphAttribute is Null!\n");
         }
     }
 
@@ -433,7 +427,7 @@ int SmpteTtmlParser::SmpteTtmlDecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char 
     tinyxml2::XMLElement *metadata = head->FirstChildElement("metadata");
     if (metadata == nullptr) metadata = head->FirstChildElement("tt:metadata");
     if (metadata == nullptr) {
-        ALOGE("%s Error. no metadata found!", __FUNCTION__);
+        SUBTITLE_LOGE("%s Error. no metadata found!", __FUNCTION__);
         doc.Clear();
         return -1;
     }
@@ -447,7 +441,7 @@ int SmpteTtmlParser::SmpteTtmlDecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char 
     tinyxml2::XMLElement *layout = head->FirstChildElement("layout");
     if (layout == nullptr) layout = head->FirstChildElement("tt:layout");
     if (layout == nullptr) {
-        ALOGE("%s Error. no layout found!", __FUNCTION__);
+        SUBTITLE_LOGE("%s Error. no layout found!", __FUNCTION__);
         doc.Clear();
         return -1;
     }
@@ -460,7 +454,7 @@ int SmpteTtmlParser::SmpteTtmlDecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char 
     tinyxml2::XMLElement *body = root->FirstChildElement("body");
     if (body == nullptr) body = root->FirstChildElement("tt:body");
     if (body == nullptr) {
-        ALOGE("%s Error. no body found!", __FUNCTION__);
+        SUBTITLE_LOGE("%s Error. no body found!", __FUNCTION__);
         doc.Clear();
         return -1;
     }
@@ -486,7 +480,7 @@ int SmpteTtmlParser::SmpteTtmlDecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char 
 
         // Checks if the input is a null pointer or an empty string
         if (imageData == nullptr || *imageData == '\0') {
-            ALOGE("imageData is Null!\n");
+            SUBTITLE_LOGE("imageData is Null!\n");
         }
 
         // Find the position of the first non-newline character
@@ -495,45 +489,45 @@ int SmpteTtmlParser::SmpteTtmlDecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char 
         }
 
         if (metadataSmpteImageXmlIdParagraphAttribute == nullptr ) {
-            ALOGD("metadataSmpteImageXmlIdParagraphAttribute is Null!\n");
+            SUBTITLE_LOGI("metadataSmpteImageXmlIdParagraphAttribute is Null!\n");
         }
 
         if (metadataSmpteImageImageTypeParagraphAttribute == nullptr ) {
-            ALOGD("metadataSmpteImageImageTypeParagraphAttribute is Null!\n");
+            SUBTITLE_LOGI("metadataSmpteImageImageTypeParagraphAttribute is Null!\n");
         }
 
         if (metadataSmpteImageEncodingParagraphAttribute == nullptr ) {
-            ALOGD("metadataSmpteImageEncodingParagraphAttribute is Null!\n");
+            SUBTITLE_LOGI("metadataSmpteImageEncodingParagraphAttribute is Null!\n");
         }
 
 
         if (layoutRegionXmlIdParagraphAttribute == nullptr ) {
-            ALOGD("layoutRegionXmlIdParagraphAttribute is Null!\n");
+            SUBTITLE_LOGI("layoutRegionXmlIdParagraphAttribute is Null!\n");
         }
 
         if (layoutRegionTtsOriginParagraphAttribute == nullptr ) {
-            ALOGD("layoutRegionTtsOriginParagraphAttribute is Null!\n");
+            SUBTITLE_LOGI("layoutRegionTtsOriginParagraphAttribute is Null!\n");
         }
         if (layoutRegionTtsExtentParagraphAttribute == nullptr ) {
-            ALOGD("layoutRegionTtsExtentParagraphAttribute is Null!\n");
+            SUBTITLE_LOGI("layoutRegionTtsExtentParagraphAttribute is Null!\n");
         }
 
         if (divDivRegionParagraphAttribute == nullptr ) {
-            ALOGD("divDivRegionParagraphAttribute is Null!\n");
+            SUBTITLE_LOGI("divDivRegionParagraphAttribute is Null!\n");
         }
         if (divDivBeginParagraphAttribute == nullptr ) {
-            ALOGD("divDivBeginParagraphAttribute is Null!\n");
+            SUBTITLE_LOGI("divDivBeginParagraphAttribute is Null!\n");
         }
         if (divDivEndParagraphAttribute == nullptr ) {
-            ALOGD("divDivEndParagraphAttribute is Null!\n");
+            SUBTITLE_LOGI("divDivEndParagraphAttribute is Null!\n");
         }
         if (divDivSmpteBackgroundImageParagraphAttribute == nullptr ) {
-            ALOGD("divDivSmpteBackgroundImageParagraphAttribute is Null!\n");
+            SUBTITLE_LOGI("divDivSmpteBackgroundImageParagraphAttribute is Null!\n");
         }
 
         if (mDumpSub) {
             if (std::strcmp(divDivRegionParagraphAttribute->Value(), layoutRegionXmlIdParagraphAttribute->Value()) && std::strcmp(divDivSmpteBackgroundImageParagraphAttribute->Value()+1, metadataSmpteImageXmlIdParagraphAttribute->Value())) {
-                        ALOGD("%s region=%s  begin=%s end=%s smpte:backgroundImage=%s tts:origin=%s tts:extent=%s imagetype=%s encoding=%s imageData:%s\n", __FUNCTION__,
+                        SUBTITLE_LOGI("%s region=%s  begin=%s end=%s smpte:backgroundImage=%s tts:origin=%s tts:extent=%s imagetype=%s encoding=%s imageData:%s\n", __FUNCTION__,
                         divDivRegionParagraphAttribute->Value(),
                         divDivBeginParagraphAttribute->Value(),
                         divDivEndParagraphAttribute->Value(),
@@ -558,11 +552,11 @@ int SmpteTtmlParser::SmpteTtmlDecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char 
             if ("PNG" == std::string(metadataSmpteImageImageTypeParagraphAttribute->Value())) {
                 decodePng(spu, reinterpret_cast<const char*>(binaryImageData.data()), binaryImageData.size());
             } else {
-                ALOGE("%s The image data is not in png format, which is not supported for now.",__FUNCTION__);
+                SUBTITLE_LOGE("%s The image data is not in png format, which is not supported for now.",__FUNCTION__);
                 return -1;
             }
         } else {
-            ALOGE("%s imageData size is null.",__FUNCTION__);
+            SUBTITLE_LOGE("%s imageData size is null.",__FUNCTION__);
             return -1;
         }
 
@@ -594,10 +588,10 @@ int SmpteTtmlParser::SmpteTtmlDecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char 
             spu->spu_origin_display_w = VideoInfo::Instance()->getVideoWidth();
             spu->spu_origin_display_h = VideoInfo::Instance()->getVideoHeight();
         }
-        ALOGD("%s region=%s  begin=%s end=%s smpte:backgroundImage=%s\n", __FUNCTION__, divDivRegionParagraphAttribute->Value(), divDivBeginParagraphAttribute->Value(), divDivEndParagraphAttribute->Value(), divDivSmpteBackgroundImageParagraphAttribute->Value());
-        ALOGD("%s xml:id=%s tts:origin=%s tts:extent=%s\n", __FUNCTION__, layoutRegionXmlIdParagraphAttribute->Value(), layoutRegionTtsOriginParagraphAttribute->Value(), layoutRegionTtsExtentParagraphAttribute->Value());
-        ALOGD("%s smpte:image xml:id=%s imagetype=%s encoding=%s imageData:%s", __FUNCTION__, metadataSmpteImageXmlIdParagraphAttribute->Value(), metadataSmpteImageImageTypeParagraphAttribute->Value(), metadataSmpteImageEncodingParagraphAttribute->Value(), imageData);
-        ALOGD("%s spu->spu_width:%d,spu->spu_height:%d spu->buffer_size:%d spu->spu_origin_display_w:%d spu->spu_origin_display_h:%d\n", __FUNCTION__, spu->spu_width, spu->spu_height, spu->buffer_size, spu->spu_origin_display_w, spu->spu_origin_display_h);
+        SUBTITLE_LOGI("%s region=%s  begin=%s end=%s smpte:backgroundImage=%s\n", __FUNCTION__, divDivRegionParagraphAttribute->Value(), divDivBeginParagraphAttribute->Value(), divDivEndParagraphAttribute->Value(), divDivSmpteBackgroundImageParagraphAttribute->Value());
+        SUBTITLE_LOGI("%s xml:id=%s tts:origin=%s tts:extent=%s\n", __FUNCTION__, layoutRegionXmlIdParagraphAttribute->Value(), layoutRegionTtsOriginParagraphAttribute->Value(), layoutRegionTtsExtentParagraphAttribute->Value());
+        SUBTITLE_LOGI("%s smpte:image xml:id=%s imagetype=%s encoding=%s imageData:%s", __FUNCTION__, metadataSmpteImageXmlIdParagraphAttribute->Value(), metadataSmpteImageImageTypeParagraphAttribute->Value(), metadataSmpteImageEncodingParagraphAttribute->Value(), imageData);
+        SUBTITLE_LOGI("%s spu->spu_width:%d,spu->spu_height:%d spu->buffer_size:%d spu->spu_origin_display_w:%d spu->spu_origin_display_h:%d\n", __FUNCTION__, spu->spu_width, spu->spu_height, spu->buffer_size, spu->spu_origin_display_w, spu->spu_origin_display_h);
         addDecodedItem(std::shared_ptr<AML_SPUVAR>(spu));
         spu->pts = spu->m_delay;
 
@@ -610,7 +604,7 @@ int SmpteTtmlParser::getTTMLSpu() {
     char tmpbuf[8] = {0};
     int64_t packetHeader = 0;
 
-    if (mDumpSub) LOGI("enter get_dvb_ttml_spu\n");
+    if (mDumpSub) SUBTITLE_LOGI("enter get_dvb_ttml_spu\n");
     int ret = -1;
 
     while (mDataSource->read(tmpbuf, 1) == 1) {
@@ -622,7 +616,7 @@ int SmpteTtmlParser::getTTMLSpu() {
         spu->sync_bytes = AML_PARSER_SYNC_WORD;
 
         packetHeader = ((packetHeader<<8) & 0x000000ffffffffff) | tmpbuf[0];
-        if (mDumpSub) LOGI("## get_dvb_spu %x, %llx,-------------\n",tmpbuf[0], packetHeader);
+        if (mDumpSub) SUBTITLE_LOGI("## get_dvb_spu %x, %llx,-------------\n",tmpbuf[0], packetHeader);
 
         if ((packetHeader & 0xffffffff) == 0x000001bd) {
             ret = hwDemuxParse(spu);
@@ -652,7 +646,7 @@ int SmpteTtmlParser::hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
             if (mDataSource->read(tmpbuf, 3) == 3) {
                 packetLen -= 3;
                 pesHeaderLen = tmpbuf[2];
-                LOGI("get_dvb_ttml spu-packetLen:%d, pesHeaderLen:%d\n", packetLen,pesHeaderLen);
+                SUBTITLE_LOGI("get_dvb_ttml spu-packetLen:%d, pesHeaderLen:%d\n", packetLen,pesHeaderLen);
 
                 if (packetLen >= pesHeaderLen) {
                     if ((tmpbuf[1] & 0xc0) == 0x80) {
@@ -715,7 +709,7 @@ int SmpteTtmlParser::hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
             spu->subtitle_type = TYPE_SUBTITLE_SMPTE_TTML;
             spu->pts = dvbPts;
             if (isMore32Bit(spu->pts) && !isMore32Bit(mDataSource->getSyncTime())) {
-                ALOGD("SUB PTS is greater than 32 bits, before subpts: %lld, vpts:%lld", spu->pts, mDataSource->getSyncTime());
+                SUBTITLE_LOGI("SUB PTS is greater than 32 bits, before subpts: %lld, vpts:%lld", spu->pts, mDataSource->getSyncTime());
                 spu->pts &= TSYNC_32_BIT_PTS;
             }
             //If gap time is large than 9 secs, think pts skip,notify info
@@ -723,32 +717,32 @@ int SmpteTtmlParser::hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
                 LOGE("[%s::%d]pts skip,vpts:%lld, spu->pts:%lld notify time error!\n", __FUNCTION__, __LINE__, mDataSource->getSyncTime(), spu->pts);
             }
 
-            LOGI("[%s::%d]pts ---------------,vpts:%lld, spu->pts:%lld\n", __FUNCTION__, __LINE__, mDataSource->getSyncTime(), spu->pts);
+            SUBTITLE_LOGI("[%s::%d]pts ---------------,vpts:%lld, spu->pts:%lld\n", __FUNCTION__, __LINE__, mDataSource->getSyncTime(), spu->pts);
 
             buf = (char *)malloc(packetLen);
             if (buf) {
-                LOGI("packetLen is %d, pts is %llx, delay is %llx\n", packetLen, spu->pts, tempPts);
+                SUBTITLE_LOGI("packetLen is %d, pts is %llx, delay is %llx\n", packetLen, spu->pts, tempPts);
             } else {
-                LOGI("packetLen buf malloc fail!!!\n");
+                SUBTITLE_LOGI("packetLen buf malloc fail!!!\n");
             }
 
             if (buf) {
                 memset(buf, 0x0, packetLen);
                 if (mDataSource->read(buf, packetLen) == packetLen) {
                     ret = SmpteTtmlDecodeFrame(spu, buf, packetLen);
-                    LOGI(" @@@@@@@hwDemuxParse parse ret:%d", ret);
+                    SUBTITLE_LOGI(" @@@@@@@hwDemuxParse parse ret:%d", ret);
                     if (ret != -1) {
-                        LOGI("dump-pts-hwdmx!success.\n");
+                        SUBTITLE_LOGI("dump-pts-hwdmx!success.\n");
                         if (buf) free(buf);
                         return 0;
                     } else {
-                        LOGI("dump-pts-hwdmx!error.\n");
+                        SUBTITLE_LOGI("dump-pts-hwdmx!error.\n");
                         if (buf) free(buf);
                         return -1;
                     }
                 }
-                LOGI("packetLen buf free=%p\n", buf);
-                LOGI("@@[%s::%d]free ptr=%p\n", __FUNCTION__, __LINE__, buf);
+                SUBTITLE_LOGI("packetLen buf free=%p\n", buf);
+                SUBTITLE_LOGI("@@[%s::%d]free ptr=%p\n", __FUNCTION__, __LINE__, buf);
                 free(buf);
             }
         }
@@ -766,7 +760,7 @@ int SmpteTtmlParser::softDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
 
     // read package header info
     if (mDataSource->read(tmpbuf, 19) == 19) {
-        if (mDumpSub) LOGI("## %s get_dvb_spu %x,%x,%x,  %x,%x,%x,  %x,%x,-------------\n",
+        if (mDumpSub) SUBTITLE_LOGI("## %s get_dvb_spu %x,%x,%x,  %x,%x,%x,  %x,%x,-------------\n",
                 __FUNCTION__,
                 tmpbuf[0], tmpbuf[1], tmpbuf[2], tmpbuf[3],
                 tmpbuf[4], tmpbuf[5], tmpbuf[6], tmpbuf[7]);
@@ -778,17 +772,17 @@ int SmpteTtmlParser::softDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
         spu->subtitle_type = TYPE_SUBTITLE_SMPTE_TTML;
         spu->pts = mDataSource->getSyncTime();
         if (isMore32Bit(spu->pts) && !isMore32Bit(mDataSource->getSyncTime())) {
-            ALOGD("SUB PTS is greater than 32 bits, before subpts: %lld, vpts:%lld", spu->pts, mDataSource->getSyncTime());
+            SUBTITLE_LOGI("SUB PTS is greater than 32 bits, before subpts: %lld, vpts:%lld", spu->pts, mDataSource->getSyncTime());
             spu->pts &= TSYNC_32_BIT_PTS;
         }
         //If gap time is large than 9 secs, think pts skip,notify info
         //if (abs(mDataSource->getSyncTime() - spu->pts) > 9*90000) {
         //    LOGE("[%s::%d]pts skip,vpts:%lld, spu->pts:%lld notify time error!\n", __FUNCTION__, __LINE__, mDataSource->getSyncTime(), spu->pts);
         //}
-        //LOGI("[%s::%d]pts ---------------,vpts:%lld, spu->pts:%lld\n", __FUNCTION__, __LINE__, mDataSource->getSyncTime(), spu->pts);
+        //SUBTITLE_LOGI("[%s::%d]pts ---------------,vpts:%lld, spu->pts:%lld\n", __FUNCTION__, __LINE__, mDataSource->getSyncTime(), spu->pts);
 
-        if (mDumpSub) LOGI("## %s spu-> pts:%lld,dvPts:%lld\n", __FUNCTION__, spu->pts, dvbPts);
-        if (mDumpSub) LOGI("## %s datalen=%d,pts=%llx,delay=%llx,diff=%llx, data: %x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x\n",
+        if (mDumpSub) SUBTITLE_LOGI("## %s spu-> pts:%lld,dvPts:%lld\n", __FUNCTION__, spu->pts, dvbPts);
+        if (mDumpSub) SUBTITLE_LOGI("## %s datalen=%d,pts=%llx,delay=%llx,diff=%llx, data: %x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x\n",
                 __FUNCTION__, dataLen, dvbPts, spu->m_delay, ptsDiff,
                 tmpbuf[0], tmpbuf[1], tmpbuf[2], tmpbuf[3], tmpbuf[4],
                 tmpbuf[5], tmpbuf[6], tmpbuf[7], tmpbuf[8], tmpbuf[9],
@@ -799,23 +793,23 @@ int SmpteTtmlParser::softDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
             LOGE("[%s::%d]malloc error! \n", __FUNCTION__,__LINE__);
             return -1;
         }
-        if (mDumpSub) LOGI("@@[%s::%d]malloc ptr=%p, size = %d\n",__FUNCTION__, __LINE__, data, dataLen);
+        if (mDumpSub) SUBTITLE_LOGI("@@[%s::%d]malloc ptr=%p, size = %d\n",__FUNCTION__, __LINE__, data, dataLen);
         memset(data, 0x0, dataLen);
         ret = mDataSource->read(data, dataLen);
-        if (mDumpSub) LOGI("## ret=%d,dataLen=%d, %x,%x,%x,%x,%x,%x,%x,%x,---------\n",
+        if (mDumpSub) SUBTITLE_LOGI("## ret=%d,dataLen=%d, %x,%x,%x,%x,%x,%x,%x,%x,---------\n",
                 ret, dataLen, data[0], data[1], data[2], data[3],
                 data[4], data[5], data[6], data[7]);
 
         ret = SmpteTtmlDecodeFrame(spu, data, dataLen);
         if (ret != -1) {
-            if (mDumpSub) LOGI("dump-pts-swdmx!success pts(%lld) mIndex:%d frame was add\n", spu->pts, mIndex);
+            if (mDumpSub) SUBTITLE_LOGI("dump-pts-swdmx!success pts(%lld) mIndex:%d frame was add\n", spu->pts, mIndex);
             {
                 std::unique_lock<std::mutex> autolock(mMutex);
                 mPendingAction = 1;
                 mCv.notify_all();
             }
         } else {
-            if (mDumpSub) LOGI("dump-pts-swdmx!error this pts(%lld) frame was abandon\n", spu->pts);
+            if (mDumpSub) SUBTITLE_LOGI("dump-pts-swdmx!error this pts(%lld) frame was abandon\n", spu->pts);
         }
 
         if (data) {
@@ -843,16 +837,16 @@ int SmpteTtmlParser::atvHwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
             }
             memset(data, 0x0, ATV_SMPTE_TTML_DATA_LEN);
             ret = mDataSource->read(data, ATV_SMPTE_TTML_DATA_LEN);
-            if (mDumpSub) LOGI("[%s::%d] ret=%d,dataLen=%d, %x,%x,%x,%x,%x,%x,%x,%x,---------\n",
+            if (mDumpSub) SUBTITLE_LOGI("[%s::%d] ret=%d,dataLen=%d, %x,%x,%x,%x,%x,%x,%x,%x,---------\n",
                     __FUNCTION__, __LINE__, ret, ATV_SMPTE_TTML_DATA_LEN, data[0], data[1], data[2], data[3],
                     data[4], data[5], data[6], data[7]);
 
             ret = SmpteTtmlDecodeFrame(spu, data, ATV_SMPTE_TTML_DATA_LEN);
 
             if (ret != -1) {
-                if (mDumpSub) LOGI("[%s::%d]dump-pts-atvHwDmx!success pts(%lld) mIndex:%d frame was add\n", __FUNCTION__,__LINE__, spu->pts, ++mIndex);
+                if (mDumpSub) SUBTITLE_LOGI("[%s::%d]dump-pts-atvHwDmx!success pts(%lld) mIndex:%d frame was add\n", __FUNCTION__,__LINE__, spu->pts, ++mIndex);
             } else {
-                if (mDumpSub) LOGI("[%s::%d]dump-pts-atvHwDmx!error this pts(%lld) frame was abandon\n", __FUNCTION__,__LINE__, spu->pts);
+                if (mDumpSub) SUBTITLE_LOGI("[%s::%d]dump-pts-atvHwDmx!error this pts(%lld) frame was abandon\n", __FUNCTION__,__LINE__, spu->pts);
             }
 
             if (data) {
@@ -898,7 +892,7 @@ int SmpteTtmlParser::getSpu() {
     if (mState == SUB_INIT) {
         mState = SUB_PLAYING;
     } else if (mState == SUB_STOP) {
-        ALOGD(" mState == SUB_STOP \n\n");
+        SUBTITLE_LOGI(" mState == SUB_STOP \n\n");
         return 0;
     }
 

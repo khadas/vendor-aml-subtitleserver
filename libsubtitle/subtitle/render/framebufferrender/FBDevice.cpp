@@ -55,8 +55,12 @@ using namespace Cairo;
 #define ENV_XDG_RUNTIME_DIR "XDG_RUNTIME_DIR"
 #define ENV_WAYLAND_DISPLAY "WAYLAND_DISPLAY"
 #define SUBTITLE_OVERLAY_NAME "subtitle-overlay"
-#define FRAMEBUFFER_DEV "/dev/fb0"
 //#define SUBTITLE_ZAPPER_4K
+#ifdef SUBTITLE_ZAPPER_4K
+#define FRAMEBUFFER_DEV "/dev/fb0"
+#else
+#define FRAMEBUFFER_DEV "/dev/fb1"
+#endif
 
 class RdkShellCmd {
 public:

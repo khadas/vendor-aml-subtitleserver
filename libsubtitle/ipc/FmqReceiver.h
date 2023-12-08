@@ -26,14 +26,14 @@
 
 #pragma once
 
-#include "SubtitleLog.h"
-#include <utils/Thread.h>
 #include <mutex>
 #include <thread>
-#include <vector>
+#include<vector>
+
+#include "SubtitleLog.h"
+#include <utils/Thread.h>
 
 #include "DataSource.h"
-
 #include "IpcDataTypes.h"
 #include "ringbuffer.h"
 #include "FmqReader.h"

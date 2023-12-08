@@ -44,47 +44,45 @@ enum RenderType {
 
 static AmlSubDataType __mapServerType2ApiType(int type) {
     switch (type) {
-        case TYPE_SUBTITLE_DVB:
-        case TYPE_SUBTITLE_PGS:
-        case TYPE_SUBTITLE_SMPTE_TTML:
-            return SUB_DATA_TYPE_POSITION_BITMAP;
+    case TYPE_SUBTITLE_DVB:
+    case TYPE_SUBTITLE_PGS:
+    case TYPE_SUBTITLE_SMPTE_TTML:
+        return SUB_DATA_TYPE_POSITION_BITMAP;
 
-        case TYPE_SUBTITLE_EXTERNAL:
-        case TYPE_SUBTITLE_MKV_STR:
-        case TYPE_SUBTITLE_SSA:
-        case TYPE_SUBTITLE_ARIB_B24:
-        case TYPE_SUBTITLE_TTML:
-            return SUB_DATA_TYPE_STRING;
+    case TYPE_SUBTITLE_EXTERNAL:
+    case TYPE_SUBTITLE_MKV_STR:
+    case TYPE_SUBTITLE_SSA:
+    case TYPE_SUBTITLE_ARIB_B24:
+    case TYPE_SUBTITLE_TTML:
+        return SUB_DATA_TYPE_STRING;
 
-        case TYPE_SUBTITLE_CLOSED_CAPTION:
-            return SUB_DATA_TYPE_CC_JSON;
+    case TYPE_SUBTITLE_CLOSED_CAPTION:
+        return SUB_DATA_TYPE_CC_JSON;
 
-        case 0xAAAA:
-            return SUB_DATA_TYPE_QTONE;
+    case 0xAAAA:
+         return SUB_DATA_TYPE_QTONE;
 
     }
-
-    //default:
     return SUB_DATA_TYPE_BITMAP;
 }
 
 static int __mapApiType2SubtitleType(int type) {
     SUBTITLE_LOGI("call>> %s [stype:%d]", __func__, type);
     switch (type) {
-        case TYPE_SUBTITLE_DVB:
-            return DTV_SUB_DTVKIT_DVB;
-        case TYPE_SUBTITLE_DVB_TELETEXT:
-            return DTV_SUB_DTVKIT_TELETEXT;
-        case TYPE_SUBTITLE_SCTE27:
-            return DTV_SUB_DTVKIT_SCTE27;
-        case TYPE_SUBTITLE_CLOSED_CAPTION:
-            return DTV_SUB_CC;
-        case TYPE_SUBTITLE_ARIB_B24:
-            return DTV_SUB_DTVKIT_ARIB24;
-        case TYPE_SUBTITLE_TTML:
-            return DTV_SUB_DTVKIT_TTML;
-        case TYPE_SUBTITLE_SMPTE_TTML:
-            return DTV_SUB_DTVKIT_SMPTE_TTML;
+    case TYPE_SUBTITLE_DVB:
+        return DTV_SUB_DVB;
+    case TYPE_SUBTITLE_DVB_TELETEXT:
+        return DTV_SUB_DVB_TELETEXT;
+    case TYPE_SUBTITLE_SCTE27:
+        return DTV_SUB_SCTE27;
+    case TYPE_SUBTITLE_CLOSED_CAPTION:
+        return DTV_SUB_CC;
+    case TYPE_SUBTITLE_ARIB_B24:
+        return DTV_SUB_ARIB24;
+    case TYPE_SUBTITLE_TTML:
+        return DTV_SUB_DVB_TTML;
+    case TYPE_SUBTITLE_SMPTE_TTML:
+        return DTV_SUB_SMPTE_TTML;
     }
     //default:
     return type;
@@ -149,7 +147,6 @@ public:
 
     // middleware api do not need this
     virtual void onMixVideoEvent(int val) {}
-
     virtual void onSubtitleUIEvent(int uiCmd, const std::vector<int> &params) {}
 
 
@@ -157,17 +154,11 @@ public:
     virtual void onServerDied() {}
 
     void setupDataCb(AmlSubtitleDataCb cb) { mDataCb = cb; }
-
     void setupChannelUpdateCb(AmlChannelUpdateCb cb) { mChannelUpdateCb = cb; }
-
     void setupSubtitleAvailCb(AmlSubtitleAvailCb cb) { mSubtitleAvailCb = cb; }
-
     void setupAfdEventCb(AmlAfdEventCb cb) { mAfdEventCb = cb; }
-
     void setupDimensionCb(AmlSubtitleDimensionCb cb) { mDimensionCb = cb; }
-
     void setupLanguageCb(AmlSubtitleLanguageCb cb) { mLanguageCb = cb; }
-
     void setupSubtitleInfoCb(AmlSubtitleInfoCb cb) { mSubtitleInfoCb = cb; }
 
 
@@ -242,11 +233,10 @@ static bool __eraseFromContext(SubtitleContext *ctx) {
 AmlSubtitleHnd amlsub_Create() {
     SUBTITLE_LOGI("call>> %s", __func__);
     sp<SubtitleContext> ctx = new SubtitleContext();
+    SUBTITLE_LOGI("amlsub_Create, mClient= %p", ctx->mClient);
     sp<MyAdaptorListener> listener = new MyAdaptorListener();
     ctx->mClient = new SubtitleClientLinux(false, listener, OpenType::TYPE_MIDDLEWARE);
     ctx->mAdaptorListener = listener;
-
-    SUBTITLE_LOGI("amlsub_Create, mClient= %p", ctx->mClient);
 
     __pushContext(ctx);
     return ctx.get();
@@ -693,4 +683,3 @@ AmlSubtitleStatus amlsub_UpdateVideoPos(AmlSubtitleHnd handle, int64_t pos) {
     bool r  = ctx->mClient->updateVideoPos(pos);
     return r ? SUB_STAT_OK : SUB_STAT_FAIL;
 }
-

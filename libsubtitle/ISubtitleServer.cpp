@@ -94,7 +94,7 @@ public:
 	   return OK;
     }
 
-    virtual Result ttControl(int32_t sId, int cmd, int magazine, int page, int regionId, int param) {
+    virtual Result ttControl(int32_t sId, int cmd, int magazine, int pageNo, int regionId, int param) {
 	   return OK;
     }
     virtual Result ttGoHome(int32_t sId) {

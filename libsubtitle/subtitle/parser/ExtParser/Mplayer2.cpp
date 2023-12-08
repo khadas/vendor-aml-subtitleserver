@@ -27,6 +27,8 @@
 #define LOG_TAG "Mplayer2"
 
 #include "Mplayer2.h"
+#include "SubtitleLog.h"
+
 
 Mplayer2::Mplayer2(std::shared_ptr<DataSource> source): TextSubtitle(source) {
 }

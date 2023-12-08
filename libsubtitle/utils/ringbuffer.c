@@ -31,9 +31,9 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <stdio.h>
-//#include "trace_support.h"
+
 #include "SubtitleLog.h"
-//#include <utils/CallStack.h>
+
 #include "ringbuffer.h"
 
 

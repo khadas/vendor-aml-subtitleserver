@@ -30,12 +30,13 @@
 #include <stdlib.h>
 #include <memory.h>
 #include <errno.h>
-
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-//#include "trace_support.h"
+
+#include "SubtitleLog.h"
+
 #include "VideoInfo.h"
 #include "ParserFactory.h"
 
@@ -115,9 +116,9 @@ public:
                 }
 
                 close(fd);
-            } else {
-                SUBTITLE_LOGE("open error:%d,%s!!", errno,strerror(errno));
-            }
+            } // else {
+                //SUBTITLE_LOGE("open error:%d,%s!!", errno,strerror(errno));
+            // }
             usleep(20*1000);
         }
 
@@ -136,4 +137,3 @@ VideoInfo *VideoInfo::Instance() {
     }
     return mInstance;
 }
-

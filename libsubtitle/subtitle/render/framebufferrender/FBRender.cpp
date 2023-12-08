@@ -224,12 +224,12 @@ void FBRender::drawItems() {
 
             // Show full screen for Teletext
             bool showFullScreen =
-                    (*it)->subtitle_type == SubtitleType::TYPE_SUBTITLE_DTVKIT_TELETEXT
+                    (*it)->subtitle_type == SubtitleType::TYPE_SUBTITLE_DVB_TELETEXT
                     || (*it)->subtitle_type == SubtitleType::TYPE_SUBTITLE_DVB_TELETEXT;
 
 //            mFBDevice->drawImage((*it)->subtitle_type, (*it)->spu_data, (*it)->pts, (*it)->buffer_size, (*it)->spu_width, (*it)->spu_height, showFullScreen ? rect : originDisplayRect, rect, screenRect);
             mFBDevice->drawImage((*it)->subtitle_type, (*it)->spu_data, (*it)->pts, (*it)->buffer_size, (*it)->spu_start_x, (*it)->spu_start_y, (*it)->spu_width, (*it)->spu_height, originDisplayRect, rect, screenRect);
-            if ((*it)->subtitle_type != SubtitleType::TYPE_SUBTITLE_DTVKIT_TELETEXT && (*it)->subtitle_type != SubtitleType::TYPE_SUBTITLE_DVB_TELETEXT) {
+            if ((*it)->subtitle_type != SubtitleType::TYPE_SUBTITLE_DVB_TELETEXT && (*it)->subtitle_type != SubtitleType::TYPE_SUBTITLE_DVB_TELETEXT) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(15));
             }
         }
@@ -242,11 +242,8 @@ bool FBRender::isText(std::shared_ptr<AML_SPUVAR> &spu) {
     return spu->isSimpleText
            || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_CLOSED_CAPTION
            || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_SCTE27
-           || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_DTVKIT_SCTE27
            || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_ARIB_B24
-           || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_DTVKIT_ARIB_B24
-           || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_TTML
-           || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_DTVKIT_TTML;
+           || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_DVB_TTML;
 }
 
 void FBRender::onThreadExit() {

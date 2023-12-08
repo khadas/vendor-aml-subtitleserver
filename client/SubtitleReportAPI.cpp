@@ -25,6 +25,7 @@
  */
 
 #define LOG_TAG "SocketAPI"
+
 #include <mutex>
 #include <stdint.h>
 #include <string.h>
@@ -53,16 +54,16 @@ typedef struct {
 } SubtitleReportContext;
 
 typedef enum {
-    SUBTITLE_TOTAL_TRACK    = 'STOT',
-    SUBTITLE_START_PTS      = 'SPTS',
-    SUBTITLE_RENDER_TIME    = 'SRDT',
-    SUBTITLE_SUB_TYPE       = 'STYP',
-    SUBTITLE_TYPE_STRING    = 'TPSR',
-    SUBTITLE_LANG_STRING    = 'LGSR',
-    SUBTITLE_SUB_DATA       = 'PLDT',
+    SUBTITLE_TOTAL_TRACK    = 0x53544F54,  // 'STOT'
+    SUBTITLE_START_PTS      = 0x53505453,  // 'SPTS'
+    SUBTITLE_RENDER_TIME    = 0x53524454,  // 'SRDT'
+    SUBTITLE_SUB_TYPE       = 0x53545950,  // 'STYP'
+    SUBTITLE_TYPE_STRING    = 0x54505352,  // 'TPSR'
+    SUBTITLE_LANG_STRING    = 0x4C475352,  // 'LGSR'
+    SUBTITLE_SUB_DATA       = 0x504C4454,  // 'PLDT'
 
-    SUBTITLE_RESET_SERVER   = 'CDRT',
-    SUBTITLE_EXIT_SERVER    = 'CDEX',
+    SUBTITLE_RESET_SERVER   = 0x43545244,  // 'CDRT'
+    SUBTITLE_EXIT_SERVER    = 0x43444558   // 'CDEX'
 
 } PayloadType;
 

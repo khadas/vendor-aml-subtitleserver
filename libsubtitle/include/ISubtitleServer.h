@@ -65,7 +65,7 @@ class ISubtitleServer : public IInterface{
     virtual Result setChannelId(int32_t sId, int32_t channelId) = 0;
     virtual Result setClosedCaptionVfmt(int32_t sId, int32_t vfmt) = 0;
 
-    virtual Result ttControl(int32_t sId, int cmd, int magazine, int page, int regionId, int param) = 0;
+    virtual Result ttControl(int32_t sId, int cmd, int magazine, int pageNo, int regionId, int param) = 0;
     virtual Result ttGoHome(int32_t sId) = 0;
     virtual Result ttNextPage(int32_t sId, int32_t dir) = 0;
     virtual Result ttNextSubPage(int32_t sId, int32_t dir) = 0;

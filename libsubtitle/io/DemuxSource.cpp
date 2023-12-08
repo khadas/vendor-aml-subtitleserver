@@ -33,15 +33,12 @@
 #include <sys/stat.h>
 #include <sys/poll.h>
 #include <sys/ioctl.h>
+#include <string>
 #include <pthread.h>
 
-#include <string>
-//#ifdef ANDROID
 #include "SubtitleLog.h"
 #include <utils/CallStack.h>
-#include "sub_types2.h"
-//#endif
-//#include "trace_support.h"
+
 #include "DemuxSource.h"
 #include "ParserFactory.h"
 
@@ -49,10 +46,8 @@
 #ifdef MEDIASYNC_FOR_SUBTITLE
 extern "C"  {
 #include "MediaSyncInterface.h"
-mediasync_result MediaSync_bindInstance(void* handle, uint32_t SyncInsId,
-                                                             sync_stream_type streamtype);
+mediasync_result MediaSync_bindInstance(void* handle, uint32_t SyncInsId, sync_stream_type streamtype);
 mediasync_result MediaSync_getTrackMediaTime(void* handle, int64_t *outMediaUs);
-
 }
 #endif
 
@@ -77,8 +72,6 @@ DemuxSource *DemuxSource::getCurrentInstance() {
     return DemuxSource::sInstance;
 }
 
-
-
 static inline unsigned long sysfsReadInt(const char *path, int base) {
     int fd;
     unsigned long val = 0;
@@ -97,24 +90,149 @@ static inline unsigned long sysfsReadInt(const char *path, int base) {
     return val;
 }
 
+static void pes_data_cb(int dev_no, int fhandle, const uint8_t *data, int len, void *user_data) {
+    char *rdBuffer = new char[len]();
+    memcpy(rdBuffer, data, len);
+    std::shared_ptr<char> spBuf = std::shared_ptr<char>(rdBuffer, [](char *buf) { delete [] buf; });
+    DemuxSource::getCurrentInstance()->mSegment->push(spBuf, len);
+
+    if (DemuxSource::getCurrentInstance()->mDumpSub) {
+        if (DemuxSource::getCurrentInstance()->mDumpFd == -1) {
+            SUBTITLE_LOGI("#pes_data_cb len:%d", len);
+            DemuxSource::getCurrentInstance()->mDumpFd = ::open("/data/local/traces/cur_sub.dump", O_RDWR | O_CREAT, 0666);
+            SUBTITLE_LOGI("need dump Source2: mDumpFd=%d %d", DemuxSource::getCurrentInstance()->mDumpFd, errno);
+        }
+
+        if (DemuxSource::getCurrentInstance()->mDumpFd > 0) {
+            write(DemuxSource::getCurrentInstance()->mDumpFd, data, len);
+        }
+   }
+}
+
+static int open_dvb_dmx(TVSubtitleData *data, int dmx_id, int pid, int flag) {
+        SUBTITLE_LOGE("[open_dmx]dmx_id:%d,pid:%d,flag:%d", dmx_id, pid, flag);
+        AmlogicDemuxOpenParameterType op;
+        struct dmx_pes_filter_params pesp;
+        struct dmx_sct_filter_params param;
+        int ret;
+
+        data->dmx_id = -1;
+        data->filter_handle = -1;
+        memset(&op, 0, sizeof(op));
+        data->dmx_id = dmx_id;
+        if (data->dmx_id == -1) {
+            SUBTITLE_LOGE("[open_dmx]ERROR invalid argument,data->dmx_id is -1");
+            return -1;
+        }
+        ret = DemuxOpen(dmx_id, &op);
+        if (ret != AM_SUCCESS)
+            goto error;
+        SUBTITLE_LOGE("[open_dmx]DemuxOpen");
+
+        ret = DemuxAllocateFilter(dmx_id, &data->filter_handle);
+        if (ret != AM_SUCCESS)
+            goto error;
+        SUBTITLE_LOGE("[open_dmx]DemuxAllocateFilter data->filter_handle:%d,mSubType:%d",data->filter_handle,DemuxSource::getCurrentInstance()->mSubType);
+
+        ret = DemuxSetBufferSize(dmx_id, data->filter_handle, 0x80000);
+        if (ret != AM_SUCCESS)
+            goto error;
+        SUBTITLE_LOGE("[open_dmx]DemuxSetBufferSize");
+        memset(&pesp, 0, sizeof(pesp));
+        pesp.pid = pid;
+        pesp.output = DMX_OUT_TAP;
+        if (flag) {
+          pesp.flags= DMX_SUBTITLE_SEC;
+        } else {
+          pesp.flags= DMX_SUBTITLE_NO_SEC;
+        }
+        if (TYPE_SUBTITLE_DVB == DemuxSource::getCurrentInstance()->mSubType) {
+            SUBTITLE_LOGE("[open_dmx] dvb demux");
+            pesp.pes_type = DMX_PES_SUBTITLE;
+            pesp.input = DMX_IN_FRONTEND;
+            ret = DemuxSetPesFilter(dmx_id, data->filter_handle, &pesp);
+            if (ret != AM_SUCCESS)
+                goto error;
+            SUBTITLE_LOGE("[open_dmx]DemuxSetPesFilter");
+        } else if (TYPE_SUBTITLE_DVB_TELETEXT == DemuxSource::getCurrentInstance()->mSubType) {
+            SUBTITLE_LOGE("[open_dmx] teletext demux");
+            pesp.pes_type = DMX_PES_SUBTITLE;//DMX_PES_TELETEXT;
+            pesp.input = DMX_IN_FRONTEND;
+            ret = DemuxSetPesFilter(dmx_id, data->filter_handle, &pesp);
+            if (ret != AM_SUCCESS)
+                goto error;
+            SUBTITLE_LOGE("[open_dmx]DemuxSetPesFilter");
+        } else if (TYPE_SUBTITLE_SCTE27 == DemuxSource::getCurrentInstance()->mSubType) {
+            //the scte27 data is section
+            SUBTITLE_LOGE("[open_dmx] scte27 demux");
+            pesp.pes_type = DMX_PES_SUBTITLE;
+            pesp.input = DMX_IN_FRONTEND;
+            ret = DemuxSetPesFilter(dmx_id, data->filter_handle, &pesp);
+            if (ret != AM_SUCCESS)
+                goto error;
+            SUBTITLE_LOGE("[open_dmx]DemuxSetPesFilter");
+        } else if (TYPE_SUBTITLE_ARIB_B24 == DemuxSource::getCurrentInstance()->mSubType) {
+            //the arib data is section
+            SUBTITLE_LOGE("[open_dmx] arib24 demux");
+            pesp.pes_type = DMX_PES_SUBTITLE;
+            pesp.input = DMX_IN_FRONTEND;
+            ret = DemuxSetPesFilter(dmx_id, data->filter_handle, &pesp);
+            if (ret != AM_SUCCESS)
+                goto error;
+            SUBTITLE_LOGE("[open_dmx]DemuxSetPesFilter");
+        } else if (TYPE_SUBTITLE_DVB_TTML == DemuxSource::getCurrentInstance()->mSubType) {
+            //the ttml data is section
+            SUBTITLE_LOGE("[open_dmx] ttml demux");
+            pesp.pes_type = DMX_PES_SUBTITLE;
+            pesp.input = DMX_IN_FRONTEND;
+            ret = DemuxSetPesFilter(dmx_id, data->filter_handle, &pesp);
+            if (ret != AM_SUCCESS)
+                goto error;
+            SUBTITLE_LOGE("[open_dmx]DemuxSetPesFilter");
+        }
+
+        ret = DemuxSetCallback(dmx_id, data->filter_handle, pes_data_cb, data);
+        if (ret != AM_SUCCESS)
+            goto error;
+        SUBTITLE_LOGE("[open_dmx]DemuxSetCallback");
+
+        ret = DemuxStartFilter(dmx_id, data->filter_handle);
+        if (ret != AM_SUCCESS)
+            goto error;
+        SUBTITLE_LOGE("[open_dmx]DemuxStartFilter");
+
+        return 0;
+error:
+          SUBTITLE_LOGE("[open_dmx]ERROR !!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        if (data->filter_handle != -1) {
+            DemuxFreeFilter(dmx_id, data->filter_handle);
+        }
+        if (data->dmx_id != -1) {
+            DemuxClose(dmx_id);
+        }
+
+        return -1;
+}
+
 static void close_dvb_dmx(TVSubtitleData *data, int dmx_id) {
     if (data->filter_handle != -1) {
-         SUBTITLE_LOGE("[close_dvb_dmx]AM_DMX_StopFilter");
-         AM_DMX_StopFilter(dmx_id, data->filter_handle);
+         SUBTITLE_LOGE("[close_dvb_dmx]DemuxStopFilter");
+         DemuxStopFilter(dmx_id, data->filter_handle);
     }
     if (data->filter_handle != -1) {
-        SUBTITLE_LOGE("[close_dvb_dmx]AM_DMX_FreeFilter");
-        AM_DMX_FreeFilter(dmx_id, data->filter_handle);
+        SUBTITLE_LOGE("[close_dvb_dmx]DemuxFreeFilter");
+        DemuxFreeFilter(dmx_id, data->filter_handle);
     }
     if (data->filter_handle != -1) {
-        SUBTITLE_LOGE("[close_dvb_dmx]AM_DMX_SetCallback");
-        AM_DMX_SetCallback(dmx_id, data->filter_handle, NULL, NULL);
+        SUBTITLE_LOGE("[close_dvb_dmx]DemuxSetCallback");
+        DemuxSetCallback(dmx_id, data->filter_handle, NULL, NULL);
     }
     if (data->dmx_id != -1) {
-        SUBTITLE_LOGE("[close_dvb_dmx]AM_DMX_Close");
-        AM_DMX_Close(dmx_id);
+        SUBTITLE_LOGE("[close_dvb_dmx]DemuxClose");
+        DemuxClose(dmx_id);
     }
 }
+
 
 DemuxSource::DemuxSource() : mRdFd(-1), mState(E_SOURCE_INV),
         mExitRequested(false), mDemuxContext(nullptr), mParam1(-1), mParam2(-1) {
@@ -127,6 +245,8 @@ DemuxSource::DemuxSource() : mRdFd(-1), mState(E_SOURCE_INV),
     mMediaSyncId = -1;
     mMediaSyncDestroyFlag = false;
     mSubType = -1;
+    mDumpSub = false;
+    checkDebug();
     #ifdef MEDIASYNC_FOR_SUBTITLE
     mMediaSync = MediaSync_create();
     #endif
@@ -163,6 +283,16 @@ size_t DemuxSource::totalSize() {
     return 0;
 }
 
+void DemuxSource::checkDebug() {
+    #ifdef NEED_DUMP_ANDROID
+    char value[PROPERTY_VALUE_MAX] = {0};
+    memset(value, 0, PROPERTY_VALUE_MAX);
+    property_get("vendor.subtitle.dump", value, "false");
+    if (!strcmp(value, "true")) {
+        mDumpSub = true;
+    }
+    #endif
+}
 
 bool DemuxSource::notifyInfoChange() {
     std::unique_lock<std::mutex> autolock(mLock);
@@ -182,11 +312,14 @@ bool DemuxSource::notifyInfoChange() {
 void DemuxSource::loopRenderTime() {
     while (!mExitRequested) {
         mLock.lock();
-        for (auto it = mInfoListeners.begin(); it != mInfoListeners.end(); it++) {
-            auto wk_listener = (*it);
+        for (auto it = mInfoListeners.begin(); it != mInfoListeners.end();) {
+            //Using weak_ Ptr. lock() to obtain shared_ Ptr, ensuring that null pointer exceptions are not caused by expired listeners during processing
+            auto wk_listener = it->lock();
 
-            if (wk_listener.expired()) {
-                SUBTITLE_LOGI("[threadLoop] lstn null.\n");
+            if (!wk_listener) {
+                SUBTITLE_LOGI("[loopRenderTime] Listener is null or expired.");
+                //Use erase to remove expired weeks_ PTR
+                it = mInfoListeners.erase(it);
                 continue;
             }
 
@@ -201,165 +334,26 @@ void DemuxSource::loopRenderTime() {
                 mSyncPts = value;
             #endif
             }
+
             static int i = 0;
             if (i++%300 == 0) {
                 SUBTITLE_LOGE(" read pts: %lld %llu", value, value);
             }
 
             if (!mExitRequested && value > 0) {
-                if (auto lstn = wk_listener.lock()) {
-                    lstn->onRenderTimeChanged(value);
-                }
+                wk_listener->onRenderTimeChanged(value);
+
             }
+            ++it;
         }
         mLock.unlock();
         std::this_thread::sleep_for(std::chrono::milliseconds(16));
     }
 }
 
-static void pes_data_cb(int dev_no, int fhandle, const uint8_t *data, int len, void *user_data)
-{
-    char *rdBuffer = new char[len]();
-    memcpy(rdBuffer, data, len);
-    std::shared_ptr<char> spBuf = std::shared_ptr<char>(rdBuffer, [](char *buf) { delete [] buf; });
-    DemuxSource::getCurrentInstance()->mSegment->push(spBuf, len);
-    #ifdef DUMP_SUB_DATA
-    //for dump
-    if (DemuxSource::getCurrentInstance()->mDumpFd == -1) {
-        SUBTITLE_LOGI("#pes_data_cb len:%d", len);
-        DemuxSource::getCurrentInstance()->mDumpFd = ::open("/tmp/cur_sub.dump", O_RDWR | O_CREAT, 0666);
-        SUBTITLE_LOGI("need dump Source2: mDumpFd=%d %d", DemuxSource::getCurrentInstance()->mDumpFd, errno);
-    }
-
-    if (DemuxSource::getCurrentInstance()->mDumpFd > 0) {
-        write(DemuxSource::getCurrentInstance()->mDumpFd, data, len);
-    }
-    #endif
-
+SubtitleIOType DemuxSource::type() {
+    return E_SUBTITLE_DEMUX;
 }
-
-
-static int open_dvb_dmx(TVSubtitleData *data, int dmx_id, int pid, int flag)
-{
-        SUBTITLE_LOGE("[open_dmx]dmx_id:%d,pid:%d,flag:%d", dmx_id, pid, flag);
-        AM_DMX_OpenPara_t op;
-        struct dmx_pes_filter_params pesp;
-        struct dmx_sct_filter_params param;
-        AM_ErrorCode_t ret;
-
-        data->dmx_id = -1;
-        data->filter_handle = -1;
-        memset(&op, 0, sizeof(op));
-        data->dmx_id = dmx_id;
-        if (data->dmx_id == -1) {
-            SUBTITLE_LOGE("[open_dmx]ERROR invalid argument,data->dmx_id is -1");
-            return -1;
-        }
-        ret = AM_DMX_Open(dmx_id, &op);
-        if (ret != AM_SUCCESS)
-            goto error;
-        SUBTITLE_LOGE("[open_dmx]AM_DMX_Open");
-
-        ret = AM_DMX_AllocateFilter(dmx_id, &data->filter_handle);
-        if (ret != AM_SUCCESS)
-            goto error;
-        SUBTITLE_LOGE("[open_dmx]AM_DMX_AllocateFilter data->filter_handle:%d,mSubType:%d",data->filter_handle,DemuxSource::getCurrentInstance()->mSubType);
-
-        ret = AM_DMX_SetBufferSize(dmx_id, data->filter_handle, DMX_SUBTITLE_BUFFER_SIZE);
-        if (ret != AM_SUCCESS)
-            goto error;
-        SUBTITLE_LOGE("[open_dmx]AM_DMX_SetBufferSize");
-        memset(&pesp, 0, sizeof(pesp));
-        pesp.pid = pid;
-        pesp.output = DMX_OUT_TAP;
-        if (flag) {
-          pesp.flags= DMX_SUBTITLE_SEC;
-        } else {
-          pesp.flags= DMX_SUBTITLE_NO_SEC;
-        }
-        if (TYPE_SUBTITLE_DTVKIT_DVB == DemuxSource::getCurrentInstance()->mSubType) {
-            SUBTITLE_LOGE("[open_dmx] dvb demux");
-            pesp.pes_type = DMX_PES_SUBTITLE;
-            pesp.input = DMX_IN_FRONTEND;
-            ret = AM_DMX_SetPesFilter(dmx_id, data->filter_handle, &pesp);
-            if (ret != AM_SUCCESS)
-                goto error;
-            SUBTITLE_LOGE("[open_dmx]AM_DMX_SetPesFilter");
-        } else if (TYPE_SUBTITLE_DTVKIT_TELETEXT == DemuxSource::getCurrentInstance()->mSubType) {
-            SUBTITLE_LOGE("[open_dmx] teletext demux");
-            pesp.pes_type = DMX_PES_SUBTITLE;//DMX_PES_TELETEXT;
-            pesp.input = DMX_IN_FRONTEND;
-            ret = AM_DMX_SetPesFilter(dmx_id, data->filter_handle, &pesp);
-            if (ret != AM_SUCCESS)
-                goto error;
-            SUBTITLE_LOGE("[open_dmx]AM_DMX_SetPesFilter");
-        } else if (TYPE_SUBTITLE_DTVKIT_SCTE27 == DemuxSource::getCurrentInstance()->mSubType) {
-            //the scte27 data is section
-            SUBTITLE_LOGE("[open_dmx] scte27 demux: start section filter");
-            memset(&param, 0, sizeof(param));
-            param.pid = pid;
-            param.filter.filter[0] = SCTE27_TID;
-            param.filter.mask[0] = 0xff;
-            param.flags = DMX_CHECK_CRC;
-            ret = AM_DMX_SetSecFilter(dmx_id, data->filter_handle, &param);
-            if (ret != AM_SUCCESS) {
-                goto error;
-            }
-        } else if (TYPE_SUBTITLE_DTVKIT_ARIB_B24 == DemuxSource::getCurrentInstance()->mSubType) {
-            //the arib data is section
-            SUBTITLE_LOGE("[open_dmx] arib24 demux");
-            pesp.pes_type = DMX_PES_SUBTITLE;
-            pesp.input = DMX_IN_FRONTEND;
-            ret = AM_DMX_SetPesFilter(dmx_id, data->filter_handle, &pesp);
-            if (ret != AM_SUCCESS)
-                goto error;
-            SUBTITLE_LOGE("[open_dmx]AM_DMX_SetPesFilter");
-        } else if (TYPE_SUBTITLE_DTVKIT_TTML == DemuxSource::getCurrentInstance()->mSubType) {
-            //the ttml data is section
-            SUBTITLE_LOGE("[open_dmx] ttml demux");
-            pesp.pes_type = DMX_PES_SUBTITLE;
-            pesp.input = DMX_IN_FRONTEND;
-            ret = AM_DMX_SetPesFilter(dmx_id, data->filter_handle, &pesp);
-            if (ret != AM_SUCCESS)
-                goto error;
-            SUBTITLE_LOGE("[open_dmx]AM_DMX_SetPesFilter");
-        } else if (TYPE_SUBTITLE_DTVKIT_SMPTE_TTML == DemuxSource::getCurrentInstance()->mSubType) {
-            //the ttml data is section
-            SUBTITLE_LOGE("[open_dmx] smpte-ttml demux");
-            pesp.pes_type = DMX_PES_SUBTITLE;
-            pesp.input = DMX_IN_FRONTEND;
-            ret = AM_DMX_SetPesFilter(dmx_id, data->filter_handle, &pesp);
-            if (ret != AM_SUCCESS)
-                goto error;
-            SUBTITLE_LOGE("[open_dmx]AM_DMX_SetPesFilter");
-        }
-
-        ret = AM_DMX_SetCallback(dmx_id, data->filter_handle, pes_data_cb, data);
-        if (ret != AM_SUCCESS)
-            goto error;
-        SUBTITLE_LOGE("[open_dmx]AM_DMX_SetCallback");
-
-        ret = AM_DMX_StartFilter(dmx_id, data->filter_handle);
-        if (ret != AM_SUCCESS)
-            goto error;
-        SUBTITLE_LOGE("[open_dmx]AM_DMX_StartFilter");
-
-        return 0;
-error:
-          SUBTITLE_LOGE("[open_dmx]ERROR !!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-        if (data->filter_handle != -1) {
-            AM_DMX_FreeFilter(dmx_id, data->filter_handle);
-        }
-        if (data->dmx_id != -1) {
-            AM_DMX_Close(dmx_id);
-        }
-
-        return -1;
-    }
-
-    SubtitleIOType DemuxSource::type() {
-        return E_SUBTITLE_DEMUX;
-    }
 
 bool DemuxSource::start() {
     if (E_SOURCE_STARTED == mState) {
@@ -385,8 +379,8 @@ bool DemuxSource::start() {
 void DemuxSource::updateParameter(int type, void *data) {
    SUBTITLE_LOGE(" in updateParameter type = %d ",type);
    bool restartDemux =false;
-   if (TYPE_SUBTITLE_DTVKIT_DVB == type) {
-        DtvKitDvbParam *pDvbParam = (DtvKitDvbParam* )data;
+   if (TYPE_SUBTITLE_DVB == type) {
+        DvbParam *pDvbParam = (DvbParam* )data;
         if ((mState == E_SOURCE_STARTED) && (mPid != pDvbParam->pid)) {
               restartDemux = true;
         }
@@ -395,7 +389,7 @@ void DemuxSource::updateParameter(int type, void *data) {
         mSecureLevelFlag = pDvbParam->flag;
         mParam1 = pDvbParam->compositionId;
         mParam2 = pDvbParam->ancillaryId;
-    } else if (TYPE_SUBTITLE_DTVKIT_TELETEXT == type) {
+    } else if (TYPE_SUBTITLE_DVB_TELETEXT == type) {
         TeletextParam *pTeletextParam = (TeletextParam* )data;
         if ((mState == E_SOURCE_STARTED) && (mPid != pTeletextParam->pid)) {
              restartDemux = true;
@@ -404,16 +398,16 @@ void DemuxSource::updateParameter(int type, void *data) {
         mPid = pTeletextParam->pid;
         mSecureLevelFlag = pTeletextParam->flag;
         mParam1 = pTeletextParam->magazine;
-        mParam2 = pTeletextParam->page;
-    } else if (TYPE_SUBTITLE_DTVKIT_SCTE27 == type) {
-        Scte27Param *pScteParam = (Scte27Param* )data;
-        if ((mState == E_SOURCE_STARTED) && (mPid != pScteParam->SCTE27_PID)) {
+        mParam2 = pTeletextParam->pageNo;
+    } else if (TYPE_SUBTITLE_SCTE27 == type) {
+        Scte27Param *pScte27Param = (Scte27Param* )data;
+        if ((mState == E_SOURCE_STARTED) && (mPid != pScte27Param->SCTE27_PID)) {
              restartDemux = true;
         }
-        mDemuxId = pScteParam->demuxId;
-        mPid = pScteParam->SCTE27_PID;
-        mSecureLevelFlag = pScteParam->flag;
-    } else if (TYPE_SUBTITLE_DTVKIT_ARIB_B24 == type) {
+        mDemuxId = pScte27Param->demuxId;
+        mPid = pScte27Param->SCTE27_PID;
+        mSecureLevelFlag = pScte27Param->flag;
+    } else if (TYPE_SUBTITLE_ARIB_B24 == type) {
         Arib24Param *pArib24Param = (Arib24Param* )data;
         if ((mState == E_SOURCE_STARTED) && (mPid != pArib24Param->pid)) {
               restartDemux = true;
@@ -422,7 +416,7 @@ void DemuxSource::updateParameter(int type, void *data) {
         mPid = pArib24Param->pid;
         mSecureLevelFlag = pArib24Param->flag;
         mParam1 = pArib24Param->languageCodeId;
-    } else if (TYPE_SUBTITLE_DTVKIT_TTML == type) {
+    } else if (TYPE_SUBTITLE_DVB_TTML == type) {
         TtmlParam *pTtmlParam = (TtmlParam* )data;
         if ((mState == E_SOURCE_STARTED) && (mPid != pTtmlParam->pid)) {
               restartDemux = true;
@@ -430,7 +424,7 @@ void DemuxSource::updateParameter(int type, void *data) {
         mDemuxId = pTtmlParam->demuxId;
         mPid = pTtmlParam->pid;
         mSecureLevelFlag = pTtmlParam->flag;
-    } else if (TYPE_SUBTITLE_DTVKIT_SMPTE_TTML == type) {
+    } else if (TYPE_SUBTITLE_SMPTE_TTML == type) {
         SmpteTtmlParam *pSmpteTtmlParam = (SmpteTtmlParam* )data;
         if ((mState == E_SOURCE_STARTED) && (mPid != pSmpteTtmlParam->pid)) {
               restartDemux = true;
@@ -531,7 +525,6 @@ size_t DemuxSource::read(void *buffer, size_t size) {
 
 }
 
-
 void DemuxSource::dump(int fd, const char *prefix) {
     dprintf(fd, "%s nDemuxSource:\n", prefix);
     {
@@ -551,4 +544,3 @@ void DemuxSource::dump(int fd, const char *prefix) {
 
     dprintf(fd, "\n%s   Current Unconsumed Data Size: %d\n", prefix, availableDataSize());
 }
-

@@ -1,3 +1,29 @@
+/*
+ * Copyright (C) 2014-2019 Amlogic, Inc. All rights reserved.
+ *
+ * All information contained herein is Amlogic confidential.
+ *
+ * This software is provided to you pursuant to Software License Agreement
+ * (SLA) with Amlogic Inc ("Amlogic"). This software may be used
+ * only in accordance with the terms of this agreement.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification is strictly prohibited without prior written permission from
+ * Amlogic.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #define LOG_TAG "SubtitleServer"
 #include <thread>
 #include "AndroidCallbackMessageQueue.h"
@@ -49,8 +75,13 @@ void AndroidCallbackMessageQueue::looperLoop() {
     mLooper = new Looper(false);
     mLooper->sendMessageDelayed(100LL, this, Message(MSG_CHECK_SUBDATA));
     // never exited
-    while (!mStopped) {
+    while (!mStopped && mLooper != nullptr) {
         mLooper->pollAll(-1);
+        //If mLooper is set to nullptr at some point within the loop, ensure proper handling and exit the loop
+        if (mLooper == nullptr) {
+            ALOGE("looperLoop mLooper is Null.");
+            break;
+        }
     }
     mLooper = nullptr;
 }
@@ -190,7 +221,7 @@ void AndroidCallbackMessageQueue::onSubtitleDataEvent(int event, int channelId) 
 void AndroidCallbackMessageQueue::onSubtitleDimension(int width, int height) {
     android::AutoMutex _l(mLock);
     //std::unique_ptr<SubtitleData> subtitleData = std::make_unique<SubtitleData>();
-           std::unique_ptr<SubtitleData> subtitleData(new  SubtitleData);
+    std::unique_ptr<SubtitleData> subtitleData(new  SubtitleData);
     subtitleData->type = EVENT_ON_SUBTITLE_DIMENSION_CALLBACK;
     subtitleData->x = width;
     subtitleData->y = height;
@@ -269,13 +300,11 @@ int AndroidCallbackMessageQueue::copyShareMemory(const char *data, int size) {
     return 0;
 }
 
-
 bool AndroidCallbackMessageQueue::postDisplayData(const char *data,  int type,
         int x, int y, int width, int height,
         int videoWidth, int videoHeight, int size, int cmd) {
-        SUBTITLE_LOGE(" AndroidCallbackMessageQueue::postDisplayData x=%d,y=%d,width=%d,height=%d,size=%d\n",x,y,width,height,size);
-/*
-    sp<HidlMemory> mem;
+
+    /*sp<HidlMemory> mem;
     sp<IAllocator> ashmemAllocator = IAllocator::getService("ashmem");
 
     bool allocRes = false;
@@ -284,7 +313,7 @@ bool AndroidCallbackMessageQueue::postDisplayData(const char *data,  int type,
             if (success) {
                 mem  = HidlMemory::getInstance(_mem);
                 sp<IMemory> memory = mapMemory(_mem);
-                if (memory == NULL) {
+                if (memory == nullptr) {
                     SUBTITLE_LOGE("map Memory Failed!!");
                     return; // we may need  status!
                 }
@@ -298,45 +327,40 @@ bool AndroidCallbackMessageQueue::postDisplayData(const char *data,  int type,
             }
         });
 
-      IMemoryHeap mMemHeap = new MemoryHeapBase(size+1024, 0, "Heap Name");
-      if (mMemHeap->getHeapID() < 0) {
-          return;
-      }
-      IMemory* mMemBase = new MemoryBase(mMemHeap, 0, size+1024);
-      //void * addr = mMemHeap ->base();
-      if (mMemBase != nullptr) {
-          memcpy(mMemBase->base(), data, size);
-      }*/
-  //  if (r.isOk() && allocRes) {
-        //int shmid = 1234;///copyShareMemory(data, size);
-                int shmid = copyShareMemory(data, size);
-        if (shmid < 0) {
-            SUBTITLE_LOGE("Fail to process share memory!!");
-            return true;
-        }
-        android::AutoMutex _l(mLock);
-        std::unique_ptr<SubtitleData> subtitleData(new  SubtitleData);
-        subtitleData->type = type;
-        subtitleData->x = x;
-        subtitleData->y = y;
-        subtitleData->width = width;
-        subtitleData->height = height;
-        subtitleData->videoWidth = videoWidth;
-        subtitleData->videoHeight = videoHeight;
-        subtitleData->size = size;
-        subtitleData->isShow = cmd;
-        // subtitleData->mem = mMemBase;
-        subtitleData->shmid = shmid;
-        mSubtitleData.push_back(std::move(subtitleData));
-        mLooper->sendMessage(this, Message(MSG_CHECK_SUBDATA));
+    IMemoryHeap mMemHeap = new MemoryHeapBase(size+1024, 0, "Heap Name");
+    if (mMemHeap->getHeapID() < 0) {
+        return;
+    }
+    IMemory* mMemBase = new MemoryBase(mMemHeap, 0, size+1024);
+    //void * addr = mMemHeap ->base();
+    if (mMemBase != nullptr) {
+        memcpy(mMemBase->base(), data, size);
+    }*/
+    // if (r.isOk() && allocRes) {
+    //int shmid = 1234;///copyShareMemory(data, size);
+    int shmid = copyShareMemory(data, size);
+    if (shmid < 0) {
+        SUBTITLE_LOGE("Fail to process share memory!!");
+        return true;
+    }
+    android::AutoMutex _l(mLock);
+    std::unique_ptr<SubtitleData> subtitleData(new  SubtitleData);
+    subtitleData->type = type;
+    subtitleData->x = x;
+    subtitleData->y = y;
+    subtitleData->width = width;
+    subtitleData->height = height;
+    subtitleData->videoWidth = videoWidth;
+    subtitleData->videoHeight = videoHeight;
+    subtitleData->size = size;
+    subtitleData->isShow = cmd;
+    // subtitleData->mem = mMemBase;
+    subtitleData->shmid = shmid;
+    mSubtitleData.push_back(std::move(subtitleData));
+    mLooper->sendMessage(this, Message(MSG_CHECK_SUBDATA));
 
     SUBTITLE_LOGI(" in postDisplayData:%s type:%d, width=%d, height=%d size=%d",
-        __func__, type,  width, height, size);
-  //  } else {
-  //      SUBTITLE_LOGE("Fail to process hidl memory!!");
- //   }
-
-
+          __func__, type,  width, height, size);
     return true;
 }
 

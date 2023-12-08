@@ -28,9 +28,9 @@
 
 #include "ParserFactory.h"
 #include "ExtSubFactory.h"
-#include "StreamReader.h"
+#include "ExtSubStreamReader.h"
 
-//#include "tinyxml2.h"
+#include "tinyxml2.h"
 
 #include "SubStationAlpha.h"
 #include "Subrip.h"
@@ -44,13 +44,15 @@
 #include "RealText.h"
 #include "Sami.h"
 #include "SubViewer.h"
-//#include "XmlSubtitle.h"
-//#include "Ttml.h"
+#include "XmlSubtitle.h"
+#include "Ttml.h"
 #include "Vplayer.h"
 #include "Lyrics.h"
 #include "Subrip09.h"
 #include "SubViewer2.h"
 #include "SubViewer3.h"
+#include "VobSubIndex.h"
+
 
 #if 0
 #include "ExtParserEbuttd.h"
@@ -91,11 +93,11 @@ int ExtSubFactory::detect(std::shared_ptr<DataSource> source) {
 
 
         if (sscanf(line, "%d,%d,%d", &i, &i, &i) == 3) {
-            return SUB_ML1;
+            return SUB_MPL1;
         }
 
         if (sscanf(line, "[%d][%d]", &i, &i) == 2) {
-            return SUB_ML2;
+            return SUB_MPL2;
         }
 
         if (sscanf(line, "%d:%d:%d.%d,%d:%d:%d.%d", &i, &i, &i, &i, &i, &i,&i, &i) == 8) {
@@ -138,10 +140,10 @@ int ExtSubFactory::detect(std::shared_ptr<DataSource> source) {
             return SUB_VPLAYER;
         }
 
-       /* if (strstr(line, "<?xml")) {
+        if (strstr(line, "<?xml")) {
             //return SUB_XML;
             return detectXml(source);
-        }*/
+        }
 
         if (strstr(line, "<tt")) {
             return SUB_TTML;
@@ -176,6 +178,15 @@ int ExtSubFactory::detect(std::shared_ptr<DataSource> source) {
         if (strstr(line, "-->>")) {
             return SUB_AQTITLE;
         }
+        if (sscanf(line, "[%d:%d:%d]", &i, &i, &i) == 3) {
+            return SUB_SUBRIP09;
+        }
+
+        if ((strstr(line, "VobSub index file") != nullptr)
+            || strncmp("timestamp:", line, 10) == 0 ) {
+            return SUB_IDXSUB;
+        }
+
         if (sscanf(line, "[%d:%d:%d]", &i, &i, &i) == 3) {
             return SUB_SUBRIP09;
         }
@@ -233,17 +244,17 @@ std::shared_ptr<TextSubtitle> ExtSubFactory::create(std::shared_ptr<DataSource> 
         case SUB_JACOSUB://13
            return std::shared_ptr<TextSubtitle> (new Jacosub(source));
 
-        case SUB_ML1://14
+        case SUB_MPL1://14
             return std::shared_ptr<TextSubtitle> (new Mplayer1(source));
 
-        case SUB_ML2://15
+        case SUB_MPL2://15
             return std::shared_ptr<TextSubtitle> (new Mplayer2(source));
 
-       // case SUB_XML://16
-       //     return std::shared_ptr<TextSubtitle> (new XmlSubtitle(source));
-//
-       // case SUB_TTML://17
-       //     return std::shared_ptr<TextSubtitle> (new TTML(source));
+        case SUB_XML://16
+            return std::shared_ptr<TextSubtitle> (new XmlSubtitle(source));
+
+        case SUB_TTML://17
+            return std::shared_ptr<TextSubtitle> (new TTML(source));
 
         case SUB_LRC://18
             return std::shared_ptr<TextSubtitle> (new Lyrics(source));
@@ -254,13 +265,16 @@ std::shared_ptr<TextSubtitle> ExtSubFactory::create(std::shared_ptr<DataSource> 
         case SUB_WEBVTT:
             return std::shared_ptr<TextSubtitle>(new SimpleWebVtt(source));
 
+        case SUB_IDXSUB:
+        return std::shared_ptr<TextSubtitle>(new VobSubIndex(source));
+
         default:
             SUBTITLE_LOGI("ext subtitle format is invalid! format = %d", format);
             return NULL;
     }
     return NULL;
 }
-#if 0
+
 int ExtSubFactory::detectXml(std::shared_ptr<DataSource> source) {
     int type = SUB_XML;
     tinyxml2::XMLDocument doc;
@@ -284,4 +298,3 @@ int ExtSubFactory::detectXml(std::shared_ptr<DataSource> source) {
     delete[] rdBuffer;
     return type;
 }
-#endif

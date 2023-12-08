@@ -30,7 +30,6 @@
 #include "SubtitleLog.h"
 #include <utils/CallStack.h>
 #include "WebVtt.h"
-//#include "trace_support.h"
 
 
 SimpleWebVtt::SimpleWebVtt(std::shared_ptr<DataSource> source): TextSubtitle(source) {

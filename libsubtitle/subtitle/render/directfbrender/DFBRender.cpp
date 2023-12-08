@@ -224,7 +224,7 @@ void DFBRender::drawItems() {
 
             // Show full screen for Teletext
             bool showFullScreen =
-                    (*it)->subtitle_type == SubtitleType::TYPE_SUBTITLE_DTVKIT_TELETEXT
+                    (*it)->subtitle_type == SubtitleType::TYPE_SUBTITLE_DVB_TELETEXT
                     || (*it)->subtitle_type == SubtitleType::TYPE_SUBTITLE_DVB_TELETEXT;
 
             mDFBDevice->drawImage((*it)->subtitle_type, (*it)->spu_data, (*it)->pts, (*it)->buffer_size, (*it)->spu_width, (*it)->spu_height, showFullScreen ? rect : originDisplayRect, rect, screenRect);
@@ -238,11 +238,8 @@ bool DFBRender::isText(std::shared_ptr<AML_SPUVAR> &spu) {
     return spu->isSimpleText
            || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_CLOSED_CAPTION
            || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_SCTE27
-           || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_DTVKIT_SCTE27
            || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_ARIB_B24
-           || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_DTVKIT_ARIB_B24
-           || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_TTML
-           || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_DTVKIT_TTML;
+           || spu->subtitle_type == SubtitleType::TYPE_SUBTITLE_DVB_TTML;
 }
 
 void DFBRender::onThreadExit() {

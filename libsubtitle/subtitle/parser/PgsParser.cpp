@@ -33,32 +33,67 @@
 #include <algorithm>
 #include <functional>
 
-//#include "trace_support.h"
 #include "SubtitleLog.h"
-#include <utils/CallStack.h>
+#include "StreamUtils.h"
 
-#include "streamUtils.h"
-
-#include "sub_types.h"
+#include "SubtitleTypes.h"
 #include "PgsParser.h"
 #include "ParserFactory.h"
 #include "VideoInfo.h"
 
+#define MAX_EPOCH_PALETTES 8 // Max 8 allowed per PGS epoch
+#define MAX_EPOCH_OBJECTS 64 // Max 64 allowed per PGS epoch
+#define MAX_OBJECT_REFS 2    // Max objects per display set
+
+#define DEFAULT_DELAY_TIME 2 // second
+#define DEFAULT_DVB_TIME_MULTI 90
+
+
+enum SegmentType {
+    PALETTE_SEGMENT      = 0x14,
+    OBJECT_SEGMENT       = 0x15,
+    PRESENTATION_SEGMENT = 0x16,
+    WINDOW_SEGMENT       = 0x17,
+    DISPLAY_SEGMENT      = 0x80,
+};
+
+struct PGSSubObjectRef {
+    int     id;
+    int     window_id;
+    uint8_t composition_flag;
+    int     x = 0;
+    int     y = 0;
+    int     crop_x;
+    int     crop_y;
+    int     crop_w;
+    int     crop_h;
+};
+
+struct PGSSubPalette {
+    int         id;
+    uint32_t    clut[256];
+};
+
+struct PGSSubPalettes {
+    int           count;
+    PGSSubPalette palette[MAX_EPOCH_PALETTES];
+};
+
 struct PgsInfo {
     int startTime;
     int endTime;
-    int x;
-    int y;
     int width;
     int height;
     char fpsCode;
     int objectCount;
+    int objectId;
+    int versionNum;
+    PGSSubObjectRef objects[MAX_OBJECT_REFS];
 
     char state;
     char paletteUpdateFlag;
     char paletteIdRef;
     char number;
-    char itemFlag;     //cropped |=0x80, forced |= 0x40
 
     int windowWidthOffset;
     int windowHeightOffset;
@@ -107,6 +142,7 @@ struct PgsShowData {
     int rleBufSize;
     int renderHeight;
     int64_t pts;
+    int objectSegmentId;
 };
 
 struct PgsSubtitleEpgs {
@@ -145,14 +181,40 @@ static inline void readSubpictureHeader(unsigned char *buf, PgsInfo *pgsInfo) {
     pgsInfo->width = (buf[0] << 8) | buf[1];
     pgsInfo->height = (buf[2] << 8) | buf[3];
     pgsInfo->fpsCode = buf[4];
-    pgsInfo->objectCount = (buf[5] << 8) | buf[6];
     pgsInfo->state = buf[7];   //0x80
     pgsInfo->paletteUpdateFlag = buf[8];
     pgsInfo->paletteIdRef = buf[9];
-    pgsInfo->number = buf[0xa];
-    pgsInfo->itemFlag = buf[0xe]; //cropped |=0x80, forced |= 0x40
-    pgsInfo->x = (buf[0xf] << 8) | buf[0x10];
-    pgsInfo->y = (buf[0x11] << 8) | buf[0x12];
+    pgsInfo->objectCount = buf[0xa];
+    int cropping = 0;
+    for (int i = 0; i < pgsInfo->objectCount; i++) {
+        pgsInfo->objects[i].id = (buf[0xb + i*8 + cropping] << 8) | buf[0xc + i*8 + cropping];
+        pgsInfo->objects[i].window_id = buf[0xd + i*8 + cropping];
+        pgsInfo->objects[i].composition_flag = buf[0xe + i*8 + cropping]; //cropped |=0x80, forced |= 0x40
+        pgsInfo->objects[i].x = (buf[0xf + i*8 + cropping] << 8) | buf[0x10 + i*8 + cropping];
+        pgsInfo->objects[i].y = (buf[0x11 + i*8 + cropping] << 8) | buf[0x12 + i*8 + cropping];
+        // If cropping
+        if (pgsInfo->objects[i].composition_flag & 0x80) {
+            pgsInfo->objects[i].crop_x = (buf[0x13 + i*8] << 8) | buf[0x14 + i*8];
+            pgsInfo->objects[i].crop_y = (buf[0x15 + i*8] << 8) | buf[0x16 + i*8];
+            pgsInfo->objects[i].crop_w = (buf[0x17 + i*8] << 8) | buf[0x18 + i*8];
+            pgsInfo->objects[i].crop_h = (buf[0x19 + i*8] << 8) | buf[0x1A + i*8];
+            cropping = 8;
+        }
+        SUBTITLE_LOGI("--readSubpictureHeader--  i:%d id:%d window_id:%d composition_flag:%d x:%d y:%d crop_x:%d crop_y:%d crop_w:%d, crop_h:%d, width:%d height:%d objectCount:%d\n",
+            i,
+            pgsInfo->objects[i].id,
+            pgsInfo->objects[i].window_id,
+            pgsInfo->objects[i].composition_flag,
+            pgsInfo->objects[i].x,
+            pgsInfo->objects[i].y,
+            pgsInfo->objects[i].crop_x,
+            pgsInfo->objects[i].crop_y,
+            pgsInfo->objects[i].crop_w,
+            pgsInfo->objects[i].crop_h ,
+            pgsInfo->width,
+            pgsInfo->height,
+            pgsInfo->objectCount);
+    }
 }
 
 static inline void readWindowHeader(unsigned char *buf, PgsInfo *pgsInfo) {
@@ -165,10 +227,7 @@ static inline void readWindowHeader(unsigned char *buf, PgsInfo *pgsInfo) {
 static inline void readWindowInfo(unsigned char *buf, PgsInfo *pgsInfo) {
     pgsInfo->windowWidth = (buf[0] << 8) | buf[1];
     pgsInfo->windowHeight = (buf[2] << 8) | buf[3];
-    pgsInfo->x = (buf[15] << 8) | buf[16];
-    pgsInfo->y = (buf[17] << 8) | buf[18];
-    SUBTITLE_LOGI("readWindowInfo:bitmapx:%d,bitmapy:%d,windowwidth:%d,windowHeight:%d",
-    pgsInfo->x,pgsInfo->y,pgsInfo->windowWidth,pgsInfo->windowHeight);
+    SUBTITLE_LOGI("readWindowInfo windowwidth:%d,windowHeight:%d",pgsInfo->windowWidth,pgsInfo->windowHeight);
 }
 
 
@@ -178,27 +237,44 @@ static inline void readColorTable(unsigned char *buf, int size, PgsInfo *pgsInfo
         unsigned char y = buf[pos + 1];
         unsigned char u = buf[pos + 2];
         unsigned char v = buf[pos + 3];
-        y -= 16;
-        u -= 128;
-        v -= 128;
-        unsigned char r = (298 * y + 409 * v + 128) >> 8;
-        unsigned char g = (298 * y - 100 * u - 208 * v + 128) >> 8;
-        unsigned char b = (298 * y + 516 * u + 128) >> 8;
+        unsigned char r = y + (v - 128) + ((v - 128) * 103 >> 8);
+        unsigned char g = y - ((u - 128) * 88 >> 8) - ((v - 128) * 183 >> 8);
+        unsigned char b = y + (u - 128) + ((u - 128) * 198 >> 8);
         /*
         R = Y + 1.140V
         G = Y - 0.395U - 0.581V
         B = Y + 2.032U
         */
         pgsInfo->palette[buf[pos]] =
-            (r << 24) | (g << 16) | (b << 8) | (buf[pos + 4]);
+            ((r > 255 ? 255: r) << 24) | ((g > 255 ? 255: g) << 16) | ((b > 255 ? 255: b) << 8) | (buf[pos + 4]);
     }
+}
+
+static inline int findObject(int id, PgsInfo *pgsInfo)
+{
+    for (int i = 0; i < pgsInfo->objectCount; i++) {
+        if (pgsInfo->objects[i].id == id)
+            return i;
+    }
+    return -1;
+}
+
+static inline int findPalette(int id, PGSSubPalettes *palettes)
+{
+    for (int i = 0; i < palettes->count; i++) {
+        if (palettes->palette[i].id == id)
+            return i;
+    }
+    return -1;
 }
 
 static inline unsigned char readBitmap(unsigned char *buf, int size, PgsInfo *pgsInfo) {
     SUBTITLE_LOGI("--readBitmap-- %d, %d\n", pgsInfo->imageWidth, pgsInfo->imageHeight);
     int rleBytes;
 
-    // buf[1]: objectId, buf[2]: versionNum, no need parse
+    // buf[1]: objectId, buf[2]: versionNum
+    pgsInfo->objectId = buf[1];
+    pgsInfo->versionNum = buf[2];
     char continueFlag = buf[3];
 
     if (continueFlag & 0x80) {
@@ -213,6 +289,10 @@ static inline unsigned char readBitmap(unsigned char *buf, int size, PgsInfo *pg
         pgsInfo->rleBuf = (unsigned char *)malloc(objectSize);
         if (pgsInfo->rleBuf) {
             pgsInfo->rleBufSize = objectSize;
+        } else {
+            pgsInfo->rleBufSize = 0;
+            SUBTITLE_LOGI("readBitmap rleBufSize = 0 \n");
+            return -1;
         }
         rleBytes = size - 11;
     } else {
@@ -321,7 +401,6 @@ static inline void afRlebitmapRender(PgsShowData *showdata, PgsShowData *result,
 
 void PgsParser::checkDebug() {
     //dump pgs subtitle bitmap
-#ifdef ANDROID
     char value[PROPERTY_VALUE_MAX] = {0};
     memset(value, 0, PROPERTY_VALUE_MAX);
     property_get("vendor.subtitle.dump", value, "false");
@@ -330,7 +409,6 @@ void PgsParser::checkDebug() {
     } else {
         mDumpSub = false;
     }
-#endif
 }
 
 PgsParser::PgsParser(std::shared_ptr<DataSource> source) {
@@ -396,8 +474,14 @@ int PgsParser::parserOnePgs(std::shared_ptr<AML_SPUVAR> spu) {
             save2BitmapFile(filename, (uint32_t *)spu->spu_data, spu->spu_width, spu->spu_height);
         }
         if (spu->spu_origin_display_w <= 0 || spu->spu_origin_display_h <= 0) {
-            spu->spu_origin_display_w = VideoInfo::Instance()->getVideoWidth();
-            spu->spu_origin_display_h = VideoInfo::Instance()->getVideoHeight();
+            if (mPgsEpgs->pgsInfo->width > 0 && mPgsEpgs->pgsInfo->height > 0) {
+                 spu->spu_origin_display_w = mPgsEpgs->pgsInfo->width;
+                 spu->spu_origin_display_h = mPgsEpgs->pgsInfo->height;
+
+            } else {
+                spu->spu_origin_display_w = VideoInfo::Instance()->getVideoWidth();
+                spu->spu_origin_display_h = VideoInfo::Instance()->getVideoHeight();
+            }
         }
 
         addDecodedItem(std::shared_ptr<AML_SPUVAR>(spu));
@@ -418,13 +502,13 @@ int PgsParser::decode(std::shared_ptr<AML_SPUVAR> spu, unsigned char *buf) {
     PgsInfo *pgsInfo = mPgsEpgs->pgsInfo;
     type = readTimeHeader(&curBuf, &size, &startTime, &endTime);
     switch (type) {
-        case 0x16:     //subpicture header
+        case PRESENTATION_SEGMENT:     //subpicture header
+            readSubpictureHeader(curBuf - size, pgsInfo);
             if (size == 0x13) {
-                //SUBTITLE_LOGI("enter type 0x16,0x13, %d\n", read_pgs_byte);
-                readSubpictureHeader(curBuf - size, pgsInfo);
+                SUBTITLE_LOGI("enter type 0x16,0x13\n");
+                //readSubpictureHeader(curBuf - size, pgsInfo);
             } else if (size == 0xb) {
                 //clearSubpictureHeader
-                SUBTITLE_LOGI("enter type 0x16,0xb, %d %d\n", startTime, endTime);
                 readWindowInfo(curBuf - size,pgsInfo);
                 spu->subtitle_type = TYPE_SUBTITLE_PGS;
                 spu->pts = startTime;
@@ -441,23 +525,48 @@ int PgsParser::decode(std::shared_ptr<AML_SPUVAR> spu, unsigned char *buf) {
                 }
             }
             break;
-        case 0x17:      //window
+        case WINDOW_SEGMENT:      //window
             if (size == 0xa) {
                 //SUBTITLE_LOGI("enter type 0x17, %d\n", read_pgs_byte);
                 //readWindowHeader(curBuf - size, pgsInfo);
             }
             break;
-        case 0x14:      //color table
+        case PALETTE_SEGMENT:      //color table
             //SUBTITLE_LOGI("enter type 0x14 %d\n", read_pgs_byte);
             readColorTable(curBuf - size, size, pgsInfo);
             break;
-        case 0x15:      //bitmap
-            //SUBTITLE_LOGI("enter type 0x15 %d\n", read_pgs_byte);
+        case OBJECT_SEGMENT:      //bitmap
+            SUBTITLE_LOGI("OBJECT_SEGMENT enter type 0x15\n");
             if (readBitmap(curBuf - size, size, pgsInfo)) {
-                SUBTITLE_LOGI("success readBitmap \n ");
+                SUBTITLE_LOGI("nwpushuai objectId:%d", pgsInfo->objectId);
+                int presentationSegmentObjectId = findObject(pgsInfo->objectId, pgsInfo);
+
+                if (mPgsEpgs->pgsInfo->objects[presentationSegmentObjectId].x < 0 || mPgsEpgs->pgsInfo->objects[presentationSegmentObjectId].x > mPgsEpgs->pgsInfo->width) {
+                    SUBTITLE_LOGI("fail x nwpushuai --OBJECT_SEGMENT-- y:%d height:%d imageHeight:%d \n", mPgsEpgs->pgsInfo->objects[presentationSegmentObjectId].x, mPgsEpgs->pgsInfo->width, mPgsEpgs->pgsInfo->imageWidth);
+                    mPgsEpgs->pgsInfo->objects[presentationSegmentObjectId].x = (mPgsEpgs->pgsInfo->width - mPgsEpgs->pgsInfo->imageWidth) / 2;
+                }
+
+                if (mPgsEpgs->pgsInfo->objects[presentationSegmentObjectId].y < 0 || mPgsEpgs->pgsInfo->objects[presentationSegmentObjectId].y > mPgsEpgs->pgsInfo->height) {
+                    SUBTITLE_LOGI("fail y nwpushuai --OBJECT_SEGMENT-- y:%d height:%d imageHeight:%d \n", mPgsEpgs->pgsInfo->objects[presentationSegmentObjectId].y, mPgsEpgs->pgsInfo->height, mPgsEpgs->pgsInfo->imageHeight);
+                    mPgsEpgs->pgsInfo->objects[presentationSegmentObjectId].y = mPgsEpgs->pgsInfo->height - mPgsEpgs->pgsInfo->imageHeight *2;
+                }
+
+                SUBTITLE_LOGI("nwpushuai success readBitmap x:%d y:%d width:%d height:%d windowWidthOffset:%d windowHeightOffset:%d windowWidth%d windowHeight:%d imageWidth:%d imageHeight:%d spu->m_delay:%lld\n",
+                    mPgsEpgs->pgsInfo->objects[presentationSegmentObjectId].x,
+                    mPgsEpgs->pgsInfo->objects[presentationSegmentObjectId].y,
+                    mPgsEpgs->pgsInfo->width,
+                    mPgsEpgs->pgsInfo->height,
+                    mPgsEpgs->pgsInfo->windowWidthOffset,
+                    mPgsEpgs->pgsInfo->windowHeightOffset,
+                    mPgsEpgs->pgsInfo->windowWidth,
+                    mPgsEpgs->pgsInfo->windowHeight,
+                    mPgsEpgs->pgsInfo->imageWidth,
+                    mPgsEpgs->pgsInfo->imageHeight,
+                    spu->m_delay
+                );
                 //render it
-                mPgsEpgs->showdata.x = mPgsEpgs->pgsInfo->x;
-                mPgsEpgs->showdata.y = mPgsEpgs->pgsInfo->y;
+                mPgsEpgs->showdata.x = mPgsEpgs->pgsInfo->objects[presentationSegmentObjectId].x;
+                mPgsEpgs->showdata.y = mPgsEpgs->pgsInfo->objects[presentationSegmentObjectId].y;
                 mPgsEpgs->showdata.width = mPgsEpgs->pgsInfo->width;
                 mPgsEpgs->showdata.height = mPgsEpgs->pgsInfo->height;
                 mPgsEpgs->showdata.windowWidthOffset = mPgsEpgs->pgsInfo->windowWidthOffset;
@@ -469,6 +578,7 @@ int PgsParser::decode(std::shared_ptr<AML_SPUVAR> spu, unsigned char *buf) {
                 mPgsEpgs->showdata.palette = mPgsEpgs->pgsInfo->palette;
                 mPgsEpgs->showdata.rleBuf = mPgsEpgs->pgsInfo->rleBuf;
                 mPgsEpgs->showdata.rleBufSize = mPgsEpgs->pgsInfo->rleBufSize;
+                mPgsEpgs->showdata.objectSegmentId = presentationSegmentObjectId;
                 SUBTITLE_LOGI("decoder pgs data to show\n\n");
                 parserOnePgs(spu);
 
@@ -480,7 +590,7 @@ int PgsParser::decode(std::shared_ptr<AML_SPUVAR> spu, unsigned char *buf) {
                 return 1;
             }
             break;
-        case 0x80:      //trailer
+        case DISPLAY_SEGMENT:      //trailer
             SUBTITLE_LOGI("enter type 0x80\n");
             break;
         default:
@@ -547,8 +657,8 @@ int PgsParser::softDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
         pts = subPeekAsInt64(tmpbuf + 7);
 
         spu->m_delay = subPeekAsInt32(tmpbuf + 15);
-        if (spu->m_delay != 0) {
-            spu->m_delay += pts;
+        if (spu->m_delay == 0) {
+            spu->m_delay = pts + (DEFAULT_DELAY_TIME * 1000 * DEFAULT_DVB_TIME_MULTI);
         }
         dts = pts;
         spu->subtitle_type = TYPE_SUBTITLE_PGS;
@@ -636,7 +746,7 @@ int PgsParser::hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
     char tmpbuf[256];
     int64_t pts = 0, dts = 0;
     int64_t tmpPts, tmpDts;
-    unsigned int packetLen = 0, pesHeaderLen = 0;
+    int packetLen = 0, pesHeaderLen = 0;
     bool needSkipPkt = true;
     //read_pgs_byte = 0;
     SUBTITLE_LOGI("enter get_pgs_spu\n");
@@ -685,7 +795,7 @@ int PgsParser::hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
 
         if (needSkipPkt) {
             char tmp;
-            for (unsigned int iii = 0; iii < packetLen; iii++) {
+            for (int iii = 0; iii < packetLen; iii++) {
                 if (mDataSource->read(&tmp, 1) == 0) break;
             }
         } else if ((pts) && (packetLen > 0)) {
@@ -757,7 +867,7 @@ void PgsParser::dump(int fd, const char *prefix) {
     if (mPgsEpgs->pgsInfo != nullptr) {
         PgsInfo *pgs = mPgsEpgs->pgsInfo;
         dprintf(fd, "%s     startTime:%d endTime:%d\n", prefix, pgs->startTime, pgs->endTime);
-        dprintf(fd, "%s     x:%d y:%d w:%d h:%d\n", prefix, pgs->x, pgs->y, pgs->width, pgs->height);
+        dprintf(fd, "%s     w:%d h:%d\n", prefix, pgs->width, pgs->height);
         dprintf(fd, "%s     fpsCode:%d\n", prefix, pgs->fpsCode);
         dprintf(fd, "%s     objectCount:%d\n", prefix, pgs->objectCount);
         dprintf(fd, "%s     objectCount:%d\n", prefix, pgs->objectCount);
@@ -766,7 +876,6 @@ void PgsParser::dump(int fd, const char *prefix) {
         dprintf(fd, "%s     paletteUpdateFlag:%d\n", prefix, pgs->paletteUpdateFlag);
         dprintf(fd, "%s     paletteIdRef:%d\n", prefix, pgs->paletteIdRef);
         dprintf(fd, "%s     number:%d\n", prefix, pgs->number);
-        dprintf(fd, "%s     itemFlag:%d\n", prefix, pgs->itemFlag);
 
         dprintf(fd, "%s     window Offset(x:%d y:%d)\n", prefix, pgs->windowWidthOffset, pgs->windowHeightOffset);
         dprintf(fd, "%s     window(w:%d h:%d)\n", prefix, pgs->windowWidth, pgs->windowHeight);

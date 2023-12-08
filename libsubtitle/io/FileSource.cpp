@@ -29,9 +29,13 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string>
+
 #include "SubtitleLog.h"
 #include <utils/CallStack.h>
+
 #include "FileSource.h"
+#include "IpcDataTypes.h"
+
 
 FileSource::FileSource(int fd, int extFd) {
     SUBTITLE_LOGI("%s fd:%d", __func__, fd);
@@ -55,6 +59,10 @@ FileSource::~FileSource() {
     if (mExtraFd > 0) {
         ::close(mExtraFd);
     }
+}
+
+int FileSource::onData(const char *buffer, int len) {
+    return 0;
 }
 
 bool FileSource::start() {

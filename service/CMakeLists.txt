@@ -14,9 +14,6 @@ include_directories(
         ../libsubtitle/include
         ../libsubtitle/display
         ../libsubtitle/subtitle/parser/ExtParser
-        ../libsubtitle/subtitle/parser/dvb/include/am_adp
-        ../libsubtitle/subtitle/parser/dvb/include/am_mw
-        ../libsubtitle/subtitle/parser/dvb/android/ndk/include
         ../libsubtitle/port
         ../libsubtitle
         ../libsubtitle/subtitle

@@ -27,8 +27,7 @@
 #ifndef __SUBTITLE_DISPLAY_H__
 #define __SUBTITLE_DISPLAY_H__
 #include <memory>
-#include "SubtitleLog.h"
-#include <utils/CallStack.h>
+
 struct DisplayInfo {
     int width;
     int height;
@@ -43,14 +42,12 @@ private:
 
 class Display {
 public:
-    Display() {};
-    virtual ~Display() {
-            SUBTITLE_LOGI("%s", __func__);
-    };
+    Display() {}
+    virtual ~Display() {};
 
-    virtual DisplayInfo getDisplayInfo() =0;
-    virtual std::shared_ptr<SurfaceHandle> createLayer(int width, int height, int format) =0;
-    virtual int destroySurface(std::shared_ptr<SurfaceHandle> handle) =0;
+    virtual DisplayInfo getDisplayInfo() = 0;
+    virtual std::shared_ptr<SurfaceHandle> createLayer(int width, int height, int format) = 0;
+    virtual int destroySurface(std::shared_ptr<SurfaceHandle> handle) = 0;
 
     virtual void *lockDisplayBuffer(int *width, int *height, int *stride, int *bpp);
     virtual bool unlockAndPostDisplayBuffer(void *width);

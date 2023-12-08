@@ -27,6 +27,8 @@
 #define LOG_TAG "Pjs"
 
 #include "Pjs.h"
+#include "SubtitleLog.h"
+
 
 Pjs::Pjs(std::shared_ptr<DataSource> source): TextSubtitle(source) {
     mPtsRate = 15;

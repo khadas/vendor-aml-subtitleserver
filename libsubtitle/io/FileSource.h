@@ -27,12 +27,9 @@
 #ifndef __SUBTITLE_FILESOURCE_H__
 #define __SUBTITLE_FILESOURCE_H__
 
-
 #include <string>
 
 #include "DataSource.h"
-
-#define LINE_LEN   1024*5
 
 
 class FileSource : public DataSource {
@@ -53,9 +50,7 @@ public:
     virtual size_t availableDataSize();
     virtual size_t read(void *buffer, size_t size);
 
-    virtual int onData(const char*buffer, int len) {
-        return -1;
-    }
+    virtual int onData(const char*buffer, int len);
 
     virtual void dump(int fd, const char *prefix);
 

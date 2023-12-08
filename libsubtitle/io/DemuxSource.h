@@ -27,17 +27,18 @@
 #ifndef __SUBTITLE_DEMUXDEVICE_SOURCE_H__
 #define __SUBTITLE_DEMUXDEVICE_SOURCE_H__
 
-
 #include <string>
 #include <memory>
 #include <mutex>
+#include <utils/Thread.h>
 #include <thread>
+
 #include "Segment.h"
-#include "sub_types2.h"
-
-
+#include "SubtitleTypes.h"
 #include "DataSource.h"
+
 #define DEMUX_SOURCE_ID 0//0
+#define SCTE27_TID 0xC6
 
 class DemuxSource : public DataSource {
 
@@ -69,10 +70,11 @@ private:
     void pes_data_cb(int dev_no, int fhandle, const uint8_t *data, int len, void *user_data);
 
     bool notifyInfoChange();
+    void checkDebug();
     int mRdFd;
     std::shared_ptr<std::thread> mRenderTimeThread;
     std::shared_ptr<std::thread> mReadThread;
-//    std::shared_ptr<BufferSegment> mSegment;
+    // std::shared_ptr<BufferSegment> mSegment;
     // for poping and parsing
     std::shared_ptr<BufferItem> mCurrentItem;
 

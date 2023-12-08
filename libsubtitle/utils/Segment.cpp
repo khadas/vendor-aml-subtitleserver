@@ -30,13 +30,8 @@
 #include <list>
 #include <memory>
 #include <mutex>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
-//#include "trace_support.h"
 #include "SubtitleLog.h"
-#include <utils/CallStack.h>
 
 #include "Segment.h"
 

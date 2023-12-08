@@ -54,13 +54,19 @@ LICENSE=
 {T 00:00:54:08 a lush and fertile planet.}
 ****/
 std::shared_ptr<ExtSubItem> SubViewer2::decodedItem() {
-    char line[LINE_LEN + 1];
-    char text[LINE_LEN + 1];
+    char * line = (char *)MALLOC(LINE_LEN+1);
+    char * text = (char *)MALLOC(LINE_LEN+1);
     int a1, a2, a3, a4;
+    memset(line, 0, LINE_LEN+1);
+    memset(text, 0, LINE_LEN+1);
 
     while (mReader->getLine(line)) {
         if (sscanf(line, "{T %d:%d:%d:%d %[^\n\r]", &a1, &a2, &a3, &a4, text) < 5) {
-            continue;
+            if (sscanf(line, "{T %d:%d:%d:%d", &a1, &a2, &a3, &a4) < 4)
+            {
+                continue;
+            }
+            mReader->getLine(text);
         }
 
         std::shared_ptr<ExtSubItem> item = std::shared_ptr<ExtSubItem>(new ExtSubItem());
@@ -68,9 +74,28 @@ std::shared_ptr<ExtSubItem> SubViewer2::decodedItem() {
         item->end = item->start + 200;
         item->lines.push_back(std::string(text));
 
+        if (mReader->getLine(line)) {
+            if (sscanf(line, "{T %d:%d:%d:%d", &a1, &a2, &a3, &a4) < 4) {
+                if (mReader->getLine(line)) {
+                    if (sscanf(line, "{T %d:%d:%d:%d", &a1, &a2, &a3, &a4) == 4) {
+                        item->end = a1 * 360000 + a2 * 6000 + a3 * 100 + a4 / 10;
+                    }
+                    mReader->backtoLastLine();
+                }
+            }else {
+                item->end = a1 * 360000 + a2 * 6000 + a3 * 100 + a4 / 10;
+                mReader->backtoLastLine();
+            }
+        }
+
+        free(line);
+        free(text);
+
         // TODO: multi line support
         return item;
     }
+    free(line);
+    free(text);
 
     return nullptr;
 }

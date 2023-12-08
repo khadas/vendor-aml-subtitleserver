@@ -27,6 +27,8 @@
 #define LOG_TAG "Mplayer1"
 
 #include "Mplayer1.h"
+#include "SubtitleLog.h"
+
 
 Mplayer1::Mplayer1(std::shared_ptr<DataSource> source): TextSubtitle(source) {
     // default rate

@@ -29,15 +29,14 @@
 #include <thread>
 #include <algorithm>
 #include <functional>
-
 #include "SubtitleLog.h"
 
 #include "ExtParser.h"
 #include "ParserFactory.h"
 #include "ExtSubFactory.h"
 
-//TODO: move to utils directory
 
+//TODO: move to utils directory
 ExtParser::ExtParser(std::shared_ptr<DataSource> source, int trackId) {
     mDataSource = source;
     mParseType = TYPE_SUBTITLE_EXTERNAL;
@@ -87,7 +86,7 @@ int ExtParser::parse() {
         bool needIdling = true;
         if (mState == SUB_INIT) {
             mState = SUB_PLAYING;
-        } else if (mState == SUB_PLAYING) {
+        } else if (mState == SUB_PLAYING && mDecodedSpu.size() < mMaxSpuItems) {
             needIdling = getSpu() != 0;
         }
 

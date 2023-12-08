@@ -31,9 +31,8 @@
 #include <list>
 #include <memory>
 #include <mutex>
+
 #include "../subtitle/parser/Parser.h"
-#include <condition_variable>
-#include <string.h>
 
 class BufferSegment;
 
@@ -147,4 +146,3 @@ private:
 };
 
 #endif
-

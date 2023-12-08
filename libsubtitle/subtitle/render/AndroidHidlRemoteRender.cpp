@@ -63,6 +63,7 @@ bool AndroidHidlRemoteRender::postSubtitleData() {
 
         if (((*it)->spu_data) == nullptr) {
             if ((*it)->dynGen) {
+                (*it)->genSubtitle();
                 SUBTITLE_LOGI("dynamic gen and return!");
                 if (((*it)->spu_data) == nullptr) {
                     SUBTITLE_LOGE("Error! why still no decoded spu_data???");
@@ -76,7 +77,7 @@ bool AndroidHidlRemoteRender::postSubtitleData() {
 
         width = (*it)->spu_width;
         height = (*it)->spu_height;
-        if (mParseType == TYPE_SUBTITLE_DTVKIT_TELETEXT || mParseType == TYPE_SUBTITLE_DVB_TELETEXT) {
+        if (mParseType == TYPE_SUBTITLE_DVB_TELETEXT) {
             x = (*it)->disPlayBackground;
         } else {
             x = (*it)->spu_start_x;

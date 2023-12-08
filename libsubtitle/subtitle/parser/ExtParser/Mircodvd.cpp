@@ -27,6 +27,8 @@
 #define LOG_TAG "Mircodvd"
 
 #include "Mircodvd.h"
+#include "SubtitleLog.h"
+
 
 Mircodvd::Mircodvd(std::shared_ptr<DataSource> source): TextSubtitle(source) {
     // default rate

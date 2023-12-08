@@ -29,10 +29,10 @@
 #include <list>
 #include <mutex>
 #include <memory>
-//#include "trace_support.h"
 #include "SubtitleLog.h"
-#include <utils/CallStack.h>
+
 #include "InfoChangeListener.h"
+
 
 typedef enum {
     E_SUBTITLE_FMQ = 0,
@@ -41,6 +41,7 @@ typedef enum {
     E_SUBTITLE_SOCK, /*deprecated*/
     E_SUBTITLE_DEMUX,
     E_SUBTITLE_VBI,
+    E_SUBTITLE_USERDATA,
 } SubtitleIOType;
 
 typedef enum {
@@ -62,7 +63,7 @@ public:
     DataSource() = default;
     DataSource& operator=(const DataSource&) = delete;
     virtual ~DataSource() {
-        SUBTITLE_LOGI("%s", __func__);
+            SUBTITLE_LOGI("%s", __func__);
     }
 
     virtual SubtitleIOType type() = 0;

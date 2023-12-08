@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 
 project(subtitleclient)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11 -pthread")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++17 -pthread")
 
 include_directories(
         include
@@ -13,8 +13,6 @@ include_directories(
         ../libsubtitle/subtitle
         ../libsubtitle/utils
         ../libsubtitle/subtitle/parser
-        ../libsubtitle/subtitle/parser/dvb/include/am_adp
-        ../libsubtitle/subtitle/parser/dvb/include/am_mw
         ../libsubtitle/subtitle/render
         ../libsubtitle/display
         ../client

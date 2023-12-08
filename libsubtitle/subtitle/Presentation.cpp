@@ -72,6 +72,8 @@ static const int64_t ONE_SECONDS_NS = 1*1000*1000*1000LL;
 
 static const int64_t ADDJUST_VERY_SMALL_PTS_MS = 5*1000LL;
 static const int64_t ADDJUST_NO_PTS_MS = 4*1000LL;
+
+
 static bool mSubtitlePts32Bit = false;
 static inline int64_t convertDvbTime2Ns(int64_t dvbMillis) {
     return ms2ns(dvbMillis)/DVB_TIME_MULTI; // dvbTime is multi 90.
@@ -543,7 +545,7 @@ void Presentation::MessageProcess::handleStreamSub(const Message& message) {
     switch (message.what) {
         case MSG_PTS_TIME_CHECK_SPU: {
             mLooper->removeMessages(this, MSG_PTS_TIME_CHECK_SPU);
-            if (mPresent->mParser == nullptr) {
+            if (mPresent->mParser == nullptr || mPresent == nullptr) {
                 SUBTITLE_LOGE("[%s:%d] Error! parser is nullptr", __func__, __LINE__);
                 return;
             }

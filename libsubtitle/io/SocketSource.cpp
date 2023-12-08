@@ -34,7 +34,7 @@
 
 #include "SocketSource.h"
 #include "SocketServer.h"
-#include "sub_types2.h"
+#include "SubtitleTypes.h"
 static const std::string SYSFS_VIDEO_PTS = "/sys/class/tsync/pts_video";
 
 #ifdef MEDIASYNC_FOR_SUBTITLE

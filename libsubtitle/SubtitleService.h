@@ -24,12 +24,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef __SUBTITLE_SUBTITLESERVICE_H__
+#define __SUBTITLE_SUBTITLESERVICE_H__
 
 #include <vector>
 
 #include "SocketServer.h"
-//#include "FmqReceiver.h"
+#include "FmqReceiver.h"
 #include "Subtitle.h"
 #include "ParserFactory.h"
 #include "ParserEventNotifier.h"
@@ -69,7 +70,7 @@ public:
     void setPipId(int mode, int id);
     void setRenderType(int renderType);
     //ttx control api
-    bool ttControl(int cmd, int magazine, int page, int regionId, int param);
+    bool ttControl(int cmd, int magazine, int pageNo, int regionId, int param);
     int ttGoHome();
     int ttGotoPage(int pageNo, int subPageNo);
     int ttNextPage(int dir);
@@ -83,8 +84,8 @@ public:
     void dump(int fd);
     void setupDumpRawFlags(int flagMap);
 
-   // bool startFmqReceiver(std::unique_ptr<FmqReader> reader);
-   // bool stopFmqReceiver();
+    bool startFmqReceiver(std::unique_ptr<FmqReader> reader);
+    bool stopFmqReceiver();
 
 private:
     std::shared_ptr<Subtitle> mSubtiles;
@@ -92,7 +93,7 @@ private:
     SubtitleParamType mSubParam;
 
     std::shared_ptr<DataSource> mDataSource;
-    //std::unique_ptr<FmqReceiver> mFmqReceiver;
+    std::unique_ptr<FmqReceiver> mFmqReceiver;
     std::shared_ptr<UserDataAfd> mUserDataAfd;
 
     int mDumpMaps;
@@ -107,4 +108,4 @@ private:
     bool mIsInfoRetrieved;
 };
 
-
+#endif

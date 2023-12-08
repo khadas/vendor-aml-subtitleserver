@@ -28,7 +28,7 @@
 #define __SUBTITLE_RENDER_H__
 
 #include "Display.h"
-#include "sub_types.h"
+#include "SubtitleTypes.h"
 
 // Currently, only skia render
 // maybe, we also can generic to support multi-render. such as

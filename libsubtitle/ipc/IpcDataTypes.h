@@ -27,17 +27,17 @@
 #pragma once
 
 enum {
-    eTypeSubtitleTotal      = 'STOT',
-    eTypeSubtitleStartPts   = 'SPTS',
-    eTypeSubtitleRenderTime = 'SRDT',
-    eTypeSubtitleType       = 'STYP',
+    eTypeSubtitleTotal      = 0x53544F54,  // 'STOT'
+    eTypeSubtitleStartPts   = 0x53505453,  // 'SPTS'
+    eTypeSubtitleRenderTime = 0x53524454,  // 'SRDT'
+    eTypeSubtitleType       = 0x53545950,  // 'STYP'
 
-    eTypeSubtitleTypeString = 'TPSR',
-    eTypeSubtitleLangString = 'LGSR',
-    eTypeSubtitleData       = 'PLDT',
+    eTypeSubtitleTypeString = 0x54505352,  // 'TPSR'
+    eTypeSubtitleLangString = 0x4C475352,  // 'LGSR'
+    eTypeSubtitleData       = 0x504C4454,  // 'PLDT'
 
-    eTypeSubtitleResetServ  = 'CDRT',
-    eTypeSubtitleExitServ   = 'CDEX',
+    eTypeSubtitleResetServ  = 0x43545244,  // 'CDRT'
+    eTypeSubtitleExitServ   = 0x43444558   // 'CDEX'
 };
 
 

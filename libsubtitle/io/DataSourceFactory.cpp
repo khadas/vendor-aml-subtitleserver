@@ -33,13 +33,13 @@
 #include "ExternalDataSource.h"
 #include "DemuxSource.h"
 #include "VbiSource.h"
-
 #include "DataSourceFactory.h"
 
 std::shared_ptr<DataSource> DataSourceFactory::create(SubtitleIOType type) {
     switch (type) {
         case SubtitleIOType::E_SUBTITLE_FMQ:
-            //return std::shared_ptr<DataSource>(new ExternalDataSource());
+            return std::shared_ptr<DataSource>(new ExternalDataSource());
+
         case SubtitleIOType::E_SUBTITLE_SOCK:
             return std::shared_ptr<DataSource>(new SocketSource());
 

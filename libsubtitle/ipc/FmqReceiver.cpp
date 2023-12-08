@@ -25,11 +25,7 @@
  */
 
 #define LOG_TAG "FmqReceiver"
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
+
 #include <utils/CallStack.h>
 
 #include "FmqReceiver.h"

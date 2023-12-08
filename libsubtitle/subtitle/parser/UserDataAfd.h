@@ -27,7 +27,7 @@
 #ifndef __SUBTITLE_USERDATA_AFD_H__
 #define __SUBTITLE_USERDATA_AFD_H__
 
-#include "sub_types2.h"
+#include "SubtitleTypes.h"
 #include "ParserFactory.h"
 #include "ParserEventNotifier.h"
 #include <thread>
@@ -57,6 +57,7 @@ private:
     static UserDataAfd *sInstance;
     ParserEventNotifier *mNotifier;
     int mPlayerId;
+    int mMediasyncId;
     int mMode;
     std::mutex mMutex;
     std::shared_ptr<std::thread> mThread;

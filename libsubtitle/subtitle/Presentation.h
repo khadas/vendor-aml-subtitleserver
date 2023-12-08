@@ -24,14 +24,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
-
+#ifndef __SUBTITLE_PRESENTATION_H__
+#define __SUBTITLE_PRESENTATION_H__
 #include <thread>
 #include <mutex>
 // maybe we can use std::chrono::steady_clock
 // how to program it with longlong time?
 #include <utils/Timers.h>
-//#include "AmlLooper.h"
 #include <utils/Mutex.h>
 #include <utils/Looper.h>
 #include <binder/Binder.h>
@@ -45,8 +44,7 @@ using android::Looper;
 using android::Message;
 using android::Mutex;
 
-class Presentation  : public ParserSubdataNotifier{
-
+class Presentation : public ParserSubdataNotifier {
 public:
     Presentation(std::shared_ptr<Display> disp, int renderType);
     virtual ~Presentation();
@@ -89,9 +87,7 @@ private:
         void handleExtSub(const Message& message);
         void handleStreamSub(const Message& message);
         std::shared_ptr<AML_SPUVAR> mLastShowingSpu;
-        //std::shared_ptr<Looper> mLooper;
-                sp<Looper> mLooper;
-
+        sp<Looper> mLooper;
     };
 
     int64_t mCurrentPresentRelativeTime;
@@ -116,5 +112,4 @@ private:
 
 };
 
-
-
+#endif

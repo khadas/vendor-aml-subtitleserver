@@ -32,9 +32,11 @@
 #include <thread>
 #include<vector>
 
+#include "SubtitleLog.h"
+#include <utils/Thread.h>
+
 #include "IpcDataTypes.h"
 #include "DataSource.h"
-
 #include "ringbuffer.h"
 
 // TODO: use portable impl

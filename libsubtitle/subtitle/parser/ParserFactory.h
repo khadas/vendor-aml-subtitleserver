@@ -49,8 +49,8 @@ enum ExtSubtitleType {
     SUB_SUBVIEWER3,
     SUB_SUBRIP09,
     SUB_JACOSUB,
-    SUB_ML1,
-    SUB_ML2,
+    SUB_MPL1,
+    SUB_MPL2,
     SUB_XML,
     SUB_TTML,
     SUB_LRC,
@@ -86,7 +86,7 @@ enum SubtitleCodecID {
     AV_CODEC_ID_SUBVIEWER,
     AV_CODEC_ID_SUBRIP,
     AV_CODEC_ID_WEBVTT,
-    AV_CODEC_ID_ML2,
+    AV_CODEC_ID_MPL2,
     AV_CODEC_ID_VPLAYER,
     AV_CODEC_ID_PJS,
     AV_CODEC_ID_ASS,
@@ -102,35 +102,33 @@ enum DisplayType {
 };
 
 typedef enum {
-    DTV_SUB_INVALID                 = -1,
-    DTV_SUB_CC                      = 2,
-    DTV_SUB_SCTE27                  = 3,
-    DTV_SUB_DVB                     = 4,
-    DTV_SUB_DTVKIT_DVB              =5,
-    DTV_SUB_DTVKIT_TELETEXT         = 6,
-    DTV_SUB_DTVKIT_SCTE27           = 7,
-    DTV_SUB_ARIB24                  = 8,
-    DTV_SUB_DTVKIT_ARIB24           = 9,
-    DTV_SUB_TTML                    = 10,
-    DTV_SUB_DTVKIT_TTML             = 11,
-    DTV_SUB_SMPTE_TTML              = 12,
-    DTV_SUB_DTVKIT_SMPTE_TTML       = 13,
+    DTV_SUB_INVALID         = -1,
+    DTV_SUB_CC              = 2,
+    DTV_SUB_SCTE27          = 3,
+    DTV_SUB_DVB             = 4,
+    DTV_SUB_DTVKIT_DVB      = 5,
+    DTV_SUB_DTVKIT_TELETEXT = 6,
+    DTV_SUB_DTVKIT_SCTE27   = 7,
+    DTV_SUB_ARIB24          = 8,
+    DTV_SUB_DTVKIT_ARIB24   = 9,
+    DTV_SUB_TTML            = 10,
+    DTV_SUB_DTVKIT_TTML     = 11,
+    DTV_SUB_SMPTE_TTML      = 12,
+    DTV_SUB_DTVKIT_SMPTE_TTML = 13,
 } DtvSubtitleType;
 
 enum VideoFormat {
     INVALID_CC_TYPE    = -1,
-    MPEG_CC_TYPE       = 0,
+    MPEG_CC_TYPE       = 1,
     H264_CC_TYPE       = 2,
-    H265_CC_TYPE       = 2
+    H265_CC_TYPE       = 3,
 };
-
 
 typedef struct {
     int ChannelID = 0 ;
     int vfmt = 0;  //Video format
     char lang[64] = {0};  //channel language
-} CcParam;
-
+} ClosedCaptionParam;
 
 typedef struct {
     int SCTE27_PID = 0;
@@ -144,14 +142,14 @@ typedef struct {
    int flag = 0;
    int compositionId = 0;
    int ancillaryId = 0;
-} DtvKitDvbParam;
+}DvbParam;
 
 typedef struct {
    int demuxId = 0;
    int pid = 0;
    int flag = 0;
    int languageCodeId = 0;
-} Arib24Param;
+}Arib24Param;
 
 typedef struct {
    int demuxId = 0;
@@ -164,22 +162,6 @@ typedef struct {
    int pid = 0;
    int flag = 0;
 } SmpteTtmlParam;
-
-typedef struct {
-   int demuxId = 0;
-   int pid = 0;
-   int flag = 0;
-   int magazine = 0;
-   int page = 0;
-} DtvKitTeletextParam;
-
-typedef enum {
-    CMD_INVALID        = -1,
-    CMD_GO_HOME        = 1,
-    CMD_GO_TO_PAGE     = 2,
-    CMD_NEXT_PAGE      = 3,
-    CMD_NEXT_SUB_PAGE  = 4,
-} TeletextCtrlCmd;
 
 
 typedef enum{
@@ -235,57 +217,43 @@ typedef enum{
    TT_EVENT_SET_REGION_ID
 } TeletextEvent;
 
-
-
-class TeletextParam {
-public:
-    int demuxId;
-    int pid;
-    int flag;
-    int magazine;
-    int page;
-    int pageNo;
-    int subPageNo;
-    int pageDir;  //+1:next page, -1: last page
-    int subPageDir;//+1:next sub page, -1: last sub page
-    int regionId;
-    TeletextCtrlCmd ctrlCmd;
-    TeletextEvent event;
-    // when play the same program, vbi is cached, must support quick reference page
-    int onid; // origin network id for check need close vbi or not
-    int tsid; // tsid. for check need close vbi or not
-    TeletextParam() {
-        demuxId = pid = magazine = page = pageNo = subPageNo = pageDir
-            = subPageDir = regionId = -1;
-        flag = 0;
-        ctrlCmd = CMD_INVALID;
-        event = TT_EVENT_INVALID;
-        onid = tsid = -1;
-    }
-};
+typedef struct {
+   int demuxId    = -1;
+   int pid        = -1;
+   int flag       = -1; // Flag of whether to encrypt or not, 0 means unencrypted, 1 means encrypted
+   int magazine   = -1; // Teletext usually uses magazines to organize information. There are at most 8 different magazines, 100-199 (M=1), 200-299 (M=2), 300-399 (M=3), 400-499 (M =4), 500-599 (M=5), 600-699 (M=6), 700-799 (M=7), 800-899 (M=0)
+   int pageNo     = -1; // Home page number
+   int subPageNo  = -1; // Subpage page number
+   int pageDir    =  0; // +1:next page, -1: last page
+   int subpagedir =  0; // +1:next sub page, -1: last sub page
+   int regionId   = -1; // Country subset specification, range (0~87), default G0 and G2
+   TeletextEvent event;
+   // when play the same program, vbi is cached, must support quick reference page
+   int onid       = -1; // origin network id for check need close vbi or not
+   int tsid       = -1; // tsid. for check need close vbi or not
+} TeletextParam;
 
 struct SubtitleParamType {
     SubtitleType subType;
     DtvSubtitleType dtvSubType;
 
     // TODO: maybe, use union for params
-    Scte27Param scteParam;
-    CcParam ccParam;
-    TeletextParam ttParam;
+    Scte27Param scte27Param;
+    ClosedCaptionParam closedCaptionParam;
+    TeletextParam teletextParam;
+    Arib24Param arib24Param; // the pes pid for filter subtitle data from demux
+    TtmlParam ttmlParam;     // the pes pid for filter subtitle data from demux
+    DvbParam dvbParam;       // the pes pid for filter subtitle data from demux
+    SmpteTtmlParam smpteTtmlParam; //the pes pid for filter subtitle data from demux
 
-    int renderType = 1;
-
+    int renderType;
     int playerId;
     int mediaId;
-
     int idxSubTrackId; // only for idxsub
-    Arib24Param arib24Param; //the pes pid for filter subtitle data from demux
-    TtmlParam ttmlParam; //the pes pid for filter subtitle data from demux
-    SmpteTtmlParam smpteTtmlParam; //the pes pid for filter subtitle data from demux
-    DtvKitDvbParam dtvkitDvbParam; //the pes pid for filter subtitle data from demux
+
     SubtitleParamType() : playerId(0), mediaId(-1), idxSubTrackId(0) {
         subType = TYPE_SUBTITLE_INVALID;
-        memset(&ccParam, 0, sizeof(ccParam));
+        memset(&closedCaptionParam, 0, sizeof(closedCaptionParam));
     }
 
     void update() {
@@ -294,25 +262,27 @@ struct SubtitleParamType {
                 subType = TYPE_SUBTITLE_CLOSED_CAPTION;
                 break;
             case DTV_SUB_SCTE27:
+            case DTV_SUB_DTVKIT_SCTE27:
                 subType = TYPE_SUBTITLE_SCTE27;
                 break;
+            case DTV_SUB_DVB:
             case DTV_SUB_DTVKIT_DVB:
-                subType = TYPE_SUBTITLE_DTVKIT_DVB;
+                subType = TYPE_SUBTITLE_DVB;
                 break;
             case DTV_SUB_DTVKIT_TELETEXT:
-                subType = TYPE_SUBTITLE_DTVKIT_TELETEXT;
+                subType = TYPE_SUBTITLE_DVB_TELETEXT;
                 break;
-            case DTV_SUB_DTVKIT_SCTE27:
-                subType = TYPE_SUBTITLE_DTVKIT_SCTE27;
-                break;
-            case DTV_SUB_DTVKIT_ARIB24:
-                subType = TYPE_SUBTITLE_DTVKIT_ARIB_B24;
-                break;
+            case DTV_SUB_TTML:
             case DTV_SUB_DTVKIT_TTML:
-                subType = TYPE_SUBTITLE_DTVKIT_TTML;
+                subType = TYPE_SUBTITLE_DVB_TTML;
                 break;
+            case DTV_SUB_ARIB24:
+            case DTV_SUB_DTVKIT_ARIB24:
+                subType = TYPE_SUBTITLE_ARIB_B24;
+                break;
+            case DTV_SUB_SMPTE_TTML:
             case DTV_SUB_DTVKIT_SMPTE_TTML:
-                subType = TYPE_SUBTITLE_DTVKIT_SMPTE_TTML;
+                subType = TYPE_SUBTITLE_SMPTE_TTML;
                 break;
             default:
                 break;
@@ -320,16 +290,16 @@ struct SubtitleParamType {
     }
 
     bool isValidDtvParams () {
-        return dtvSubType == DTV_SUB_CC || dtvSubType == DTV_SUB_SCTE27 ||dtvSubType == DTV_SUB_DTVKIT_SCTE27 ; //only cc or scte27 valid
+        return dtvSubType == DTV_SUB_CC || dtvSubType == DTV_SUB_SCTE27 || dtvSubType == DTV_SUB_DTVKIT_SCTE27 ; //only cc or scte27 valid
     }
 
     void dump(int fd, const char * prefix) {
         dprintf(fd, "%s subType: %d\n", prefix, subType);
         dprintf(fd, "%s dtvSubType: %d\n", prefix, dtvSubType);
-        dprintf(fd, "%s   SCTE27 (PID: %d)\n", prefix, scteParam.SCTE27_PID);
-        dprintf(fd, "%s   CC     (ChannelID: %d vfmt: %d)\n", prefix, ccParam.ChannelID, ccParam.vfmt);
-        dprintf(fd, "%s   TelTxt (PageNo: %d subPageNo: %d PageDir: %d subPageDir: %d ctlCmd: %d)\n",
-            prefix, ttParam.pageNo, ttParam.subPageNo, ttParam.pageDir, ttParam.subPageDir, ttParam.ctrlCmd);
+        dprintf(fd, "%s   SCTE27 (PID: %d)\n", prefix, scte27Param.SCTE27_PID);
+        dprintf(fd, "%s   CC     (ChannelID: %d vfmt: %d)\n", prefix, closedCaptionParam.ChannelID, closedCaptionParam.vfmt);
+        dprintf(fd, "%s   TelTxt (PageNo: %d subPageNo: %d PageDir: %d subpagedir: %d)\n",
+            prefix, teletextParam.pageNo, teletextParam.subPageNo, teletextParam.pageDir, teletextParam.subpagedir);
     }
 };
 

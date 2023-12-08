@@ -51,13 +51,10 @@ typedef enum {
     DTV_SUB_CC              = 2,
     DTV_SUB_SCTE27          = 3,
     DTV_SUB_DVB             = 4,
-    DTV_SUB_DTVKIT_DVB      = 5,
-    DTV_SUB_DTVKIT_TELETEXT = 6,
-    DTV_SUB_DTVKIT_SCTE27   = 7,
-    DTV_SUB_ARIB24          = 8,
-    DTV_SUB_DTVKIT_ARIB24   = 9,
-    DTV_SUB_TTML            = 10,
-    DTV_SUB_DTVKIT_TTML     = 11,
+    DTV_SUB_DVB_TELETEXT    = 5,
+    DTV_SUB_DVB_TTML        = 6,
+    DTV_SUB_ARIB24          = 7,
+    DTV_SUB_SMPTE_TTML      = 8,
 } DtvSubtitleType;
 
 typedef enum {
@@ -67,6 +64,7 @@ typedef enum {
     E_SUBTITLE_SOCK,      /* deprecated, android not permit to use anymore */
     E_SUBTITLE_DEMUX,     /* use aml hwdemux as the data source */
     E_SUBTITLE_VBI,       /* use /dev/vbi as the IO source */
+    E_SUBTITLE_USERDATA,  /* use Userdata as the data source */
 } AmlSubtitleIOType;
 
 typedef enum {
@@ -89,20 +87,16 @@ typedef enum {
     TYPE_SUBTITLE_MKV_STR,
     TYPE_SUBTITLE_SSA,
     TYPE_SUBTITLE_MKV_VOB,
-    TYPE_SUBTITLE_DVB,
-    TYPE_SUBTITLE_TMD_TXT   = 7,
+    TYPE_SUBTITLE_TMD_TXT   = 5,
     TYPE_SUBTITLE_IDX_SUB,  //now discard
+    TYPE_SUBTITLE_DVB,
     TYPE_SUBTITLE_DVB_TELETEXT,
+    TYPE_SUBTITLE_DVB_TTML,
     TYPE_SUBTITLE_CLOSED_CAPTION,
     TYPE_SUBTITLE_SCTE27,
-    TYPE_SUBTITLE_DTVKIT_DVB, //12
-    TYPE_SUBTITLE_DTVKIT_TELETEXT,
-    TYPE_SUBTITLE_DTVKIT_SCTE27,
-    TYPE_SUBTITLE_EXTERNAL,
     TYPE_SUBTITLE_ARIB_B24,
-    TYPE_SUBTITLE_DTVKIT_ARIB_B24,
-    TYPE_SUBTITLE_TTML,
-    TYPE_SUBTITLE_DTVKIT_TTML,
+    TYPE_SUBTITLE_SMPTE_TTML, //13
+    TYPE_SUBTITLE_EXTERNAL,
     TYPE_SUBTITLE_MAX,
 } AmlSubtitletype;
 
@@ -206,34 +200,6 @@ typedef struct {
     int regionid;
     int subpagedir;
 } AmlTeletextCtrlParam;
-/*
-class SubtitleListener : public android::RefBase {
-public:
-    virtual ~SubtitleListener() {}
-
-    virtual void onSubtitleEvent(const char *data, int size, int parserType,
-                int x, int y, int width, int height,
-                int videoWidth, int videoHeight, int cmd) = 0;
-
-    virtual void onSubtitleDataEvent(int event, int id) = 0;
-
-    virtual void onSubtitleAvail(int avail) = 0;
-    virtual void onSubtitleAfdEvent(int avail, int playerid) = 0;
-    virtual void onSubtitleDimension(int width, int height) = 0;
-    virtual void onMixVideoEvent(int val) = 0;
-    virtual void onSubtitleLanguage(std::string lang) = 0;
-    virtual void onSubtitleInfo(int what, int extra) = 0;
-
-
-    // Middleware API do not need, this transfer UI command to fallback displayer
-    virtual void onSubtitleUIEvent(int uiCmd, const std::vector<int> &params) = 0;
-
-
-
-    // sometime, server may crash, we need clean up in server side.
-    virtual void onServerDied() = 0;
-};
-*/
 
 // Callback functions.
 typedef void (*AmlSubtitleDataCb)(const char *data,

@@ -25,11 +25,11 @@
  */
 
 #define LOG_TAG "MemoryLeackTrackUtil"
-
 #include <utils/Vector.h>
 #include <utils/String8.h>
 
 #include "SubtitleLog.h"
+
 #include "MemoryLeakTrackUtil.h"
 
 
@@ -152,10 +152,12 @@ public:
     Vector<MmapInfo*> maptable;
 };
 
-//extern "C" void get_malloc_leak_info(uint8_t** info, size_t* overallSize,
-//        size_t* infoSize, size_t* totalMemory, size_t* backtraceSize);
+#ifdef NEED_MALLOC_LEAK
+extern "C" void get_malloc_leak_info(uint8_t** info, size_t* overallSize,
+        size_t* infoSize, size_t* totalMemory, size_t* backtraceSize);
 
-//extern "C" void free_malloc_leak_info(uint8_t* info);
+extern "C" void free_malloc_leak_info(uint8_t* info);
+#endif
 
 
 bool dumpMemoryAddresses(int fd) {
@@ -174,7 +176,9 @@ bool dumpMemoryAddresses(int fd) {
     size_t totalMemory = 0;
     size_t backtraceSize = 0;
 
-    //get_malloc_leak_info(&info, &overallSize, &infoSize, &totalMemory, &backtraceSize);
+    #ifdef NEED_MALLOC_LEAK
+    get_malloc_leak_info(&info, &overallSize, &infoSize, &totalMemory, &backtraceSize);
+    #endif
     if (info) {
         MmapTable mapTable;
 
@@ -243,14 +247,18 @@ bool dumpMemoryAddresses(int fd) {
                     dprintf(fd, "                          ");
                 }
                 //dprintf(fd, "0x%08x", e->backtrace[ct]);
-              //  dprintf(fd, "#%02d %s\n", ct, mapTable.translateAddr(e->backtrace[ct]).c_str());
+                #ifdef NEED_MALLOC_LEAK
+                dprintf(fd, "#%02d %s\n", ct, mapTable.translateAddr(e->backtrace[ct]).c_str());
+                #endif
             }
             dprintf(fd, "\n");
         }
         dprintf(fd, "Ignore dump %d of (only 1 alloc, size<=16bytes)\n", ignored);
 
         delete[] entries;
-       // free_malloc_leak_info(info);
+        #ifdef NEED_MALLOC_LEAK
+        free_malloc_leak_info(info);
+        #endif
     } else {
         return false;
     }

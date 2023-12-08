@@ -29,17 +29,16 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/poll.h>
 #include <sys/ioctl.h>
 #include <pthread.h>
+#include <string>
+
 #include "SubtitleLog.h"
 #include <utils/CallStack.h>
 
-#include "trace_support.h"
 #include "DeviceSource.h"
 
 

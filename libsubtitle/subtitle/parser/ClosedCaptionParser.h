@@ -28,9 +28,15 @@
 #define __SUBTITLE_CLOSED_CAPTION_PARSER_H__
 #include "Parser.h"
 #include "DataSource.h"
-#include "sub_types2.h"
-#include "sub_types.h"
+#include "SubtitleTypes.h"
+#include "DvbCommon.h"
+#include "AmlogicUtil.h"
+#include "ClosedCaptionJson.h"
 
+
+#include <pthread.h>
+#include <libzvbi.h>
+#include <dtvcc.h>
 
 class ClosedCaptionParser: public Parser {
 public:
@@ -41,16 +47,15 @@ public:
     virtual void dump(int fd, const char *prefix);
     virtual void setPipId (int mode, int id);
 
-    //static char sJsonStr[CC_JSON_BUFFER_SIZE];
+    static inline char sJsonStr[CC_JSON_BUFFER_SIZE];
     static inline ClosedCaptionParser *getCurrentInstance();
     void notifyChannelState(int stat, int channelId);
     void notifyAvailable(int err);
 
 private:
     static void saveJsonStr(char * str);
-    void setDvbDebugLogLevel();
     //void afd_evt_callback(long dev_no, int event_type, void *param, void *user_data);
-    //void json_update_cb(AM_CC_Handle_t handle);
+    //void json_update_cb(ClosedCaptionHandleType handle);
     int startAtscCc(int source, int vfmt, int caption, int fgColor,int fgOpacity,
             int bgColor, int bgOpacity, int fontStyle, int fontSize);
 
@@ -67,7 +72,4 @@ private:
     char *mLang = nullptr;
     static ClosedCaptionParser *sInstance;
 };
-
-
 #endif
-

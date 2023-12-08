@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 
 project(subtitle)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11 -pthread")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++17 -pthread")
 
 include_directories(subtitle/render/textrender)
 set(textrender_SRCS
@@ -25,9 +25,6 @@ include_directories(
         include
         display
         subtitle/parser/ExtParser
-        subtitle/parser/dvb/include/am_adp
-        subtitle/parser/dvb/include/am_mw
-        subtitle/parser/dvb/android/ndk/include
         port
         subtitle
         ../../zvbi/src
@@ -41,44 +38,56 @@ set(subtitle_common_srcs
         ipc/SocketServer.cpp
         ipc/IpcBuffer.cpp
         ipc/IpcSocket.cpp
-        utils/ringbuffer.c
+        ipc/FmqReceiver.cpp
+
+        utils/AmlogicEvent.c
+        utils/AmlogicTime.c
+        utils/AmlogicUtil.c
         utils/AndroidCallbackMessageQueue.cpp
-        utils/Segment.cpp
-        utils/MemoryLeakTrackUtil.cpp
-        utils/VideoInfo.cpp
-        utils/SubtitleSignalHandler.cpp
+        utils/bprint.c
         utils/cJSON.c
         utils/CCJsonParser.cpp
+        utils/ClosedCaptionJson.c
+        utils/MemoryLeakTrackUtil.cpp
+        utils/ringbuffer.c
+        utils/Segment.cpp
+        utils/SubtitleSignalHandler.cpp
+        utils/VideoInfo.cpp
+
+        io/DataSourceFactory.cpp
+        io/Demux.c
+        io/DemuxDriver.c
+        io/DemuxSource.cpp
+        io/DeviceSource.cpp
+        io/ExternalDataSource.cpp
         io/FileSource.cpp
         io/SocketSource.cpp
-        io/DeviceSource.cpp
-        io/DataSourceFactory.cpp
-        io/ExternalDataSource.cpp
-        io/DemuxSource.cpp
+        io/Userdata.c
+        io/UserdataDriver.c
         io/VbiSource.cpp
+
         subtitle/Subtitle.cpp
         subtitle/Presentation.cpp
-        subtitle/parser/bprint.c
         subtitle/parser/ParserFactory.cpp
         subtitle/parser/AribB24Parser.cpp
         subtitle/parser/AssParser.cpp
-        subtitle/parser/PgsParser.cpp
+        subtitle/parser/ClosedCaption.c
+        subtitle/parser/ClosedCaptionParser.cpp
         subtitle/parser/DvbParser.cpp
         subtitle/parser/DvdParser.cpp
+        subtitle/parser/PgsParser.cpp
         subtitle/parser/TeletextParser.cpp
         subtitle/parser/TtmlParser.cpp
         subtitle/parser/SmpteTtmlParser.cpp
-        subtitle/parser/ClosedCaptionParser.cpp
         subtitle/parser/Scte27Parser.cpp
         subtitle/parser/UserDataAfd.cpp
-        subtitle/parser/ExtParser/ExtParser.cpp
-        subtitle/parser/ExtParser/StreamReader.cpp
-        subtitle/parser/ExtParser/ExtSubFactory.cpp
-        subtitle/parser/ExtParser/TextSubtitle.cpp
+
         subtitle/parser/ExtParser/Aqtitle.cpp
-        subtitle/parser/ExtParser/SubStationAlpha.cpp
-        subtitle/parser/ExtParser/Subrip.cpp
+        subtitle/parser/ExtParser/ExtParser.cpp
+        subtitle/parser/ExtParser/ExtSubFactory.cpp
+        subtitle/parser/ExtParser/ExtSubStreamReader.cpp
         subtitle/parser/ExtParser/Jacosub.cpp
+        subtitle/parser/ExtParser/Lyrics.cpp
         subtitle/parser/ExtParser/Mircodvd.cpp
         subtitle/parser/ExtParser/Mplayer1.cpp
         subtitle/parser/ExtParser/Mplayer2.cpp
@@ -86,26 +95,20 @@ set(subtitle_common_srcs
         subtitle/parser/ExtParser/Pjs.cpp
         subtitle/parser/ExtParser/RealText.cpp
         subtitle/parser/ExtParser/Sami.cpp
-        subtitle/parser/ExtParser/SubViewer.cpp
-        subtitle/parser/ExtParser/Lyrics.cpp
-        subtitle/parser/ExtParser/Vplayer.cpp
         subtitle/parser/ExtParser/Subrip09.cpp
+        subtitle/parser/ExtParser/Subrip.cpp
+        subtitle/parser/ExtParser/SubStationAlpha.cpp
         subtitle/parser/ExtParser/SubViewer2.cpp
         subtitle/parser/ExtParser/SubViewer3.cpp
+        subtitle/parser/ExtParser/SubViewer.cpp
+        subtitle/parser/ExtParser/TextSubtitle.cpp
+        subtitle/parser/ExtParser/Ttml.cpp
+        subtitle/parser/ExtParser/VobSubIndex.cpp
+        subtitle/parser/ExtParser/Vplayer.cpp
         subtitle/parser/ExtParser/WebVtt.cpp
+        subtitle/parser/ExtParser/XmlSubtitle.cpp
+
         subtitle/render/AndroidHidlRemoteRender.cpp
-        subtitle/parser/dvb/am_mw/am_cc/am_cc.c
-        subtitle/parser/dvb/am_mw/am_cc/cc_json.c
-        subtitle/parser/dvb/am_mw/am_scte27/am_scte27.c
-        subtitle/parser/dvb/am_adp/am_time/am_time.c
-        subtitle/parser/dvb/am_adp/am_userdata/am_userdata.c
-        subtitle/parser/dvb/am_adp/am_userdata/aml/aml.c
-        subtitle/parser/dvb/am_adp/am_evt/am_evt.c
-        subtitle/parser/dvb/am_adp/am_misc/am_misc.c
-        subtitle/parser/dvb/am_adp/am_misc/am_adplock.c
-        subtitle/parser/dvb/am_adp/am_misc/am_sig_handler.c
-        subtitle/parser/dvb/am_adp/am_dmx/am_dmx.c
-        subtitle/parser/dvb/am_adp/am_dmx/linux_dvb/linux_dvb.c
         )
 
 set(subtitle_srcs ${subtitle_common_srcs})

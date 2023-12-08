@@ -37,13 +37,12 @@
 #include <functional>
 
 #include "SubtitleLog.h"
-#include <utils/CallStack.h>
 
-#include "sub_types.h"
+#include "SubtitleTypes.h"
 #include "AssParser.h"
 #include "ParserFactory.h"
 
-#include "streamUtils.h"
+#include "StreamUtils.h"
 #define MIN_HEADER_DATA_SIZE 24
 
 static inline std::string stringConvert2Stream(std::string s1, std::string s2) {
@@ -60,7 +59,7 @@ static inline std::string stringConvert2Stream(std::string s1, std::string s2) {
 
 /* param s the string below have double language text.
  *     Dialogue: ,0:01:25.16,0:01:26.72,*456,1,0000,0000,0000,,Hey! Come here!
- *     Dialogue: ,0:01:25.16,0:01:26.72,*123,1,0000,0000,0000,,?��1y����
+ *     Dialogue: ,0:01:25.16,0:01:26.72,*123,1,0000,0000,0000.
  * return string for second line language text
  *
 */
@@ -264,13 +263,13 @@ int AssParser::getSpu(std::shared_ptr<AML_SPUVAR> spu) {
         int syncWord = subPeekAsInt32(spuBufPiece + rdOffset);
         rdOffset += 4;
         if (syncWord != AML_PARSER_SYNC_WORD) {
-            LOGE("\n wrong subtitle header :%x %x %x %x    %x %x %x %x    %x %x %x %x \n",
+            SUBTITLE_LOGE("\n wrong subtitle header :%x %x %x %x    %x %x %x %x    %x %x %x %x \n",
                     spuBufPiece[0], spuBufPiece[1], spuBufPiece[2], spuBufPiece[3],
                     spuBufPiece[4], spuBufPiece[5], spuBufPiece[6], spuBufPiece[7],
                     spuBufPiece[8], spuBufPiece[9], spuBufPiece[10], spuBufPiece[11]);
             mDataSource->read(spuBufPiece, dataSize);
             //dataSize = 0;
-            LOGE("\n\n ******* find wrong subtitle header!! ******\n\n");
+            SUBTITLE_LOGE("\n\n ******* find wrong subtitle header!! ******\n\n");
             delete[] spuBuf;
             return -1;
 
@@ -310,17 +309,17 @@ int AssParser::getSpu(std::shared_ptr<AML_SPUVAR> spu) {
 
 
         switch (currentType) {
-            case AV_CODEC_ID_VOB_SUBTITLE:   //mkv internel image
+            case AV_CODEC_ID_VOB_SUBTITLE:   //mkv internal image
                 durationPts = subPeekAsInt32(spuBufPiece + rdOffset);
                 rdOffset += 4;
                 mRestLen -= 4;
                 SUBTITLE_LOGI("durationPts is %d\n", durationPts);
                 break;
 
-            case AV_CODEC_ID_TEXT:   //mkv internel utf-8
-            case AV_CODEC_ID_SSA:   //mkv internel ssa
-            case AV_CODEC_ID_SUBRIP:   //mkv internel SUBRIP
-            case AV_CODEC_ID_ASS:   //mkv internel ass
+            case AV_CODEC_ID_TEXT:   //mkv internal utf-8
+            case AV_CODEC_ID_SSA:   //mkv internal ssa
+            case AV_CODEC_ID_SUBRIP:   //mkv internal SUBRIP
+            case AV_CODEC_ID_ASS:   //mkv internal ass
             case AV_CODEC_ID_WEBVTT:
                 durationPts = subPeekAsInt32(spuBufPiece + rdOffset);
                 rdOffset += 4;

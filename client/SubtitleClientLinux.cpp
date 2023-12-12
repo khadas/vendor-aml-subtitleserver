@@ -480,6 +480,7 @@ void SubtitleClientLinux::SubtitleCallback::notifyDataCallback(SubtitleHidlParce
     int cordinateY = parcel.bodyInt[5];
     int videoWidth = parcel.bodyInt[6];
     int videoHeight = parcel.bodyInt[7];
+    int objectSegmetnId = parcel.bodyInt[8];
     int keyid = parcel.shmid;
     SUBTITLE_LOGI("processSubtitleData! aa %d %d,width=%d,height=%d", type, parcel.msgType, width, height);
     key_t key;
@@ -493,7 +494,7 @@ void SubtitleClientLinux::SubtitleCallback::notifyDataCallback(SubtitleHidlParce
     char *data = (char *) shmat(shmId, NULL, 0);
     if (mListener != nullptr) {
         mListener->onSubtitleEvent(data, size, type, cordinateX, cordinateY, width, height,
-                                   videoWidth, videoHeight, cmd);
+                                   videoWidth, videoHeight, cmd, objectSegmetnId);
     } else {
         SUBTITLE_LOGI("error, no handle for this event!");
     }

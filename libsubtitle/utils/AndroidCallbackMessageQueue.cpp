@@ -176,7 +176,7 @@ void AndroidCallbackMessageQueue::handleMessage(const Message& message) {
             }
             default:
             {
-                parcel.bodyInt.resize(8);
+                parcel.bodyInt.resize(9);
                 parcel.bodyInt[0] = data->width;
                 parcel.bodyInt[1] = data->height;
                 parcel.bodyInt[2] = data->size;
@@ -185,6 +185,7 @@ void AndroidCallbackMessageQueue::handleMessage(const Message& message) {
                 parcel.bodyInt[5] = data->y;
                 parcel.bodyInt[6] = data->videoWidth;
                 parcel.bodyInt[7] = data->videoHeight;
+                parcel.bodyInt[8] = data->objectSegmentId; //objectSegmentId: the current number object segment object.
                 //parcel.mem = *(data->mem);
                 parcel.shmid = data->shmid;
                 SUBTITLE_LOGI("onSubtitleDataEvent, type:%d width:%d, height:%d, size:%d", data->type, data->width, data->height, data->size);
@@ -302,7 +303,7 @@ int AndroidCallbackMessageQueue::copyShareMemory(const char *data, int size) {
 
 bool AndroidCallbackMessageQueue::postDisplayData(const char *data,  int type,
         int x, int y, int width, int height,
-        int videoWidth, int videoHeight, int size, int cmd) {
+        int videoWidth, int videoHeight, int size, int cmd, int objectSegmentId) {
 
     /*sp<HidlMemory> mem;
     sp<IAllocator> ashmemAllocator = IAllocator::getService("ashmem");
@@ -355,12 +356,13 @@ bool AndroidCallbackMessageQueue::postDisplayData(const char *data,  int type,
     subtitleData->size = size;
     subtitleData->isShow = cmd;
     // subtitleData->mem = mMemBase;
+    subtitleData->objectSegmentId = objectSegmentId; //objectSegmentId: the current number object segment object.
     subtitleData->shmid = shmid;
     mSubtitleData.push_back(std::move(subtitleData));
     mLooper->sendMessage(this, Message(MSG_CHECK_SUBDATA));
 
-    SUBTITLE_LOGI(" in postDisplayData:%s type:%d, width=%d, height=%d size=%d",
-          __func__, type,  width, height, size);
+    SUBTITLE_LOGI(" in postDisplayData:%s type:%d, width=%d, height=%d size=%d objectSegmentId=%d",
+        __func__, type,  width, height, size, objectSegmentId);
     return true;
 }
 

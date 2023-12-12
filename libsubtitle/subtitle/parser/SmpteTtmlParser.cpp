@@ -45,8 +45,9 @@
 
 #include "ParserFactory.h"
 #include "StreamUtils.h"
-
 #include "VideoInfo.h"
+
+#include "SubtitleLog.h"
 
 #include "SmpteTtmlParser.h"
 #include "tinyxml2.h"
@@ -121,11 +122,11 @@ static int smpte_ttml_parse_timecode(const char * beginTimeString, const char * 
   bool beginSuccess = sscanf(beginTimeString, "%d:%d:%d.%d", &beginHours, &beginMinutes, &beginSeconds, &beginMilliseconds) == 4;
   bool endSuccess = sscanf(endTimeString, "%d:%d:%d.%d", &endHours, &endMinutes, &endSeconds, &endMilliseconds) == 4;
   if (!beginSuccess || beginHours < 0 || beginHours > 23 || beginMinutes < 0 || beginMinutes > 59 || beginSeconds < 0 || beginSeconds > 59 || beginMilliseconds < 0 || beginMilliseconds > 999) {
-    LOGE ("%s invalid begin time:%s.", __FUNCTION__, beginTimeString);
+    SUBTITLE_LOGE ("%s invalid begin time:%s.", __FUNCTION__, beginTimeString);
   }
 
   if (!endSuccess || endHours < 0 || endHours > 23 || endMinutes < 0 || endMinutes > 59 || endSeconds < 0 || endSeconds > 59 || endMilliseconds < 0 || endMilliseconds > 999) {
-    LOGE ("%s invalid end time:%s.", __FUNCTION__, endTimeString);
+    SUBTITLE_LOGE ("%s invalid end time:%s.", __FUNCTION__, endTimeString);
   }
 
   time = ((endHours - beginHours) * 3600 + (endMinutes - beginMinutes) * 60 + (endSeconds - beginSeconds) ) * 1000+ (endMilliseconds - beginMilliseconds);
@@ -181,21 +182,21 @@ void decodePng(std::shared_ptr<AML_SPUVAR> spu, const char* png_data, size_t png
     // Create a PNG read structure
     png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     if (!png_ptr) {
-        LOGE("%s Error: png_create_read_struct failed.", __FUNCTION__);
+        SUBTITLE_LOGE("%s Error: png_create_read_struct failed.", __FUNCTION__);
         return;
     }
-    LOGE("%s start 2", __FUNCTION__);
+    SUBTITLE_LOGE("%s start 2", __FUNCTION__);
     // Create an information structure
     info_ptr = png_create_info_struct(png_ptr);
     if (!info_ptr) {
-        LOGE("%s Error: png_create_info_struct failed.", __FUNCTION__);
+        SUBTITLE_LOGE("%s Error: png_create_info_struct failed.", __FUNCTION__);
         png_destroy_read_struct(&png_ptr, NULL, NULL);
         return;
     }
 
     // set error handler
     if (setjmp(png_jmpbuf(png_ptr))) {
-        LOGE("%s Error: Error during png read.", __FUNCTION__);
+        SUBTITLE_LOGE("%s Error: Error during png read.", __FUNCTION__);
         png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
         return;
     }
@@ -320,7 +321,7 @@ SmpteTtmlParser::~SmpteTtmlParser() {
 }
 
 static inline int generateNormalDisplay(AVSubtitleRect *subRect, unsigned char *des, uint32_t *src, int width, int height) {
-    LOGE(" generateNormalDisplay width = %d, height=%d\n",width, height);
+    SUBTITLE_LOGE(" generateNormalDisplay width = %d, height=%d\n",width, height);
     int mt =0, mb =0;
     int ret = -1;
     SmpteTtmlParser *parser = SmpteTtmlParser::getCurrentInstance();
@@ -365,7 +366,7 @@ int SmpteTtmlParser::initContext() {
     std::unique_lock<std::mutex> autolock(mMutex);
     mContext = new SmpteTtmlContext();
     if (!mContext) {
-        LOGE("[%s::%d]malloc error! \n", __FUNCTION__, __LINE__);
+        SUBTITLE_LOGE("[%s::%d]malloc error! \n", __FUNCTION__, __LINE__);
     }
     mContext->formatId = 0;
     mContext->pts = AV_NOPTS_VALUE;
@@ -398,7 +399,7 @@ int SmpteTtmlParser::SmpteTtmlDecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char 
     }
 
     bufSize = bufSize+1;
-    char buf[bufSize] = { 0 };
+    char buf[bufSize];
     for (int i = 0; i<bufSize; i++) {
         buf[i] = srcData[i];
     }
@@ -703,7 +704,7 @@ int SmpteTtmlParser::hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
 
         if (needSkipData) {
             if (packetLen < 0 || packetLen > INT_MAX) {
-                LOGE("illegal packetLen!!!\n");
+                SUBTITLE_LOGE("illegal packetLen!!!\n");
                 return false;
             }
             for (int iii = 0; iii < packetLen; iii++) {
@@ -715,7 +716,7 @@ int SmpteTtmlParser::hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
         } else if (packetLen > 0) {
             char *buf = NULL;
             if ((packetLen) > (OSD_HALF_SIZE * 4)) {
-                LOGE("dvb packet is too big\n\n");
+                SUBTITLE_LOGE("dvb packet is too big\n\n");
                 return -1;
             }
             spu->subtitle_type = TYPE_SUBTITLE_SMPTE_TTML;
@@ -726,7 +727,7 @@ int SmpteTtmlParser::hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
             }
             //If gap time is large than 9 secs, think pts skip,notify info
             if (abs(mDataSource->getSyncTime() - spu->pts) > 9*90000) {
-                LOGE("[%s::%d]pts skip,vpts:%lld, spu->pts:%lld notify time error!\n", __FUNCTION__, __LINE__, mDataSource->getSyncTime(), spu->pts);
+                SUBTITLE_LOGE("[%s::%d]pts skip,vpts:%lld, spu->pts:%lld notify time error!\n", __FUNCTION__, __LINE__, mDataSource->getSyncTime(), spu->pts);
             }
 
             SUBTITLE_LOGI("[%s::%d]pts ---------------,vpts:%lld, spu->pts:%lld\n", __FUNCTION__, __LINE__, mDataSource->getSyncTime(), spu->pts);
@@ -789,7 +790,7 @@ int SmpteTtmlParser::softDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
         }
         //If gap time is large than 9 secs, think pts skip,notify info
         //if (abs(mDataSource->getSyncTime() - spu->pts) > 9*90000) {
-        //    LOGE("[%s::%d]pts skip,vpts:%lld, spu->pts:%lld notify time error!\n", __FUNCTION__, __LINE__, mDataSource->getSyncTime(), spu->pts);
+        //    SUBTITLE_LOGE("[%s::%d]pts skip,vpts:%lld, spu->pts:%lld notify time error!\n", __FUNCTION__, __LINE__, mDataSource->getSyncTime(), spu->pts);
         //}
         //SUBTITLE_LOGI("[%s::%d]pts ---------------,vpts:%lld, spu->pts:%lld\n", __FUNCTION__, __LINE__, mDataSource->getSyncTime(), spu->pts);
 
@@ -802,7 +803,7 @@ int SmpteTtmlParser::softDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
 
         data = (char *)malloc(dataLen);
         if (!data) {
-            LOGE("[%s::%d]malloc error! \n", __FUNCTION__,__LINE__);
+            SUBTITLE_LOGE("[%s::%d]malloc error! \n", __FUNCTION__,__LINE__);
             return -1;
         }
         if (mDumpSub) SUBTITLE_LOGI("@@[%s::%d]malloc ptr=%p, size = %d\n",__FUNCTION__, __LINE__, data, dataLen);
@@ -844,7 +845,7 @@ int SmpteTtmlParser::atvHwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
             spu->subtitle_type = TYPE_SUBTITLE_SMPTE_TTML;
             data = (char *)malloc(ATV_SMPTE_TTML_DATA_LEN);
             if (!data) {
-                LOGE("[%s::%d]malloc error! \n", __FUNCTION__,__LINE__);
+                SUBTITLE_LOGE("[%s::%d]malloc error! \n", __FUNCTION__,__LINE__);
                 return -1;
             }
             memset(data, 0x0, ATV_SMPTE_TTML_DATA_LEN);

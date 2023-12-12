@@ -151,7 +151,6 @@ void Subtitle::onGetLanguage(std::string &lang) {
 void Subtitle::onTypeChanged(int newType) {
 
     std::unique_lock<std::mutex> autolock(mMutex);
-
     if (newType == mCurrentSubtitleType) return;
 
     SUBTITLE_LOGI("onTypeChanged:%d", newType);
@@ -201,7 +200,8 @@ bool Subtitle::setParameter(void *params) {
 
     //process ttx skip page func.
     if ((mSubPrams->subType == TYPE_SUBTITLE_DVB) || (mSubPrams->subType == TYPE_SUBTITLE_DVB_TELETEXT) || (mSubPrams->subType == TYPE_SUBTITLE_DVB_TTML)
-        || (mSubPrams->subType == TYPE_SUBTITLE_CLOSED_CAPTION) || (mSubPrams->subType == TYPE_SUBTITLE_SCTE27) || (mSubPrams->subType == TYPE_SUBTITLE_ARIB_B24)) {
+        || (mSubPrams->subType == TYPE_SUBTITLE_CLOSED_CAPTION) || (mSubPrams->subType == TYPE_SUBTITLE_SCTE27) || (mSubPrams->subType == TYPE_SUBTITLE_ARIB_B24)
+        || (mSubPrams->subType == TYPE_SUBTITLE_SMPTE_TTML)) {
         mPendingAction = ACTION_SUBTITLE_SET_PARAM;
         mCv.notify_all();
         return true;
@@ -337,6 +337,8 @@ void Subtitle::run() {
                         mParser->updateParameter(TYPE_SUBTITLE_SCTE27, &mSubPrams->scte27Param);
                     } else if (mSubPrams->subType == TYPE_SUBTITLE_ARIB_B24) {
                         mParser->updateParameter(TYPE_SUBTITLE_ARIB_B24, &mSubPrams->arib24Param);
+                    } else if (mSubPrams->subType == TYPE_SUBTITLE_SMPTE_TTML) {
+                        mParser->updateParameter(TYPE_SUBTITLE_SMPTE_TTML, &mSubPrams->smpteTtmlParam);
                     }
                 }
             }

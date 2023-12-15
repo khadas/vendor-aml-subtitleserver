@@ -1127,10 +1127,10 @@ TeletextParser::~TeletextParser() {
                 free(mContext->pages[mContext->totalPages].subRect);
             }
         }
-        free(mContext->pages);
-        vbi_set_subtitle_mix_video_flag(mContext->vbi, TT2_MIX_BLACK);
-        mContext->mixVideoState = TT2_MIX_BLACK;
-        mContext->transparentBackground = 0;
+       free(mContext->pages);
+       vbi_set_subtitle_mix_video_flag(mContext->vbi, TT2_MIX_BLACK);
+       mContext->mixVideoState = TT2_MIX_BLACK;
+       mContext->transparentBackground = 0;
 #ifdef NEED_TELETEXT_CACHE_ZVBI_STATUS
 //        vbi_event_handler_remove(mContext->vbi, tt2TimeUpdate);
 //        vbi_event_handler_remove(mContext->vbi, handler);
@@ -1138,8 +1138,6 @@ TeletextParser::~TeletextParser() {
 #else
         vbi_decoder_delete(mContext->vbi);
 #endif
-
-
         mContext->vbi = nullptr;
         mContext->pts = AV_NOPTS_VALUE;
         mContext->dispUpdate = 0;
@@ -2833,18 +2831,10 @@ int TeletextParser::hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu, char *psrc, co
                             return -1;
                         }
                         #endif
-                         //ttx,need immediatePresent show
-                        //spu->isImmediatePresent = true;
-                        //because when the pageType is bigger than the 0x8000,can't be judged by the 0x8000.
-                        if (/*(mContext->subtitleMode == TT2_SUBTITLE_MODE) || */(mContext->isSubtitle)) {
-                            spu->isKeepShowing = false;
-                            spu->isImmediatePresent = false;
-                            spu->isTtxSubtitle = true;
-                        } else {
-                            spu->isKeepShowing = true;
-                            spu->isImmediatePresent = true;
-                            spu->isTtxSubtitle = false;
-                        }
+                        //Teletext needs to be presented immediately, and its synchronization logic is determined by the control bits of C4~C11
+                        spu->isKeepShowing = true;
+                        spu->isImmediatePresent = true;
+                        spu->isTtxSubtitle = false;
                         SUBTITLE_LOGI(" addDecodedItem buffer_size=%d ctx->isSubtitle=%d pageType=0x%x mode=%d",
                                 spu->buffer_size, mContext->isSubtitle, mContext->pageType, mContext->subtitleMode);
                         addDecodedItem(std::shared_ptr<AML_SPUVAR>(spu));

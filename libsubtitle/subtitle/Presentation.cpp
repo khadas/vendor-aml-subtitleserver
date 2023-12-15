@@ -717,7 +717,7 @@ void Presentation::MessageProcess::handleStreamSub(const Message& message) {
             if (mPresent->mEmittedFaddingSpu.size() > 0) {
                 spu = mPresent->mEmittedFaddingSpu.front();
 
-                if (spu != nullptr) {
+                if (spu != nullptr && !spu->isKeepShowing) {
                     uint64_t delayed = convertDvbTime2Ns(spu->m_delay);
                     uint64_t timestamp = mPresent->mStartTimeModifier + mPresent->mCurrentPresentRelativeTime;
                     uint64_t ahead_delay_tor = ((spu->isExtSub)?5:100)*1000*1000*1000LL;

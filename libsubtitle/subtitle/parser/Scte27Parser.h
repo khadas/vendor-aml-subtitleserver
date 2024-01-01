@@ -125,7 +125,7 @@ static int get_beans(int* value, int bits)
         bean_bits = bits + bean_bits - 8;
         if ((bean_bytes > bean_total) || (bean_bytes == bean_total && bean_bits > 0))
         {
-            ALOGI("buffer overflow, analyze error");
+            SUBTITLE_LOGI("buffer overflow, analyze error");
             return -1;
         }
         *value = beans;
@@ -140,7 +140,7 @@ static int get_beans(int* value, int bits)
     z = get_beans(&x, y); \
     if (z <= 0) \
     { \
-        ALOGI("left bits < 0, total %d byte %d bits %d", bean_total, bean_bytes, bean_bits); \
+        SUBTITLE_LOGI("left bits < 0, total %d byte %d bits %d", bean_total, bean_bytes, bean_bits); \
         break; \
     } \
 }

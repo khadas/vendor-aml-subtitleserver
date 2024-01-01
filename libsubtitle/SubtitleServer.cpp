@@ -454,7 +454,7 @@ void SubtitleServer::prepareWritingQueue(int32_t sId, int32_t size, prepareWriti
     } else {
         std::unique_ptr<DataMQ> tempDataMQ(new DataMQ(size, true /* EventFlag */));
         if (!tempDataMQ->isValid()) {
-            SUBTITLE_LOGE_IF(!tempDataMQ->isValid(), "data MQ is invalid");
+            SUBTITLE_LOGE(!tempDataMQ->isValid(), "data MQ is invalid");
             sendError(Result::FAIL);
             return Void();
         }

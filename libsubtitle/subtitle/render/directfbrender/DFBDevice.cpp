@@ -445,7 +445,7 @@ DFBRect DFBDevice::drawText(int type, TextParams& textParams, int64_t pts, int b
     SUBTITLE_LOGI("fontBox= [%f, %f, %f, %f]", fontBox.x, fontBox.y, fontBox.x2, fontBox.y2);
     if (fontBox.isEmpty()) {
         if (flush) clear();
-        SUBTITLE_LOGE_IF(strlen(content) > 0, "No support text type rendering");
+        SUBTITLE_LOGE(strlen(content) > 0, "No support text type rendering");
         return DFBRect::empty();
     }
 

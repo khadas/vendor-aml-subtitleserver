@@ -210,22 +210,22 @@ void SubtitleService::setSubType(int type) {
 
 void SubtitleService::setDemuxId(int demuxId) {
     switch (mSubParam.dtvSubType) {
-        case DTV_SUB_DTVKIT_DVB:
+        case DTV_SUB_DVB:
             mSubParam.dvbParam.demuxId = demuxId;
         break;
-        case DTV_SUB_DTVKIT_TELETEXT:
+        case DTV_SUB_DVB_TELETEXT:
             mSubParam.teletextParam.demuxId = demuxId;
         break;
-        case DTV_SUB_DTVKIT_TTML:
+        case DTV_SUB_DVB_TTML:
             mSubParam.ttmlParam.demuxId = demuxId;
         break;
-        case DTV_SUB_DTVKIT_SCTE27:
+        case DTV_SUB_SCTE27:
             mSubParam.scte27Param.demuxId = demuxId;
         break;
-        case DTV_SUB_DTVKIT_ARIB24:
+        case DTV_SUB_ARIB24:
             mSubParam.arib24Param.demuxId = demuxId;
         break;
-        case DTV_SUB_DTVKIT_SMPTE_TTML:
+        case DTV_SUB_SMPTE_TTML:
             mSubParam.smpteTtmlParam.demuxId = demuxId;
         break;
         default:
@@ -250,22 +250,22 @@ void SubtitleService::setDemuxId(int demuxId) {
 
 void SubtitleService::setSecureLevel(int flag) {
     switch (mSubParam.dtvSubType) {
-        case DTV_SUB_DTVKIT_SCTE27:
+        case DTV_SUB_SCTE27:
             mSubParam.scte27Param.flag = flag;
         break;
-        case DTV_SUB_DTVKIT_DVB:
+        case DTV_SUB_DVB:
             mSubParam.dvbParam.flag = flag;
         break;
-        case DTV_SUB_DTVKIT_TELETEXT:
+        case DTV_SUB_DVB_TELETEXT:
             mSubParam.teletextParam.flag = flag;
         break;
-        case DTV_SUB_DTVKIT_ARIB24:
+        case DTV_SUB_ARIB24:
             mSubParam.arib24Param.flag = flag;
         break;
-        case DTV_SUB_DTVKIT_TTML:
+        case DTV_SUB_DVB_TTML:
             mSubParam.ttmlParam.flag = flag;
         break;
-        case DTV_SUB_DTVKIT_SMPTE_TTML:
+        case DTV_SUB_SMPTE_TTML:
             mSubParam.smpteTtmlParam.flag = flag;
         break;
         default:
@@ -290,22 +290,22 @@ void SubtitleService::setSecureLevel(int flag) {
 
 void SubtitleService::setSubPid(int pid) {
     switch (mSubParam.dtvSubType) {
-        case DTV_SUB_DTVKIT_SCTE27:
+        case DTV_SUB_SCTE27:
             mSubParam.scte27Param.SCTE27_PID = pid;
         break;
-        case DTV_SUB_DTVKIT_DVB:
+        case DTV_SUB_DVB:
             mSubParam.dvbParam.pid = pid;
         break;
-        case DTV_SUB_DTVKIT_TELETEXT:
+        case DTV_SUB_DVB_TELETEXT:
             mSubParam.teletextParam.pid = pid; // for demux
         break;
-        case DTV_SUB_DTVKIT_ARIB24:
+        case DTV_SUB_ARIB24:
             mSubParam.arib24Param.pid = pid;
         break;
-        case DTV_SUB_DTVKIT_TTML:
+        case DTV_SUB_DVB_TTML:
             mSubParam.ttmlParam.pid = pid;
         break;
-        case DTV_SUB_DTVKIT_SMPTE_TTML:
+        case DTV_SUB_SMPTE_TTML:
             mSubParam.smpteTtmlParam.pid = pid;
         break;
         default:
@@ -328,13 +328,13 @@ void SubtitleService::setSubPid(int pid) {
 
 void SubtitleService::setSubPageId(int pageId) {
     switch (mSubParam.dtvSubType) {
-        case DTV_SUB_DTVKIT_DVB:
+        case DTV_SUB_DVB:
             mSubParam.dvbParam.compositionId = pageId;
             if (mSubtiles != nullptr) {
                 mSubtiles->setParameter(&mSubParam);
             }
         break;
-        case DTV_SUB_DTVKIT_TELETEXT:
+        case DTV_SUB_DVB_TELETEXT:
             mSubParam.teletextParam.magazine = pageId;
         break;
         default:
@@ -343,13 +343,13 @@ void SubtitleService::setSubPageId(int pageId) {
 }
 void SubtitleService::setSubAncPageId(int ancPageId) {
     switch (mSubParam.dtvSubType) {
-        case DTV_SUB_DTVKIT_DVB:
+        case DTV_SUB_DVB:
             mSubParam.dvbParam.ancillaryId = ancPageId;
             if (mSubtiles != nullptr) {
                 mSubtiles->setParameter(&mSubParam);
             }
         break;
-        case DTV_SUB_DTVKIT_TELETEXT:
+        case DTV_SUB_DVB_TELETEXT:
             mSubParam.teletextParam.pageNo = ancPageId;
         break;
         default:

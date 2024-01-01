@@ -106,15 +106,10 @@ typedef enum {
     DTV_SUB_CC              = 2,
     DTV_SUB_SCTE27          = 3,
     DTV_SUB_DVB             = 4,
-    DTV_SUB_DTVKIT_DVB      = 5,
-    DTV_SUB_DTVKIT_TELETEXT = 6,
-    DTV_SUB_DTVKIT_SCTE27   = 7,
-    DTV_SUB_ARIB24          = 8,
-    DTV_SUB_DTVKIT_ARIB24   = 9,
-    DTV_SUB_TTML            = 10,
-    DTV_SUB_DTVKIT_TTML     = 11,
-    DTV_SUB_SMPTE_TTML      = 12,
-    DTV_SUB_DTVKIT_SMPTE_TTML = 13,
+    DTV_SUB_DVB_TELETEXT    = 5,
+    DTV_SUB_DVB_TTML        = 6,
+    DTV_SUB_ARIB24          = 7,
+    DTV_SUB_SMPTE_TTML      = 8,
 } DtvSubtitleType;
 
 enum VideoFormat {
@@ -262,26 +257,21 @@ struct SubtitleParamType {
                 subType = TYPE_SUBTITLE_CLOSED_CAPTION;
                 break;
             case DTV_SUB_SCTE27:
-            case DTV_SUB_DTVKIT_SCTE27:
                 subType = TYPE_SUBTITLE_SCTE27;
                 break;
             case DTV_SUB_DVB:
-            case DTV_SUB_DTVKIT_DVB:
                 subType = TYPE_SUBTITLE_DVB;
                 break;
-            case DTV_SUB_DTVKIT_TELETEXT:
+            case DTV_SUB_DVB_TELETEXT:
                 subType = TYPE_SUBTITLE_DVB_TELETEXT;
                 break;
-            case DTV_SUB_TTML:
-            case DTV_SUB_DTVKIT_TTML:
+            case DTV_SUB_DVB_TTML:
                 subType = TYPE_SUBTITLE_DVB_TTML;
                 break;
             case DTV_SUB_ARIB24:
-            case DTV_SUB_DTVKIT_ARIB24:
                 subType = TYPE_SUBTITLE_ARIB_B24;
                 break;
             case DTV_SUB_SMPTE_TTML:
-            case DTV_SUB_DTVKIT_SMPTE_TTML:
                 subType = TYPE_SUBTITLE_SMPTE_TTML;
                 break;
             default:
@@ -290,7 +280,7 @@ struct SubtitleParamType {
     }
 
     bool isValidDtvParams () {
-        return dtvSubType == DTV_SUB_CC || dtvSubType == DTV_SUB_SCTE27 || dtvSubType == DTV_SUB_DTVKIT_SCTE27 ; //only cc or scte27 valid
+        return dtvSubType == DTV_SUB_CC || dtvSubType == DTV_SUB_SCTE27 ; //only cc or scte27 valid
     }
 
     void dump(int fd, const char * prefix) {

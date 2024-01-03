@@ -164,8 +164,10 @@ struct TeletextContext {
     int             subtitlePageNumber;
     bool            subtitlePageNumberShowTimeOutFlag;
     bool            resetShowSubtitlePageNumberTimeFlag;
-    bool            gotoAtvSubtitleFlg;
-    bool            gotoDtvSubtitleFlg;
+    bool            gotoAtvSubtitleFlag;
+    bool            gotoDtvSubtitleFlag;
+    bool            gotoSubPageModeFlag;
+    int             gotoSubPageDigitFlag;
     int             subtitlePages[TELETEXT_SUBTITLE_MAX_NUMBER];
     int             subtitlePageId;
 
@@ -203,6 +205,7 @@ public:
     int nextPageLocked(int dir, bool fetch=true);
     int nextSubPageLocked(int dir);
     int gotoPageLocked(int pageNum, int subPageNum);
+    int gotoSubPageLocked(int subPageNum);
     int gotoDefaultAtvSubtitleLocked(int atvSubtitlePageId);
     int gotoDefaultDtvSubtitleLocked(int dtvSubtitlePageId);
     bool isRedundantSubtitlePage(int array[], int pageNumber, int n);
@@ -262,6 +265,7 @@ private:
     int mDumpSub;
     int mIndex;
     int mGotoPageNum;
+    int mGotoSubPageNum;
     int mUpdateParamCount;
     static TeletextParser *sInstance;
 

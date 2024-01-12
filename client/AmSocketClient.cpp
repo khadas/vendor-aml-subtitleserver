@@ -115,7 +115,7 @@ int AmSocketClient::socketConnect() {
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     if (mSockFd < 0) {
         SUBTITLE_LOGE("%s:%d, create socket failed!mSockFd:%d, error=%d, err:%s\n", __FILE__, __LINE__,
               mSockFd, errno, strerror(errno));

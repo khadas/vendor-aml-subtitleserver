@@ -129,7 +129,7 @@ bool IpcSocket::initAsServer(int port) {
     struct sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 
     if (::bind(sockFd, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
         SUBTITLE_LOGE("bind as INET fail. error=%d, err:%s\n", errno, strerror(errno));
@@ -187,7 +187,7 @@ bool IpcSocket::initAsClient(int port) {
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     if (mListenFd < 0) {
         SUBTITLE_LOGE("%s:%d, create socket failed!mSockFd:%d, error=%d, err:%s\n", __FILE__, __LINE__,
               mListenFd, errno, strerror(errno));

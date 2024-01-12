@@ -166,7 +166,7 @@ bool SubSocketServer::threadLoop() {
     struct sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 
     if (::bind(sockFd, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
         SUBTITLE_LOGE("bind as INET fail. error=%d, err:%s\n", errno, strerror(errno));

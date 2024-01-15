@@ -324,8 +324,6 @@ AmlSubtitleStatus amlsub_Open(AmlSubtitleHnd handle, AmlSubtitleParam *param) {
     ctx->mClient->setChannelId(param->channelId);
     ctx->mClient->setClosedCaptionVfmt(param->videoFormat);
     //ctx->mClient->setCompositionPageId(param->ancillaryPageId);
-    ctx->mClient->setPageId(param->compositionPageId);
-    ctx->mClient->setAncPageId(param->ancillaryPageId);//setAncPageId
     ctx->mClient->applyRenderType();
     // TODO: CTC always use amstream. later we may all change to hwdemux
     // From middleware, the extSubPath should always null.
@@ -337,6 +335,8 @@ AmlSubtitleStatus amlsub_Open(AmlSubtitleHnd handle, AmlSubtitleParam *param) {
         ioType = param->ioSource;
     }
     bool r = ctx->mClient->open(param->fd, ioType);
+    ctx->mClient->setPageId(param->compositionPageId);
+    ctx->mClient->setAncPageId(param->ancillaryPageId);//setAncPageId
     return r ? SUB_STAT_OK : SUB_STAT_FAIL;
 }
 

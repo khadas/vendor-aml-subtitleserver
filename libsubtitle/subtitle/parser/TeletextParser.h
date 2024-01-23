@@ -177,6 +177,7 @@ struct TeletextContext {
     bool            dtvTeletext;
     bool            reveal;
     bool            flash;
+    vbi_page        *currentPage;
     vbi_search      *search;
     vbi_decoder *   vbi;
 #ifdef DEBUG

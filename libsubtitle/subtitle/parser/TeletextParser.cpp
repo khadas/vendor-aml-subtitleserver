@@ -1031,11 +1031,6 @@ static void handler(vbi_event *ev, void *userData) {
     vbi_teletext_set_current_page(ctx->vbi,ev->ev.ttx_page.pgno, ev->ev.ttx_page.subno);
 
     if ((ctx->lockSubpg == 0 || ctx->currentPage == nullptr) && page) {
-        ctx->currentPage = (vbi_page *)malloc(sizeof(vbi_page));
-        if (!ctx->currentPage) {
-            SUBTITLE_LOGE("malloc  ctx->currentPage failed!\n");
-            return;
-        }
         memset(ctx->currentPage, 0, sizeof(vbi_page));
         memcpy(ctx->currentPage, page, sizeof(vbi_page));
     }
@@ -1091,10 +1086,8 @@ static void handler(vbi_event *ev, void *userData) {
     }
 #endif
 
-    if (!ctx->lockSubpg) {
-        vbi_unref_page(page);
-        free(page);
-    }
+    vbi_unref_page(page);
+    free(page);
 
 }
 
@@ -1160,7 +1153,10 @@ TeletextParser::~TeletextParser() {
         vbi_decoder_delete(mContext->vbi);
 #endif
         mContext->vbi = nullptr;
-        mContext->currentPage = nullptr;
+        if (mContext->currentPage != nullptr) {
+            free(mContext->currentPage);
+            mContext->currentPage = nullptr;
+        }
         mContext->pts = AV_NOPTS_VALUE;
         mContext->dispUpdate = 0;
         mContext->regionId = -1;
@@ -1477,11 +1473,6 @@ int TeletextParser::fetchVbiPageLocked(int pageNum, int subPageNum) {
     setNavigatorPageNumber(page,mContext->gotoPage);
     vbi_set_subtitle_flag(mContext->vbi, mContext->isSubtitle, mContext->subtitleMode, TELETEXT_USE_SUBTITLESERVER);
     if ((mContext->lockSubpg == 0 ||  mContext->currentPage == nullptr) && page) {
-        mContext->currentPage = (vbi_page *)malloc(sizeof(vbi_page));
-        if (!mContext->currentPage) {
-            SUBTITLE_LOGE("malloc mContext->currentPage failed!\n");
-            return -1;
-        }
         memset(mContext->currentPage, 0, sizeof(vbi_page));
         memcpy(mContext->currentPage, page, sizeof(vbi_page));
     }
@@ -1521,9 +1512,7 @@ int TeletextParser::fetchVbiPageLocked(int pageNum, int subPageNum) {
         mContext->totalPages = 0;
     }
 
-    if (!mContext->lockSubpg) {
-        free(page);
-    }
+    free(page);
 
 #ifdef NEED_TELETEXT_CACHE_ZVBI_STATUS
     if (mContext->handlerRet >= 0 && mContext->subtitleMode == TT2_GRAPHICS_MODE) {
@@ -2489,6 +2478,13 @@ int TeletextParser::initContext() {
     if (mContext->opacity == -1) {
         mContext->opacity = mContext->transparentBackground ? 0 : 255;
     }
+
+    mContext->currentPage = (vbi_page *)malloc(sizeof(vbi_page));
+    if (!mContext->currentPage) {
+        SUBTITLE_LOGE("malloc mContext->currentPage failed!\n");
+        return -1;
+    }
+
 
     #ifndef NEED_TELETEXT_CACHE_ZVBI_STATUS
     for (int j = 0; j < TELETEXT_SUBTITLE_MAX_NUMBER; j++) {

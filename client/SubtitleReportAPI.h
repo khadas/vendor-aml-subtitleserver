@@ -92,6 +92,10 @@ SubSourceStatus SubSource_ReportLauguageString(SubSourceHandle handle, const cha
 SubSourceStatus SubSource_SendData(SubSourceHandle handle, const char *mbuf, int length, int64_t pts,
         enum CodecID sub_type) ;
 
+SubSourceStatus SubSource_GetVersion(SubSourceHandle handle, int *version) {
+    *version = 1;
+    return SUB_STAT_OK;
+};
 
 #ifdef __cplusplus
 }

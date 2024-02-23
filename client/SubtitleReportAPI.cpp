@@ -478,3 +478,8 @@ SubSourceStatus SubSource_SendData(SubSourceHandle handle, const char *mbuf, int
 }
 
 //}
+
+SubSourceStatus SubSource_GetVersion(SubSourceHandle handle, int *version) {
+    *version = 1;
+    return SUB_STAT_OK;
+};

@@ -294,6 +294,15 @@ std::string SubtitleServer::getLanguage(int32_t sId) {
     }
 }
 
+Result SubtitleServer::setStartTimeStamp(int32_t sId, int32_t startTime) {
+    std::shared_ptr<SubtitleService>  ss = getSubtitleService(sId);
+    SUBTITLE_LOGI("%s ss=%p", __func__, ss.get());
+    if (ss != nullptr) {
+        ss->setStartTimeStamp(startTime);
+    }
+    return Result {};
+}
+
 Result SubtitleServer::setSubType(int32_t sId, int32_t type) {
     std::shared_ptr<SubtitleService> ss = getSubtitleService(sId);
     SUBTITLE_LOGI("%s ss=%p subType=%d", __func__, ss.get(), type);

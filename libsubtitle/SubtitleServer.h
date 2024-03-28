@@ -125,6 +125,7 @@ public:
     int getType(int32_t sId) ;
     std::string getLanguage(int32_t sId) ;
     bool isClosed(int32_t sId);
+    Result setStartTimeStamp(int32_t sId, int32_t startTime);
 
     Result setSubType(int32_t sId, int32_t type) ;
     Result setSubPid(int32_t sId, int32_t pid) ;

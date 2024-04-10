@@ -30,9 +30,13 @@
 #include "MemoryLeakTrackUtil.h"
 #include "SubtitleLog.h"
 #include <utils/CallStack.h>
+#include "Watchdog.h"
 #include <SubtitleSignalHandler.h>
 
 using android::CallStack;
+
+using namespace std::chrono_literals;
+static constexpr auto kTimeout = 10s;
 
 SubtitleServer *SubtitleServer::sInstance = nullptr;
 
@@ -86,6 +90,7 @@ std::shared_ptr<SubtitleService> SubtitleServer::getSubtitleService(int sId) {
 //void SubtitleServer::openConnection(openConnection_cb _hidl_cb) {
 int SubtitleServer::openConnection() {
     SUBTITLE_LOGI("%s ", __func__);
+    Watchdog watchdog(kTimeout);
     int sessionId = -1;
     {
         android::AutoMutex _l(mLock);
@@ -118,6 +123,7 @@ int SubtitleServer::openConnection() {
 }
 
 Result SubtitleServer::closeConnection(int32_t sId) {
+    Watchdog watchdog(kTimeout);
     SUBTITLE_LOGI("%s sId=%d", __func__, sId);
 
     //TODO: too simple here! need more condition.
@@ -153,8 +159,8 @@ Result SubtitleServer::closeConnection(int32_t sId) {
     return Result::FAIL;
 }
 
-Result SubtitleServer::open(int32_t sId, int32_t ioType, OpenType openType,
-                            const native_handle_t *handle) {
+Result SubtitleServer::open(int32_t sId, int32_t ioType, OpenType openType, const native_handle_t *handle) {
+    Watchdog watchdog(kTimeout);
     android::AutoMutex _l(mLock);
     std::shared_ptr<SubtitleService> ss = getSubtitleServiceLocked(sId);
     SUBTITLE_LOGI("%s ss=%p ioType=%d openType:%d", __func__, ss.get(), ioType, openType);
@@ -215,6 +221,7 @@ Result SubtitleServer::open(int32_t sId, int32_t ioType, OpenType openType,
 }
 
 Result SubtitleServer::close(int32_t sId) {
+    Watchdog watchdog(kTimeout);
     std::shared_ptr<SubtitleService> ss = getSubtitleService(sId);
     SUBTITLE_LOGI("%s ss=%p", __func__, ss.get());
     if (ss != nullptr) {
@@ -235,6 +242,7 @@ Result SubtitleServer::close(int32_t sId) {
 }
 
 Result SubtitleServer::resetForSeek(int32_t sId) {
+    Watchdog watchdog(kTimeout);
     std::shared_ptr<SubtitleService> ss = getSubtitleService(sId);
     if (ss != nullptr) {
         bool r = ss->resetForSeek();
@@ -428,6 +436,7 @@ Result SubtitleServer::setPipId(int32_t sId, int32_t mode, int32_t id) {
 }
 
 Result SubtitleServer::userDataOpen(int32_t sId) {
+    Watchdog watchdog(kTimeout);
     SUBTITLE_LOGI("%s", __func__);
     std::shared_ptr<SubtitleService>  ss = getSubtitleService(sId);
     if (ss == nullptr) {
@@ -438,6 +447,7 @@ Result SubtitleServer::userDataOpen(int32_t sId) {
 }
 
 Result SubtitleServer::userDataClose(int32_t sId) {
+    Watchdog watchdog(kTimeout);
     SUBTITLE_LOGI("%s", __func__);
     std::shared_ptr<SubtitleService>  ss = getSubtitleService(sId);
     if (ss == nullptr) {
@@ -450,6 +460,7 @@ Result SubtitleServer::userDataClose(int32_t sId) {
 
 #if 0
 void SubtitleServer::prepareWritingQueue(int32_t sId, int32_t size, prepareWritingQueue_cb _hidl_cb) {
+    Watchdog watchdog(kTimeout);
     auto sendError = [&_hidl_cb](Result result) {
         _hidl_cb(result, DataMQ::Descriptor());
     };
@@ -490,7 +501,7 @@ void SubtitleServer::prepareWritingQueue(int32_t sId, int32_t size, prepareWriti
 #endif
 
 void SubtitleServer::setCallback(const sp<ISubtitleCallback> &callback, ConnectType type) {
-//void SubtitleServer::setCallback( sp<ISubtitleCallback>& callback, ConnectType type) {
+    Watchdog watchdog(kTimeout);
     android::AutoMutex _l(mLock);
     if (callback != nullptr) {
         int cookie = -1;
@@ -522,12 +533,14 @@ void SubtitleServer::setCallback(const sp<ISubtitleCallback> &callback, ConnectT
 }
 
 void SubtitleServer::setFallbackCallback(const sp<ISubtitleCallback> &callback, ConnectType type) {
+    Watchdog watchdog(kTimeout);
     android::AutoMutex _l(mLock);
     mFallbackCallback = callback;
     return;
 }
 
 void SubtitleServer::removeCallback(const sp<ISubtitleCallback> &callback) {
+    Watchdog watchdog(kTimeout);
     android::AutoMutex _l(mLock);
     if (callback != nullptr) {
         // Remove, if fallback callback.
@@ -552,6 +565,7 @@ void SubtitleServer::removeCallback(const sp<ISubtitleCallback> &callback) {
 #if 0
 // This only valid for global fallback display.
 Result SubtitleServer::show(int32_t sId) {
+    Watchdog watchdog(kTimeout);
     SubtitleHidlParcel parcel;
     android::AutoMutex _l(mLock);
     mFallbackPlayStarted = true;
@@ -564,6 +578,7 @@ Result SubtitleServer::show(int32_t sId) {
 }
 
 Result SubtitleServer::hide(int32_t sId) {
+    Watchdog watchdog(kTimeout);
     SubtitleHidlParcel parcel;
     android::AutoMutex _l(mLock);
     mFallbackPlayStarted = false;
@@ -579,6 +594,7 @@ CMD_UI_SET_SUBTITLE_DIMENSION,
 CMD_UI_SET_SURFACERECT*/
 
 Result SubtitleServer::setTextColor(int32_t sId, int32_t color) {
+    Watchdog watchdog(kTimeout);
     SubtitleHidlParcel parcel;
     android::AutoMutex _l(mLock);
     parcel.msgType = (int)FallthroughUiCmd::CMD_UI_SET_TEXTCOLOR;
@@ -589,6 +605,7 @@ Result SubtitleServer::setTextColor(int32_t sId, int32_t color) {
 }
 
 Result SubtitleServer::setTextSize(int32_t sId, int32_t size) {
+    Watchdog watchdog(kTimeout);
     SubtitleHidlParcel parcel;
     android::AutoMutex _l(mLock);
     parcel.msgType = (int)FallthroughUiCmd::CMD_UI_SET_TEXTSIZE;
@@ -599,6 +616,7 @@ Result SubtitleServer::setTextSize(int32_t sId, int32_t size) {
 }
 
 Result SubtitleServer::setGravity(int32_t sId, int32_t gravity) {
+    Watchdog watchdog(kTimeout);
     SubtitleHidlParcel parcel;
     android::AutoMutex _l(mLock);
     parcel.msgType = (int)FallthroughUiCmd::CMD_UI_SET_GRAVITY;
@@ -609,6 +627,7 @@ Result SubtitleServer::setGravity(int32_t sId, int32_t gravity) {
 }
 
 Result SubtitleServer::setTextStyle(int32_t sId, int32_t style) {
+    Watchdog watchdog(kTimeout);
     SubtitleHidlParcel parcel;
     android::AutoMutex _l(mLock);
     parcel.msgType = (int)FallthroughUiCmd::CMD_UI_SET_TEXTSTYLE;
@@ -619,6 +638,7 @@ Result SubtitleServer::setTextStyle(int32_t sId, int32_t style) {
 }
 
 Result SubtitleServer::setPosHeight(int32_t sId, int32_t yOffset) {
+    Watchdog watchdog(kTimeout);
     SubtitleHidlParcel parcel;
     android::AutoMutex _l(mLock);
     parcel.msgType = (int)FallthroughUiCmd::CMD_UI_SET_POSHEIGHT;
@@ -629,6 +649,7 @@ Result SubtitleServer::setPosHeight(int32_t sId, int32_t yOffset) {
 }
 
 Result SubtitleServer::setImgRatio(int32_t sId, float ratioW, float ratioH, int32_t maxW, int32_t maxH) {
+    Watchdog watchdog(kTimeout);
     SubtitleHidlParcel parcel;
     android::AutoMutex _l(mLock);
     parcel.msgType = (int)FallthroughUiCmd::CMD_UI_SET_IMGRATIO;
@@ -652,6 +673,7 @@ Result SubtitleServer::setSubDimension(int32_t sId, int32_t width, int32_t heigh
 }
 
 Result SubtitleServer::setSurfaceViewRect(int32_t sId, int32_t x, int32_t y, int32_t w, int32_t h) {
+    Watchdog watchdog(kTimeout);
     SubtitleHidlParcel parcel;
     android::AutoMutex _l(mLock);
     parcel.msgType = (int)FallthroughUiCmd::CMD_UI_SET_SURFACERECT;

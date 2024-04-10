@@ -53,6 +53,7 @@ set(subtitle_common_srcs
         utils/Segment.cpp
         utils/SubtitleSignalHandler.cpp
         utils/VideoInfo.cpp
+        utils/Watchdog.cpp
 
         io/DataSourceFactory.cpp
         io/Demux.c

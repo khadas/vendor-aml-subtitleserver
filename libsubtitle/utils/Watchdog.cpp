@@ -26,16 +26,17 @@
 
 #define LOG_TAG "Watchdog"
 
+#include "Watchdog.h"
+#include "SubtitleLog.h"
+
 #include <signal.h>
 #include <time.h>
 #include <cstring>
 #include <utils/Log.h>
 
-#include "Watchdog.h"
-#include "SubtitleLog.h"
-
 
 Watchdog::Watchdog(::std::chrono::steady_clock::duration timeout) {
+    #ifdef NEED_WATCHDOG
     // Create the timer.
     struct sigevent sev;
     sev.sigev_notify = SIGEV_THREAD_ID;
@@ -58,13 +59,19 @@ Watchdog::Watchdog(::std::chrono::steady_clock::duration timeout) {
     if (err != 0) {
         SUBTITLE_LOGE("Failed to start timer");
     }
+    #else
+    SUBTITLE_LOGI("%s empty implementation.", __func__);
+    #endif
 }
 
 Watchdog::~Watchdog() {
+    #ifdef NEED_WATCHDOG
     // Delete the timer.
     int err = timer_delete(mTimerId);
     if (err != 0) {
-        SUBTITLE_LOGE("Failed to delete timer");
+         SUBTITLE_LOGE("Failed to delete timer");
     }
+    #else
+    SUBTITLE_LOGI("%s empty implementation.", __func__);
+    #endif
 }
-

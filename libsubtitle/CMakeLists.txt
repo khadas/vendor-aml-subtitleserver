@@ -171,6 +171,9 @@ add_definitions(-DNEED_TELETEXT_GRAPHICS_SUBTITLE_PAGENUMBER_BLACKGROUND)
 #add_definitions(-DNEED_TELETEXT_UNREMOVED_MIX_VIDEO_MODE_FOUR_COLOR_KEY_BACKGROUND)
 #add_definitions(-DNEED_TELETEXT_SUPPORT_GRAPHICS_MODE_SUBTITLE_PAGE_FULL_SCREEN)
 
+#Linux platform currently does not support watchdog function
+#add_definitions(-DNEED_WATCHDOG)
+
 
 target_link_libraries(${TARGET} PUBLIC binder)
 target_link_libraries(${TARGET} PUBLIC zvbi)

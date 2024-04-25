@@ -86,6 +86,30 @@ bool save2PngFile(const char* filename, const void* data, size_t dataSize) {
     return true;
 }
 
+static void save2BitmapFile(const char *filename, uint32_t *bitmap, int w, int h)
+{
+    SUBTITLE_LOGI("png_save2:%s\n",filename);
+    FILE *f;
+    char fname[50];
+
+    snprintf(fname, sizeof(fname), "%s", filename);
+    f = fopen(fname, "w");
+    if (!f) {
+        perror(fname);
+        return;
+    }
+    fprintf(f, "P6\n%d %d\n%d\n", w, h, 255);
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            int v = bitmap[y * w + x];
+            putc((v >> 16) & 0xff, f);
+            putc((v >> 8) & 0xff, f);
+            putc((v >> 0) & 0xff, f);
+        }
+    }
+    fclose(f);
+}
+
 /* EBU-TT-D start position X, start position Y, width and height */
 static std::vector<int> extractNumbers(const char* str) {
     std::vector<int> numbers;
@@ -112,24 +136,18 @@ static std::vector<int> extractNumbers(const char* str) {
 }
 
 /* EBU-TT-D timecodes have format hours:minutes:seconds[.fraction] */
-static int smpte_ttml_parse_timecode(const char * beginTimeString, const char * endTimeString)
+static int smpte_ttml_parse_timecode(const char * timeString)
 {
-  int beginHours = 0, beginMinutes = 0, beginSeconds = 0, beginMilliseconds = 0,
-            endHours = 0, endMinutes = 0, endSeconds = 0, endMilliseconds = 0,
+  int64_t hours = 0, minutes = 0, seconds = 0, milliseconds = 0,
             time = 0;
 
-  SUBTITLE_LOGI("%s begin time string: %s, end time string: %s\n",__FUNCTION__, beginTimeString, endTimeString);
-  bool beginSuccess = sscanf(beginTimeString, "%d:%d:%d.%d", &beginHours, &beginMinutes, &beginSeconds, &beginMilliseconds) == 4;
-  bool endSuccess = sscanf(endTimeString, "%d:%d:%d.%d", &endHours, &endMinutes, &endSeconds, &endMilliseconds) == 4;
-  if (!beginSuccess || beginHours < 0 || beginHours > 23 || beginMinutes < 0 || beginMinutes > 59 || beginSeconds < 0 || beginSeconds > 59 || beginMilliseconds < 0 || beginMilliseconds > 999) {
-    SUBTITLE_LOGE ("%s invalid begin time:%s.", __FUNCTION__, beginTimeString);
+  SUBTITLE_LOGI("%s time string: %s\n",__FUNCTION__, timeString);
+  bool Success = sscanf(timeString, "%d:%d:%d.%d", &hours, &minutes, &seconds, &milliseconds) == 4;
+  if (!Success || hours < 0 || hours > 23 || minutes < 0 || minutes > 59 || seconds < 0 || seconds > 59 || milliseconds < 0 || milliseconds > 999) {
+    SUBTITLE_LOGE ("%s invalid begin time:%s.", __FUNCTION__, timeString);
   }
 
-  if (!endSuccess || endHours < 0 || endHours > 23 || endMinutes < 0 || endMinutes > 59 || endSeconds < 0 || endSeconds > 59 || endMilliseconds < 0 || endMilliseconds > 999) {
-    SUBTITLE_LOGE ("%s invalid end time:%s.", __FUNCTION__, endTimeString);
-  }
-
-  time = ((endHours - beginHours) * 3600 + (endMinutes - beginMinutes) * 60 + (endSeconds - beginSeconds) ) * 1000+ (endMilliseconds - beginMilliseconds);
+  time = (hours * 3600 + minutes * 60 + seconds ) * 1000+ milliseconds;
   return time;
 }
 
@@ -213,8 +231,8 @@ void decodePng(std::shared_ptr<AML_SPUVAR> spu, const char* png_data, size_t png
     int color_type = png_get_color_type(png_ptr, info_ptr);
 
     // Some simple output, you can do other processing as needed
-    SUBTITLE_LOGI("%s Image Width: %d\n", __FUNCTION__ , width);
-    SUBTITLE_LOGI("%s Image Height: %d\n", __FUNCTION__ , height);
+    SUBTITLE_LOGI("%s Image Width: %d spu_origin_display_w:%d \n", __FUNCTION__ , width, spu->spu_origin_display_w);
+    SUBTITLE_LOGI("%s Image Height: %d spu_origin_display_h:%d\n", __FUNCTION__ , height, spu->spu_origin_display_h);
     SUBTITLE_LOGI("%s Bit Depth: %d\n", __FUNCTION__ , bit_depth);
     SUBTITLE_LOGI("%s Color Type: %d\n", __FUNCTION__ , color_type);
 
@@ -248,16 +266,23 @@ void decodePng(std::shared_ptr<AML_SPUVAR> spu, const char* png_data, size_t png
 
     // At this point, row_pointers contains the image data.
     // Allocate memory for the final data buffer
-    spu->buffer_size = width * height * 4;
-    spu->spu_data = (unsigned char*)malloc(width * height * 4);
+    unsigned int resize_width  = 0;
+    unsigned int resize_height = 0;
+    resize_width  = (width + spu->spu_start_x) <= spu->spu_origin_display_w ? width : (spu->spu_origin_display_w - spu->spu_start_x);
+    resize_height = (height + spu->spu_start_y) <= spu->spu_origin_display_h ? height : (spu->spu_origin_display_h - spu->spu_start_y);
+
+    spu->buffer_size = resize_width * resize_height* 4;
+    spu->spu_data = (unsigned char*)malloc( resize_width * resize_height * 4);
     int index = 0;
 
     // Copy image data from row_pointers to the image_data buffer
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width * 4; x++) {
+    for (int y = 0; y < resize_height; y++) {
+        for (int x = 0; x < resize_width* 4; x++) {
             spu->spu_data[index++] = row_pointers[y][x];
         }
     }
+    spu->spu_width = resize_width;
+    spu->spu_height = resize_height;
     // After execution, remember to release the memory
     for (int y = 0; y < height; y++) {
         free(row_pointers[y]);
@@ -374,21 +399,29 @@ int SmpteTtmlParser::initContext() {
 }
 
 void SmpteTtmlParser::checkDebug() {
-    //char value[PROPERTY_VALUE_MAX] = {0};
-    //memset(value, 0, PROPERTY_VALUE_MAX);
-    //property_get("vendor.subtitle.dump", value, "false");
-    //if (!strcmp(value, "true")) {
+    #ifdef NEED_DUMP_ANDROID
+    char value[PROPERTY_VALUE_MAX] = {0};
+    memset(value, 0, PROPERTY_VALUE_MAX);
+    property_get("vendor.subtitle.dump", value, "false");
+    if (!strcmp(value, "true")) {
+        mDumpSub = true;
+    } else {
         mDumpSub = false;
-    //}
+    }
+    #endif
 }
 
-int SmpteTtmlParser::SmpteTtmlDecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char *srcData, int srcLen) {
+int SmpteTtmlParser::SmpteTtmlDecodeFrame(char *srcData, int srcLen, int64_t basePts) {
     int bufSize = srcLen;
     const uint8_t *p, *pEnd;
+    unsigned int OriginDisplayWidth = 720, OriginDisplayHeight = 500; //Default window size
     const char *begin = NULL, *end = NULL;
     std::string tempString;
     int pes_packet_start_position = 5;
 
+    if (mDumpSub) {
+        SUBTITLE_LOGE("%s srcData:%s", __FUNCTION__, srcData);
+    }
     while (srcData[0] != '<' && srcLen > 0) {
         srcData++;
         srcLen--;
@@ -418,6 +451,30 @@ int SmpteTtmlParser::SmpteTtmlDecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char 
         return -1;
     }
 
+    const tinyxml2::XMLAttribute *rootSmpteLangAttribute       = root->FindAttribute("xml:lang");
+    const tinyxml2::XMLAttribute *rootSmpteTtsExtentAttribute     = root->FindAttribute("tts:extent");
+
+    if (rootSmpteLangAttribute == nullptr ) {
+        SUBTITLE_LOGI("rootSmpteLangAttribute is Null!\n");
+    } else {
+        SUBTITLE_LOGI("%s xml:lang=%s\n", __FUNCTION__, rootSmpteLangAttribute->Value());
+    }
+
+
+    if (rootSmpteTtsExtentAttribute == nullptr ) {
+        SUBTITLE_LOGI("rootSmpteTtsExtentAttribute is Null!\n");
+    } else {
+        SUBTITLE_LOGI("%s tts:extent=%s \n", __FUNCTION__, rootSmpteTtsExtentAttribute->Value());
+        std::vector<int> rootSmpteTtsExtentNumbers = extractNumbers(rootSmpteTtsExtentAttribute->Value());
+        std::vector<int>::iterator rootSmpteTtsExtentIt = rootSmpteTtsExtentNumbers.begin();
+        if (rootSmpteTtsExtentIt != rootSmpteTtsExtentNumbers.end()) {
+            OriginDisplayWidth = *rootSmpteTtsExtentIt;
+            ++rootSmpteTtsExtentIt;
+            if (rootSmpteTtsExtentIt != rootSmpteTtsExtentNumbers.end()) {
+                OriginDisplayHeight = *rootSmpteTtsExtentIt;
+            }
+        }
+    }
 
     tinyxml2::XMLElement *head = root->FirstChildElement("head");
     if (head == nullptr) head = root->FirstChildElement("tt:head");
@@ -477,8 +534,14 @@ int SmpteTtmlParser::SmpteTtmlDecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char 
     tinyxml2::XMLElement *divDivParagraph = div->FirstChildElement("div");
     if (divDivParagraph == nullptr) divDivParagraph = div->FirstChildElement("tt:div");
 
-
     while (metadataSmpteImageParagraph != nullptr && layoutRegionParagraph != nullptr && divDivParagraph != nullptr) {
+        std::shared_ptr<AML_SPUVAR> spu(new AML_SPUVAR());
+        spu->sync_bytes = AML_PARSER_SYNC_WORD;
+        //default spu display in windows width and height
+        spu->spu_origin_display_w = OriginDisplayWidth;
+        spu->spu_origin_display_h = OriginDisplayHeight;
+        spu->subtitle_type = TYPE_SUBTITLE_SMPTE_TTML;
+
         const tinyxml2::XMLAttribute *metadataSmpteImageXmlIdParagraphAttribute     = metadataSmpteImageParagraph->FindAttribute("xml:id");
         const tinyxml2::XMLAttribute *metadataSmpteImageImageTypeParagraphAttribute = metadataSmpteImageParagraph->FindAttribute("imagetype");
         const tinyxml2::XMLAttribute *metadataSmpteImageEncodingParagraphAttribute  = metadataSmpteImageParagraph->FindAttribute("encoding");
@@ -552,26 +615,14 @@ int SmpteTtmlParser::SmpteTtmlDecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char 
                         imageData);
             }
         }
-        spu->m_delay = spu->pts + smpte_ttml_parse_timecode(divDivBeginParagraphAttribute->Value(), divDivEndParagraphAttribute->Value()) * 90;
+        spu->pts = basePts + smpte_ttml_parse_timecode(divDivBeginParagraphAttribute->Value()) * 90;
+        spu->m_delay = basePts + smpte_ttml_parse_timecode(divDivEndParagraphAttribute->Value()) * 90;
 
-        // Convert from base64 encoding to binary data
-        std::vector<unsigned char> binaryImageData = base64Decode(imageData);
-        if (mDumpSub) {
-            char filename[32];
-            snprintf(filename, sizeof(filename), "/tmp/smpte_tt(%d).png", mIndex++);
-            save2PngFile(filename, reinterpret_cast<const char*>(binaryImageData.data()), binaryImageData.size());
+        if (isMore32Bit(spu->pts) && !isMore32Bit(mDataSource->getSyncTime())) {
+            SUBTITLE_LOGI("SUB PTS is greater than 32 bits, before subpts: %lld, vpts:%lld", spu->pts, mDataSource->getSyncTime());
+            spu->pts &= TSYNC_32_BIT_PTS;
         }
-        if (binaryImageData.size() > 0) {
-            if ("PNG" == std::string(metadataSmpteImageImageTypeParagraphAttribute->Value())) {
-                decodePng(spu, reinterpret_cast<const char*>(binaryImageData.data()), binaryImageData.size());
-            } else {
-                SUBTITLE_LOGE("%s The image data is not in png format, which is not supported for now.",__FUNCTION__);
-                return -1;
-            }
-        } else {
-            SUBTITLE_LOGE("%s imageData size is null.",__FUNCTION__);
-            return -1;
-        }
+
 
         std::vector<int> layoutRegionTtsOriginNumbers = extractNumbers(layoutRegionTtsOriginParagraphAttribute->Value());
         std::vector<int> layoutRegionTtsExtentNumbers = extractNumbers(layoutRegionTtsExtentParagraphAttribute->Value());
@@ -591,23 +642,50 @@ int SmpteTtmlParser::SmpteTtmlDecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char 
                 spu->spu_height = *layoutRegionTtsExtentIt;
             }
         }
+        // Convert from base64 encoding to binary data
+        std::vector<unsigned char> binaryImageData = base64Decode(imageData);
+        if (binaryImageData.size() > 0) {
+            if ("PNG" == std::string(metadataSmpteImageImageTypeParagraphAttribute->Value())) {
+                decodePng(spu, reinterpret_cast<const char*>(binaryImageData.data()), binaryImageData.size());
+            } else {
+                SUBTITLE_LOGE("%s The image data is not in png format, which is not supported for now.",__FUNCTION__);
+                return -1;
+            }
+        } else {
+            SUBTITLE_LOGE("%s imageData size is null.",__FUNCTION__);
+            return -1;
+        }
         metadataSmpteImageParagraph = metadataSmpteImageParagraph->NextSiblingElement();
         layoutRegionParagraph       = layoutRegionParagraph->NextSiblingElement();
         divDivParagraph             = divDivParagraph->NextSiblingElement();
-        if (spu->spu_origin_display_w <= 0 || spu->spu_origin_display_h <= 0) {
-            //spu->spu_origin_display_w = 720;
-            //spu->spu_origin_display_h = 480;
+        // if (spu->spu_origin_display_w <= 0 || spu->spu_origin_display_h <= 0) {
+        //     SUBTITLE_LOGI("ttmlTest innormal");
+        //     // spu->spu_origin_display_w = 720;
+        //     // spu->spu_origin_display_h = 576;
 
-            spu->spu_origin_display_w = VideoInfo::Instance()->getVideoWidth();
-            spu->spu_origin_display_h = VideoInfo::Instance()->getVideoHeight();
-        }
+        //     spu->spu_origin_display_w = VideoInfo::Instance()->getVideoWidth();
+        //     spu->spu_origin_display_h = VideoInfo::Instance()->getVideoHeight();
+        // }
+
+        //if (spu->spu_origin_display_w != spu->spu_width) {
+        //    spu->spu_origin_display_w = VideoInfo::Instance()->getVideoWidth();
+        //    spu->spu_origin_display_h = VideoInfo::Instance()->getVideoHeight();
+        //}
         SUBTITLE_LOGI("%s region=%s  begin=%s end=%s smpte:backgroundImage=%s\n", __FUNCTION__, divDivRegionParagraphAttribute->Value(), divDivBeginParagraphAttribute->Value(), divDivEndParagraphAttribute->Value(), divDivSmpteBackgroundImageParagraphAttribute->Value());
         SUBTITLE_LOGI("%s xml:id=%s tts:origin=%s tts:extent=%s\n", __FUNCTION__, layoutRegionXmlIdParagraphAttribute->Value(), layoutRegionTtsOriginParagraphAttribute->Value(), layoutRegionTtsExtentParagraphAttribute->Value());
         SUBTITLE_LOGI("%s smpte:image xml:id=%s imagetype=%s encoding=%s imageData:%s", __FUNCTION__, metadataSmpteImageXmlIdParagraphAttribute->Value(), metadataSmpteImageImageTypeParagraphAttribute->Value(), metadataSmpteImageEncodingParagraphAttribute->Value(), imageData);
         SUBTITLE_LOGI("%s spu->spu_width:%d,spu->spu_height:%d spu->buffer_size:%d spu->spu_origin_display_w:%d spu->spu_origin_display_h:%d\n", __FUNCTION__, spu->spu_width, spu->spu_height, spu->buffer_size, spu->spu_origin_display_w, spu->spu_origin_display_h);
+        SUBTITLE_LOGI("dump-pts-swdmx!success pts(%lld)frame was add\n", spu->pts);
+        if (mDumpSub) {
+            char filename[50];
+            snprintf(filename, sizeof(filename), "/tmp/subtitleDump/smpte_tt(%lld).png", spu->pts);
+            save2PngFile(filename, reinterpret_cast<const char*>(binaryImageData.data()), binaryImageData.size());
+            char filename2[50];
+            snprintf(filename2, sizeof(filename2), "/tmp/subtitleDump/smpte_tt(%lld).bmp", spu->pts);
+            save2BitmapFile(filename2, (uint32_t *)spu->spu_data, spu->spu_width, spu->spu_height);
+        }
         addDecodedItem(std::shared_ptr<AML_SPUVAR>(spu));
-        spu->pts = spu->m_delay;
-
+        usleep(1000);
     }
     doc.Clear();
     return 0;
@@ -624,28 +702,24 @@ int SmpteTtmlParser::getTTMLSpu() {
         if (mState == SUB_STOP) {
             return 0;
         }
-
-        std::shared_ptr<AML_SPUVAR> spu(new AML_SPUVAR());
-        spu->sync_bytes = AML_PARSER_SYNC_WORD;
-
         packetHeader = ((packetHeader<<8) & 0x000000ffffffffff) | tmpbuf[0];
         if (mDumpSub) SUBTITLE_LOGI("## get_dvb_spu %x, %llx,-------------\n",tmpbuf[0], packetHeader);
 
         if ((packetHeader & 0xffffffff) == 0x000001bd) {
-            ret = hwDemuxParse(spu);
+            ret = hwDemuxParse();
         } else if (((packetHeader & 0xffffffffff)>>8) == AML_PARSER_SYNC_WORD
                 && (((packetHeader & 0xff)== 0x77) || ((packetHeader & 0xff)==0xaa))) {
-            ret = softDemuxParse(spu);
+            ret = softDemuxParse();
         } else if (((packetHeader & 0xffffffffff)>>8) == AML_PARSER_SYNC_WORD
             && ((packetHeader & 0xff)== 0x41)) {//AMLUA  ATV TTML
-            ret = atvHwDemuxParse(spu);
+            ret = atvHwDemuxParse();
         }
     }
 
     return ret;
 }
 
-int SmpteTtmlParser::hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
+int SmpteTtmlParser::hwDemuxParse() {
     char tmpbuf[256] = {0};
     int64_t dvbPts = 0, dvbDts = 0;
     int64_t tempPts = 0, tempDts = 0;
@@ -719,22 +793,10 @@ int SmpteTtmlParser::hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
                 SUBTITLE_LOGE("dvb packet is too big\n\n");
                 return -1;
             }
-            spu->subtitle_type = TYPE_SUBTITLE_SMPTE_TTML;
-            spu->pts = dvbPts;
-            if (isMore32Bit(spu->pts) && !isMore32Bit(mDataSource->getSyncTime())) {
-                SUBTITLE_LOGI("SUB PTS is greater than 32 bits, before subpts: %lld, vpts:%lld", spu->pts, mDataSource->getSyncTime());
-                spu->pts &= TSYNC_32_BIT_PTS;
-            }
-            //If gap time is large than 9 secs, think pts skip,notify info
-            if (abs(mDataSource->getSyncTime() - spu->pts) > 9*90000) {
-                SUBTITLE_LOGE("[%s::%d]pts skip,vpts:%lld, spu->pts:%lld notify time error!\n", __FUNCTION__, __LINE__, mDataSource->getSyncTime(), spu->pts);
-            }
-
-            SUBTITLE_LOGI("[%s::%d]pts ---------------,vpts:%lld, spu->pts:%lld\n", __FUNCTION__, __LINE__, mDataSource->getSyncTime(), spu->pts);
 
             buf = (char *)malloc(packetLen);
             if (buf) {
-                SUBTITLE_LOGI("packetLen is %d, pts is %llx, delay is %llx\n", packetLen, spu->pts, tempPts);
+                SUBTITLE_LOGI("packetLen is %d\n", packetLen);
             } else {
                 SUBTITLE_LOGI("packetLen buf malloc fail!!!\n");
             }
@@ -742,7 +804,7 @@ int SmpteTtmlParser::hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
             if (buf) {
                 memset(buf, 0x0, packetLen);
                 if (mDataSource->read(buf, packetLen) == packetLen) {
-                    ret = SmpteTtmlDecodeFrame(spu, buf, packetLen);
+                    ret = SmpteTtmlDecodeFrame(buf, packetLen, dvbPts);
                     SUBTITLE_LOGI(" @@@@@@@hwDemuxParse parse ret:%d", ret);
                     if (ret != -1) {
                         SUBTITLE_LOGI("dump-pts-hwdmx!success.\n");
@@ -764,7 +826,7 @@ int SmpteTtmlParser::hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
     return ret;
 }
 
-int SmpteTtmlParser::softDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
+int SmpteTtmlParser::softDemuxParse() {
     char tmpbuf[256] = {0};
     int64_t dvbPts = 0, ptsDiff = 0;
     int ret = 0;
@@ -782,21 +844,8 @@ int SmpteTtmlParser::softDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
         dvbPts  = subPeekAsInt64(tmpbuf + 7);
         ptsDiff = subPeekAsInt32(tmpbuf + 15);
 
-        spu->subtitle_type = TYPE_SUBTITLE_SMPTE_TTML;
-        spu->pts = mDataSource->getSyncTime();
-        if (isMore32Bit(spu->pts) && !isMore32Bit(mDataSource->getSyncTime())) {
-            SUBTITLE_LOGI("SUB PTS is greater than 32 bits, before subpts: %lld, vpts:%lld", spu->pts, mDataSource->getSyncTime());
-            spu->pts &= TSYNC_32_BIT_PTS;
-        }
-        //If gap time is large than 9 secs, think pts skip,notify info
-        //if (abs(mDataSource->getSyncTime() - spu->pts) > 9*90000) {
-        //    SUBTITLE_LOGE("[%s::%d]pts skip,vpts:%lld, spu->pts:%lld notify time error!\n", __FUNCTION__, __LINE__, mDataSource->getSyncTime(), spu->pts);
-        //}
-        //SUBTITLE_LOGI("[%s::%d]pts ---------------,vpts:%lld, spu->pts:%lld\n", __FUNCTION__, __LINE__, mDataSource->getSyncTime(), spu->pts);
-
-        if (mDumpSub) SUBTITLE_LOGI("## %s spu-> pts:%lld,dvPts:%lld\n", __FUNCTION__, spu->pts, dvbPts);
-        if (mDumpSub) SUBTITLE_LOGI("## %s datalen=%d,pts=%llx,delay=%llx,diff=%llx, data: %x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x\n",
-                __FUNCTION__, dataLen, dvbPts, spu->m_delay, ptsDiff,
+        if (mDumpSub) SUBTITLE_LOGI("## %s datalen=%d, diff=%llx, data: %x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x\n",
+                __FUNCTION__, dataLen, ptsDiff,
                 tmpbuf[0], tmpbuf[1], tmpbuf[2], tmpbuf[3], tmpbuf[4],
                 tmpbuf[5], tmpbuf[6], tmpbuf[7], tmpbuf[8], tmpbuf[9],
                 tmpbuf[10], tmpbuf[11], tmpbuf[12], tmpbuf[13], tmpbuf[14]);
@@ -813,16 +862,11 @@ int SmpteTtmlParser::softDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
                 ret, dataLen, data[0], data[1], data[2], data[3],
                 data[4], data[5], data[6], data[7]);
 
-        ret = SmpteTtmlDecodeFrame(spu, data, dataLen);
+        ret = SmpteTtmlDecodeFrame(data, dataLen, dvbPts);
         if (ret != -1) {
-            if (mDumpSub) SUBTITLE_LOGI("dump-pts-swdmx!success pts(%lld) mIndex:%d frame was add\n", spu->pts, mIndex);
-            {
                 std::unique_lock<std::mutex> autolock(mMutex);
                 mPendingAction = 1;
                 mCv.notify_all();
-            }
-        } else {
-            if (mDumpSub) SUBTITLE_LOGI("dump-pts-swdmx!error this pts(%lld) frame was abandon\n", spu->pts);
         }
 
         if (data) {
@@ -833,7 +877,7 @@ int SmpteTtmlParser::softDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
     return ret;
 }
 
-int SmpteTtmlParser::atvHwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
+int SmpteTtmlParser::atvHwDemuxParse() {
         char tmpbuf[256] = {0};
         int64_t dvbPts = 0, ptsDiff = 0;
         int ret = 0;
@@ -842,7 +886,6 @@ int SmpteTtmlParser::atvHwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
 
         // read package header info
         if (mDataSource->read(tmpbuf, 4) == 4) {
-            spu->subtitle_type = TYPE_SUBTITLE_SMPTE_TTML;
             data = (char *)malloc(ATV_SMPTE_TTML_DATA_LEN);
             if (!data) {
                 SUBTITLE_LOGE("[%s::%d]malloc error! \n", __FUNCTION__,__LINE__);
@@ -854,12 +897,10 @@ int SmpteTtmlParser::atvHwDemuxParse(std::shared_ptr<AML_SPUVAR> spu) {
                     __FUNCTION__, __LINE__, ret, ATV_SMPTE_TTML_DATA_LEN, data[0], data[1], data[2], data[3],
                     data[4], data[5], data[6], data[7]);
 
-            ret = SmpteTtmlDecodeFrame(spu, data, ATV_SMPTE_TTML_DATA_LEN);
+            ret = SmpteTtmlDecodeFrame(data, ATV_SMPTE_TTML_DATA_LEN, dvbPts);
 
             if (ret != -1) {
-                if (mDumpSub) SUBTITLE_LOGI("[%s::%d]dump-pts-atvHwDmx!success pts(%lld) mIndex:%d frame was add\n", __FUNCTION__,__LINE__, spu->pts, ++mIndex);
-            } else {
-                if (mDumpSub) SUBTITLE_LOGI("[%s::%d]dump-pts-atvHwDmx!error this pts(%lld) frame was abandon\n", __FUNCTION__,__LINE__, spu->pts);
+                if (mDumpSub) SUBTITLE_LOGI("[%s::%d]dump-pts-atvHwDmx!success mIndex:%d frame was add\n", __FUNCTION__,__LINE__, ++mIndex);
             }
 
             if (data) {

@@ -154,10 +154,10 @@ private:
     int getSpu();
     int getInterSpu();
     int getTTMLSpu();
-    int softDemuxParse(std::shared_ptr<AML_SPUVAR> spu);
-    int hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu);
-    int atvHwDemuxParse(std::shared_ptr<AML_SPUVAR> spu);
-    int SmpteTtmlDecodeFrame(std::shared_ptr<AML_SPUVAR> spu, char *psrc, const int size);
+    int softDemuxParse();
+    int hwDemuxParse();
+    int atvHwDemuxParse();
+    int SmpteTtmlDecodeFrame(char *psrc, const int size, int64_t basePts);
     void checkDebug();
     int initContext();
 

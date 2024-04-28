@@ -2949,10 +2949,23 @@ int TeletextParser::hwDemuxParse(std::shared_ptr<AML_SPUVAR> spu, char *psrc, co
                             return -1;
                         }
                         #endif
-                        //Teletext needs to be presented immediately, and its synchronization logic is determined by the control bits of C4~C11
-                        spu->isKeepShowing = true;
-                        spu->isImmediatePresent = true;
-                        spu->isTtxSubtitle = false;
+                         //ttx,need immediatePresent show
+                        //spu->isImmediatePresent = true;
+                        //because when the pageType is bigger than the 0x8000,can't be judged by the 0x8000.
+                        #ifdef NEED_TELETEXT_SYNCHRONIZE_USING_TIMESTAMPS
+                        if (/*(mContext->subtitleMode == TT2_SUBTITLE_MODE) || */(mContext->isSubtitle)) {
+                            spu->isKeepShowing = false;
+                            spu->isImmediatePresent = false;
+                            spu->isTtxSubtitle = true;
+                        } else {
+                        #endif
+                            //Teletext needs to be presented immediately, and its synchronization logic is determined by the control bits of C4~C11
+                            spu->isKeepShowing = true;
+                            spu->isImmediatePresent = true;
+                            spu->isTtxSubtitle = false;
+                        #ifdef NEED_TELETEXT_SYNCHRONIZE_USING_TIMESTAMPS
+                        }
+                        #endif
                         SUBTITLE_LOGI(" addDecodedItem buffer_size=%d ctx->isSubtitle=%d pageType=0x%x mode=%d",
                                 spu->buffer_size, mContext->isSubtitle, mContext->pageType, mContext->subtitleMode);
                         addDecodedItem(std::shared_ptr<AML_SPUVAR>(spu));

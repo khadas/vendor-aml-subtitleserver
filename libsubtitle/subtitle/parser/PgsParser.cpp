@@ -251,7 +251,7 @@ static inline void readColorTable(unsigned char *buf, int size, PgsInfo *pgsInfo
         B = Y + 2.032U
         */
         pgsInfo->palette[buf[pos]] =
-            ((r > 255 ? 255: r) << 24) | ((g > 255 ? 255: g) << 16) | ((b > 255 ? 255: b) << 8) | (buf[pos + 4]);
+            ((r > 255 ? 255: r) << 24) | ((g > 255 ? 255: g) << 16) | ((b > 255 ? 255: b) << 8) | (buf[pos + 4] * 0x11);
     }
 }
 
